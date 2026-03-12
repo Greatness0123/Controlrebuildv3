@@ -1,0 +1,2556 @@
+class ChatWindow {
+    constructor() {
+        this.messagesContainer = document.getElementById('messagesContainer');
+        this.chatInput = document.getElementById('chatInput');
+        this.sendButton = document.getElementById('sendButton');
+        this.voiceButton = document.getElementById('voiceButton');
+        this.attachButton = document.getElementById('attachButton');
+        this.attachmentsContainer = document.getElementById('attachmentsContainer');
+        this.settingsButton = document.getElementById('settingsButton');
+        this.newChatButton = document.getElementById('newChatButton');
+        this.statusDot = document.getElementById('statusDot');
+        this.statusText = document.getElementById('statusText');
+        this.voiceIndicator = document.getElementById('voiceIndicator');
+        this.welcomeScreen = document.getElementById('welcomeScreen');
+        this.welcomeGreeting = document.getElementById('welcomeGreeting');
+        this.commandSuggestions = document.getElementById('commandSuggestions');
+        this.inputBackdrop = document.getElementById('inputBackdrop');
+        // this.blueprintSidebar = document.getElementById('blueprintSidebar');
+        // this.blueprintContent = document.getElementById('blueprintContent');
+        // this.blueprintToggle = document.getElementById('blueprintToggle');
+
+        // Mode toggle elements
+        this.modeAct = document.getElementById('modeAct');
+        this.modeAsk = document.getElementById('modeAsk');
+
+        this.isTyping = false;
+        this.isRecording = false;
+        this.currentTask = null;
+        this.currentMode = 'act'; // Default, will override from settings
+        this.actionStatuses = new Map();
+        this.attachments = [];
+        this.currentAIResponseContainer = null;
+
+        // Vosk V2 Streaming
+        this.mediaRecorder = null;
+        this.audioContext = null;
+        this.ws = null;
+        this.processor = null;
+        this.stream = null;
+        this.voiceRecordingIntervals = [];
+
+        this.chunks = [];
+        this.messageGroups = new Map();
+        this.collapsedGroups = new Set();
+        this.isAudioPlaying = false;
+
+        // Session management
+        this.currentSessionId = null;
+        this.sessions = [];
+        this.sessionsStorageKey = 'controlSessions';
+
+        // Speech recognition for auto-send feature
+        this.speechTimeout = null;
+        this.autoSendEnabled = false;
+        this.speechTimeout = null;
+        this.autoSendEnabled = false;
+        this.lastSpeechTime = null;
+        this.baseText = ''; // Track committed text for partial updates
+        this.userName = null; // Track user name for personalization
+        this.lastUserMessage = null; // Track last user message for Redo
+        this.availableSkills = []; // For slash command autocomplete
+        this.selectedSuggestionIndex = -1;
+
+        this.isOnline = navigator.onLine;
+        this.offlineChecked = false;
+        this.settings = {};
+
+        window.chatWindowInstance = this;
+        this.init();
+    }
+
+    async init() {
+        this.setupEventListeners();
+        this.setupIPCListeners();
+        this.setupInputHandlers();
+        this.setupKeyboardShortcuts();
+        this.setupDragging();
+        this.initializeLucideIcons();
+        this.updateSendButton();
+        await this.loadSettings();
+
+        // Restore last mode from settings or user details
+        let lastMode = this.settings?.lastMode;
+        if (this.settings?.userDetails?.lastMode) {
+            lastMode = this.settings.userDetails.lastMode;
+        }
+
+        if (lastMode) {
+            this.setMode(lastMode);
+        }
+
+        this.loadSessions();
+        this.checkOfflineStatus();
+        this.setupOnlineOfflineListeners();
+        this.loadSkillsForAutocomplete();
+        // Don't auto-start new conversation here to avoid resetting UI state if restoring
+        if (!this.currentSessionId) {
+            // CRITICAL: Pass true for keepMode to ensure restored mode is preserved
+            this.startNewConversation(false, true);
+        }
+    }
+
+
+
+    setupOnlineOfflineListeners() {
+        window.addEventListener('online', () => {
+            this.isOnline = true;
+            this.showToast('Internet connection restored', 'success');
+        });
+
+        window.addEventListener('offline', () => {
+            this.isOnline = false;
+            this.checkOfflineStatus();
+        });
+    }
+
+    async checkOfflineStatus() {
+        if (this.offlineChecked) return;
+        this.offlineChecked = true;
+
+        const isOnline = await this.checkInternetConnection();
+        this.isOnline = isOnline;
+
+        if (!isOnline) {
+            let message = 'You are offline.';
+            if (this.settings.voiceResponse) {
+                message += ' Offline text-to-speech will be used.';
+            }
+            this.showToast(message, 'warning');
+        }
+    }
+
+    async checkInternetConnection() {
+        if (!navigator.onLine) {
+            this.showToast('No internet connection detected', 'error');
+            return false;
+        }
+
+        // In a packaged app, external fetches might cause DNS errors if restricted.
+        // We'll trust navigator.onLine for now, or just return true if online.
+        return true;
+    }
+
+    showToast(message, type = 'info') {
+        const toastContainer = document.getElementById('toastContainer') || document.body;
+        const toast = document.createElement('div');
+        toast.className = `toast ${type}`;
+        toast.textContent = message;
+        toastContainer.appendChild(toast);
+
+        setTimeout(() => toast.classList.add('show'), 10);
+
+        setTimeout(() => {
+            toast.classList.remove('show');
+            setTimeout(() => toast.remove(), 300);
+        }, 3000);
+    }
+
+    initializeLucideIcons() {
+        if (typeof lucide !== 'undefined') {
+            lucide.createIcons();
+        }
+    }
+
+    setupEventListeners() {
+        // Send button
+        this.sendButton.addEventListener('click', () => {
+            if (this.isAudioPlaying) {
+                this.stopAudio();
+            } else {
+                this.sendMessage();
+            }
+        });
+
+        this.chatInput.addEventListener('scroll', () => {
+            if (this.inputBackdrop) {
+                this.inputBackdrop.scrollTop = this.chatInput.scrollTop;
+            }
+        });
+
+        // Mode Toggle
+        if (this.modeAct && this.modeAsk) {
+            this.modeAct.addEventListener('click', () => this.setMode('act'));
+            this.modeAsk.addEventListener('click', () => this.setMode('ask'));
+        }
+
+        // Voice button
+        if (this.voiceButton) {
+            this.voiceButton.addEventListener('click', () => {
+                this.toggleVoiceRecording();
+            });
+        }
+
+        // Attach button
+        this.attachButton.addEventListener('click', () => {
+            this.handleFileAttachment();
+        });
+
+        // Blueprint toggle
+        // if (this.blueprintToggle) {
+        //     this.blueprintToggle.addEventListener('click', () => {
+        //         this.blueprintSidebar.classList.toggle('open');
+        //         this.blueprintToggle.classList.toggle('active');
+        //     });
+        // }
+
+        // Settings button
+        this.settingsButton.addEventListener('click', () => {
+            this.openSettings();
+        });
+
+        // Workflow button
+        const workflowButton = document.getElementById('workflowButton');
+        if (workflowButton) {
+            workflowButton.addEventListener('click', () => {
+                if (window.chatAPI) {
+                    window.chatAPI.showWindow('workflow');
+                }
+            });
+        }
+
+        // New chat button
+        if (this.newChatButton) {
+            this.newChatButton.addEventListener('click', () => {
+                this.saveCurrentSession();
+                // When starting new chat, KEEP CURRENT MODE (do not reset to default)
+                this.startNewConversation(true, true);
+            });
+        }
+
+        // History button
+        const historyButton = document.getElementById('historyButton');
+        if (historyButton) {
+            historyButton.addEventListener('click', () => {
+                this.showSessionsModal();
+            });
+        }
+
+        // Input key handlers
+        this.chatInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                this.sendMessage();
+            }
+        });
+
+        this.chatInput.addEventListener('input', () => {
+            this.autoResizeTextarea();
+            this.updateSendButton();
+            this.handleSlashCommandInput();
+            // REMOVED: Hide welcome screen when user starts typing (User preference)
+            // if (this.chatInput.value.trim().length > 0) {
+            //     this.hideWelcomeScreen();
+            // }
+        });
+
+        // Escape key now clears input instead of closing window
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                this.chatInput.value = '';
+                this.chatInput.blur();
+            }
+        });
+    }
+
+    async loadSkillsForAutocomplete() {
+        if (window.chatAPI && window.chatAPI.readBehaviors) {
+            try {
+                const res = await window.chatAPI.readBehaviors();
+                this.availableSkills = res.behaviors || [];
+            } catch (e) {
+                console.error('Failed to load skills for autocomplete:', e);
+            }
+        }
+    }
+
+    handleSlashCommandInput() {
+        const value = this.chatInput.value;
+
+        // Autocomplete logic
+        if (value.startsWith('/') && !value.includes(' ')) {
+            const query = value.substring(1).toLowerCase();
+            this.showCommandSuggestions(query);
+        } else {
+            this.hideCommandSuggestions();
+        }
+
+        // Highlighting logic
+        if (this.inputBackdrop) {
+            const escapedValue = this.escapeHtml(value);
+            // Highlight only the slash command at the start (e.g., /test)
+            let highlightedText = escapedValue.replace(/^(\/[^\s]*)/, '<span class="highlight">$1</span>');
+
+            // Ensure trailing newlines are preserved for correct alignment
+            if (value.endsWith('\n')) {
+                highlightedText += ' ';
+            }
+            this.inputBackdrop.innerHTML = highlightedText;
+            this.inputBackdrop.scrollTop = this.chatInput.scrollTop;
+        }
+    }
+
+    showCommandSuggestions(query) {
+        if (!this.commandSuggestions) return;
+
+        const filtered = this.availableSkills.filter(skill =>
+            skill.name.toLowerCase().includes(query)
+        );
+
+        if (filtered.length === 0) {
+            this.hideCommandSuggestions();
+            return;
+        }
+
+        this.commandSuggestions.innerHTML = '';
+        filtered.forEach((skill, index) => {
+            const item = document.createElement('div');
+            item.className = 'suggestion-item';
+            if (index === 0) {
+                item.classList.add('selected');
+                this.selectedSuggestionIndex = 0;
+            }
+
+            // Strip "imported from ......" or "import from ......" from the description or pattern
+            let displayDesc = skill.description || skill.pattern;
+            displayDesc = displayDesc.replace(/import(ed)? from .*/i, '').trim();
+            if (displayDesc.length > 50) displayDesc = displayDesc.substring(0, 50) + '...';
+
+            item.innerHTML = `
+                <div class="cmd-name">/${skill.name}</div>
+                <div class="cmd-desc">${displayDesc}</div>
+            `;
+            item.onclick = () => {
+                this.chatInput.value = `/${skill.name} `;
+                this.hideCommandSuggestions();
+                this.chatInput.focus();
+                this.autoResizeTextarea();
+            };
+            this.commandSuggestions.appendChild(item);
+        });
+
+        this.commandSuggestions.style.display = 'flex';
+    }
+
+    hideCommandSuggestions() {
+        if (this.commandSuggestions) {
+            this.commandSuggestions.style.display = 'none';
+        }
+        this.selectedSuggestionIndex = -1;
+    }
+
+    navigateSuggestions(direction) {
+        const items = this.commandSuggestions.querySelectorAll('.suggestion-item');
+        if (items.length === 0) return;
+
+        items[this.selectedSuggestionIndex]?.classList.remove('selected');
+
+        this.selectedSuggestionIndex += direction;
+        if (this.selectedSuggestionIndex < 0) this.selectedSuggestionIndex = items.length - 1;
+        if (this.selectedSuggestionIndex >= items.length) this.selectedSuggestionIndex = 0;
+
+        const selectedItem = items[this.selectedSuggestionIndex];
+        selectedItem.classList.add('selected');
+        selectedItem.scrollIntoView({ block: 'nearest' });
+    }
+
+    setupKeyboardShortcuts() {
+        document.addEventListener('keydown', (e) => {
+            // Handle suggestion navigation when popup is visible
+            if (this.commandSuggestions && this.commandSuggestions.style.display !== 'none') {
+                if (e.key === 'ArrowDown') {
+                    e.preventDefault();
+                    this.navigateSuggestions(1);
+                    return;
+                } else if (e.key === 'ArrowUp') {
+                    e.preventDefault();
+                    this.navigateSuggestions(-1);
+                    return;
+                } else if (e.key === 'Enter' || e.key === 'Tab') {
+                    const selected = this.commandSuggestions.querySelector('.suggestion-item.selected');
+                    if (selected) {
+                        e.preventDefault();
+                        selected.click();
+                        return;
+                    }
+                } else if (e.key === 'Escape') {
+                    this.hideCommandSuggestions();
+                    return;
+                }
+            }
+
+            // Alt+Z to stop 
+            if (e.altKey && e.key.toLowerCase() === 'z') {
+                e.preventDefault();
+                if (window.chatAPI) {
+                    window.chatAPI.stopAction();
+                }
+            }
+        });
+    }
+
+    setupDragging() {
+        const header = document.querySelector('.chat-header');
+        if (!header) return;
+
+        let isDragging = false;
+        let startX, startY;
+
+        header.addEventListener('mousedown', (e) => {
+            // Only drag on left click and not on children with no-drag
+            if (e.button !== 0) return;
+
+            // Check if the click target or its parents have no-drag
+            if (e.target.closest('.header-left') || e.target.closest('.header-actions')) {
+                return;
+            }
+
+            isDragging = true;
+            startX = e.screenX;
+            startY = e.screenY;
+
+            // Prevent text selection during drag
+            e.preventDefault();
+        });
+
+        window.addEventListener('mousemove', (e) => {
+            if (!isDragging) return;
+
+            const deltaX = e.screenX - startX;
+            const deltaY = e.screenY - startY;
+
+            startX = e.screenX;
+            startY = e.screenY;
+
+            if (window.chatAPI && window.chatAPI.dragWindow) {
+                window.chatAPI.dragWindow({ deltaX, deltaY });
+            }
+        });
+
+        window.addEventListener('mouseup', () => {
+            isDragging = false;
+        });
+
+        window.addEventListener('blur', () => {
+            isDragging = false;
+        });
+    }
+
+    setupIPCListeners() {
+        // Register this window for wakeword devtools logging
+        if (window.electronAPI && window.electronAPI.ipcSend) {
+            window.electronAPI.ipcSend('register-devtools-window');
+        }
+
+        if (window.chatAPI) {
+            // App initialization complete - play greeting after full initialization
+            if (window.chatAPI.onAppInitialized) {
+                window.chatAPI.onAppInitialized(() => {
+                    console.log('[ChatWindow] App initialized - showing welcome screen and greeting');
+                    setTimeout(() => {
+                        this.showWelcomeScreen();
+                    }, 300);
+                });
+            }
+
+            // Settings updates
+            if (window.chatAPI.onSettingsUpdated) {
+                window.chatAPI.onSettingsUpdated((event, settings) => {
+                    console.log('[ChatWindow] Settings updated:', settings);
+                    this.settings = settings;
+                    this.autoSendEnabled = settings.autoSendAfterWakeWord || false;
+
+                    if (settings.userDetails && settings.userDetails.name) {
+                        this.userName = settings.userDetails.name;
+                    }
+
+                    // Update UI components that rely on settings
+                    this.updateSendButton();
+                    this.updateRateLimitDisplay();
+                    this.applyTheme(settings.theme);
+                    this.toggleBorderStreak(settings.borderStreakEnabled);
+
+                    // Note: window visibility and wake word settings are handled by main process, 
+                    // but visual feedback logic in chat window should be aware of current state.
+                });
+            }
+
+            // User Data updates
+            if (window.chatAPI.onUserDataUpdated) {
+                window.chatAPI.onUserDataUpdated((event, userData) => {
+                    console.log('[ChatWindow] User data updated:', userData);
+                    if (this.settings) {
+                        this.settings.userDetails = userData;
+                    }
+                    this.updateRateLimitDisplay();
+                });
+            }
+
+            // User Changed (login/logout)
+            if (window.chatAPI.onUserChanged) {
+                window.chatAPI.onUserChanged((event, userData) => {
+                    console.log('[ChatWindow] User changed:', userData);
+                    if (this.settings) {
+                        this.settings.userDetails = userData;
+                    }
+                    if (userData && userData.name) {
+                        this.userName = userData.name;
+                    }
+                    this.updateRateLimitDisplay();
+                });
+            }
+
+            // AI streaming chunks
+            window.chatAPI.onAIStream((event, data) => {
+                if (data && data.chunk) {
+                    this.addStreamChunk(data.chunk);
+                }
+            });
+
+            // AI responses - ALWAYS show them regardless of task state
+            window.chatAPI.onAIResponse((event, data) => {
+                console.log('[ChatWindow] AI Response received:', data);
+                
+                // Force-clear ALL thinking indicators
+                this.forceStopThinking();
+
+                if (data.type === 'rejection' || data.type === 'error') {
+                    console.log('[ChatWindow] Adding error message:', data.message);
+                    this.addMessage(data.message || 'An error occurred.', 'ai', false);
+                } else {
+                    let content = data.text || data.message;
+
+                    // Ensure content is a string
+                    if (typeof content === 'object' && content !== null) {
+                        try {
+                            content = JSON.stringify(content, null, 2);
+                        } catch (e) {
+                            content = String(content);
+                        }
+                    } else {
+                        content = String(content || '');
+                    }
+
+                    // Fallback for empty responses
+                    if (!content || !content.trim() || content === 'undefined' || content === 'null') {
+                        console.warn('[ChatWindow] AI Response is empty or invalid, using fallback.');
+                        content = 'I processed your request but have no further information to display.';
+                    }
+
+                    console.log('[ChatWindow] Adding AI message (length:', content.length, ')', content.substring(0, 100));
+
+                    // In ASK mode, AI responses are usually final answers.
+                    // In ACT mode, they are usually intermediate thoughts.
+                    const isAskMode = this.currentMode === 'ask';
+                    this.addMessage(content, 'ai', data.is_action, null, isAskMode);
+                }
+            });
+
+            // ACT after-messages (user-facing, non-log) - display and optionally style differently
+            window.chatAPI.onAfterMessage((event, data) => {
+                console.log('[ChatWindow] After-message received:', data);
+                // Do not clear thinking indicators here - they may have been cleared already
+                if (data && data.text) {
+                    // Mark as final to show outside collapsible sections
+                    this.addMessage(data.text, 'ai', false, null, true);
+                } else {
+                    console.warn('[ChatWindow] After-message has no text:', data);
+                }
+            });
+
+            // Transcription results (Legacy or backend initiated)
+            window.chatAPI.onTranscriptionResult((event, data) => {
+                if (data && data.text) {
+                    this.chatInput.value = data.text;
+                    this.autoResizeTextarea();
+                    this.updateSendButton();
+                    this.handleSlashCommandInput();
+                    if (this.autoSendEnabled && this.isRecording) {
+                        this.resetSpeechTimeout();
+                    }
+                }
+            });
+
+            // Action updates
+            window.chatAPI.onActionStart((event, data) => {
+                if (!this.currentTask) return;
+                console.log('[ChatWindow] Action start:', data);
+                // Always create a new action container for each action start so logs do not mix between tasks
+                this.addActionMessage(data.description || 'Executing action...', 'running');
+            });
+
+            window.chatAPI.onActionStep((event, data) => {
+                if (!this.currentTask) return;
+                console.log('[ChatWindow] Action step:', data);
+                const stepMessage = `Step ${data.step}/${data.total_steps}: ${data.description}`;
+                this.updateActionStatus(null, null, stepMessage + "\n");
+            });
+
+            window.chatAPI.onActionComplete((event, data) => {
+                if (!this.currentTask) return;
+                console.log('[ChatWindow] Action complete:', data);
+                if (data.confidence !== undefined) {
+                    console.log(`%c[CONFIDENCE] ${data.description}: ${data.confidence}%`, data.confidence < 80 ? 'color: #ef4444; font-weight: bold;' : 'color: #10b981; font-weight: bold;');
+                }
+                const details = data.confidence ? `${data.details || ''} (Confidence: ${data.confidence}%)` : data.details;
+                this.updateActionStatus((data && data.description), (data && data.success), details);
+
+                if (data.code) {
+                    this.addCodeMessage(data.code, data.language || 'code');
+                }
+            });
+
+            // Task updates
+            window.chatAPI.onTaskStart((event, data) => {
+                this.currentTask = data.task;
+                // Only add action message if we don't already have one from action-start
+                if (!this.lastActionId || !this.actionStatuses.has(this.lastActionId)) {
+                    this.addActionMessage(data.task || 'Starting task...', 'running');
+                }
+                this.updateStatus('Working on task...', 'working');
+                this.updateSendButton();
+                // Chat window will be hidden automatically by backend manager
+            });
+
+            window.chatAPI.onTaskComplete((event, data) => {
+                const completedTask = this.currentTask;
+                const success = !!(data && data.success);
+                this.currentTask = null;
+                this.updateStatus('Ready', 'ready');
+                // Finalize action statuses for the completed task based on success
+                this.finalizeActionStatusesForTask(completedTask, success);
+                this.updateSendButton();
+                // Chat window will be shown automatically by backend manager
+            });
+
+            window.chatAPI.onTaskStopped((event, data) => {
+                console.log('[ChatWindow] Task stopped:', data);
+                this.currentTask = null;
+                const reasonText = data.reason === 'error' ? "Task stopped due to error" : "Task stopped by user";
+
+                // Clear all thinking states
+                this.forceStopThinking();
+
+                // CRITICAL: Stop ALL spinners and show an 'x' for all active actions
+                this.actionStatuses.forEach((actionData, actionId) => {
+                    this.updateActionStatus(actionData.text, false, reasonText);
+                });
+
+                // Ensure no more spinners remain
+                const allSpinners = this.messagesContainer.querySelectorAll('.action-spinner');
+                allSpinners.forEach(s => s.remove());
+
+                this.addMessage(`${reasonText}: ${data.task || ''}`, 'ai', false);
+                this.updateStatus('Ready', 'ready');
+                this.updateSendButton();
+            });
+
+            window.chatAPI.onBackendError((event, data) => {
+                console.log('[ChatWindow] Backend error:', data);
+
+                // Clear all thinking indicators
+                this.forceStopThinking();
+
+                const userMessage = this.parseErrorMessage(data.message);
+                this.updateActionStatus(null, false, userMessage);
+                this.addMessage(userMessage, 'ai', false);
+                this.updateStatus('Error', 'error');
+            });
+
+            window.chatAPI.onWakewordError?.((event, data) => {
+                console.log('[ChatWindow] Wakeword error:', data);
+                this.showToast(data.message || 'Wake word detection disabled due to multiple failures.', 'error');
+                this.addMessage(data.message || 'Wake word detection has been disabled due to repeated initialization failures.', 'ai', false);
+            });
+
+            window.chatAPI.onWakeWordDetected((event, data) => {
+                // Only handle if the wake word actually opened the chat (was closed before)
+                if (data && data.openedChat) {
+                    this.handleWakeWordDetection();
+                } else {
+                    console.log('[ChatWindow] Wake word detected but chat was already open, not auto-starting transcription');
+                }
+            });
+
+            // Devtools logging for wakeword debugging
+            if (window.electronAPI && window.electronAPI.onDevToolsLog) {
+                window.electronAPI.onDevToolsLog((event, data) => {
+                    const { message, level, timestamp } = data;
+                    const logStyle = {
+                        'success': 'color: #4ade80; font-weight: bold;',
+                        'error': 'color: #f87171; font-weight: bold;',
+                        'warn': 'color: #facc15; font-weight: bold;',
+                        'info': 'color: #60a5fa; font-weight: bold;'
+                    };
+                    console.log(`%c[${timestamp}] ${message}`, logStyle[level] || 'color: #999;');
+                });
+            }
+
+            window.chatAPI.onAudioStarted((event, data) => {
+                this.setAudioPlayingState(true);
+            });
+
+            window.chatAPI.onAudioStopped((event, data) => {
+                this.setAudioPlayingState(false);
+            });
+
+            // window.chatAPI.onPlanUpdate((event, data) => {
+            //     this.updateBlueprint(data.blueprint);
+            // });
+
+            window.chatAPI.onWorkflowStarted?.((event, data) => {
+                this.forceStopThinking();
+                this.addMessage(`Workflow started: **${data.name}**`, 'ai', false, null, true);
+                this.updateStatus(`Running workflow ${data.name}...`, 'working');
+            });
+
+            window.chatAPI.onSkillsUpdated?.(() => {
+                console.log('[ChatWindow] Skills updated, reloading autocomplete list');
+                this.loadSkillsForAutocomplete();
+            });
+
+            window.chatAPI.onRequestConfirmation((event, data) => {
+                this.handleConfirmationRequest(data);
+            });
+        }
+    }
+
+    handleConfirmationRequest(data) {
+        this.hideWelcomeScreen();
+
+        // Use unified turn container for confirmation requests
+        const container = this.getOrCreateAIResponseContainer();
+        const thinkingSection = this.getSectionContent(container, 'thinking');
+        const actionsSection = this.getSectionContent(container, 'actions');
+
+        const thoughtDiv = document.createElement('div');
+        thoughtDiv.className = 'thought-block';
+        thoughtDiv.textContent = 'User confirmation required for high-risk action.';
+        thinkingSection.appendChild(thoughtDiv);
+
+        const confirmationCard = document.createElement('div');
+        confirmationCard.className = 'action-card confirmation-request';
+        confirmationCard.innerHTML = `
+            <div class="action-header">
+                <div class="action-icon"><i class="fas fa-exclamation-triangle" style="color: #f59e0b"></i></div>
+                <div class="action-title">${data.description}</div>
+            </div>
+            <div style="margin-top: 12px; display: flex; gap: 8px;">
+                <button class="button button-primary confirm-yes" style="background: #10b981; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer;">Proceed</button>
+                <button class="button button-secondary confirm-no" style="background: #ef4444; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer;">Cancel Task</button>
+            </div>
+        `;
+
+        thinkingSection.style.display = 'block';
+        actionsSection.style.display = 'block';
+        actionsSection.appendChild(confirmationCard);
+
+        confirmationCard.querySelector('.confirm-yes').onclick = () => {
+            window.chatAPI.confirmAction(true);
+            confirmationCard.remove();
+            thoughtDiv.remove();
+        };
+
+        confirmationCard.querySelector('.confirm-no').onclick = () => {
+            window.chatAPI.confirmAction(false);
+            confirmationCard.remove();
+            thoughtDiv.remove();
+        };
+
+        this.scrollToBottom();
+
+        // Bring app to focus so user sees the request
+        if (window.chatAPI && window.chatAPI.showChat) {
+            window.chatAPI.showChat();
+        }
+    }
+
+    // updateBlueprint(blueprint) {
+    //     if (!this.blueprintContent || !blueprint) return;
+    //     this.blueprintContent.innerHTML = '';
+    //     blueprint.forEach((item, idx) => {
+    //         const div = document.createElement('div');
+    //         div.className = 'blueprint-item' + (item.includes('(current)') ? ' active' : '');
+    //         div.innerHTML = `<i class="fas ${item.includes('done') ? 'fa-check-circle' : 'fa-circle'}"></i> <span>${item}</span>`;
+    //         this.blueprintContent.appendChild(div);
+    //     });
+    //
+    //     // Auto-open sidebar on first update if it's a new task
+    //     if (blueprint.length > 0 && !this.blueprintSidebar.classList.contains('open')) {
+    //         // this.blueprintSidebar.classList.add('open');
+    //         // this.blueprintToggle.classList.add('active');
+    //     }
+    //
+    //     if (typeof lucide !== 'undefined') {
+    //         lucide.createIcons();
+    //     }
+    // }
+
+    setupInputHandlers() {
+        this.chatInput.style.height = 'auto';
+        this.chatInput.style.height = this.chatInput.scrollHeight + 'px';
+    }
+
+    autoResizeTextarea() {
+        this.chatInput.style.height = 'auto';
+        const newHeight = Math.min(this.chatInput.scrollHeight, 120);
+        this.chatInput.style.height = newHeight + 'px';
+        if (this.inputBackdrop) {
+            this.inputBackdrop.style.height = newHeight + 'px';
+        }
+    }
+
+    updateSendButton() {
+        const hasText = this.chatInput.value.trim().length > 0;
+        const hasAttachments = this.attachments && this.attachments.length > 0;
+
+        if (this.currentTask || this.isAudioPlaying) {
+            this.sendButton.innerHTML = `<i class="fas fa-square"></i>`;
+            this.sendButton.classList.add('stop-button');
+            this.sendButton.title = this.currentTask ? 'Stop task (Alt+Z)' : 'Stop audio';
+            this.sendButton.disabled = false;
+        } else {
+            this.sendButton.innerHTML = `<i class="fas fa-arrow-up"></i>`;
+            this.sendButton.classList.remove('stop-button');
+            this.sendButton.title = 'Send message';
+            this.sendButton.disabled = !(hasText || hasAttachments);
+        }
+
+        if (typeof lucide !== 'undefined') {
+            lucide.createIcons();
+        }
+    }
+
+    async setMode(mode) {
+        this.currentMode = mode;
+        if (mode === 'act') {
+            this.modeAct.classList.add('active');
+            this.modeAsk.classList.remove('active');
+            this.chatInput.placeholder = "Describe a task to execute...";
+        } else {
+            this.modeAsk.classList.add('active');
+            this.modeAct.classList.remove('active');
+            this.chatInput.placeholder = "Ask a question or explain code...";
+        }
+
+        if (window.chatAPI && window.chatAPI.saveSettings) {
+            try {
+                await window.chatAPI.saveSettings({ lastMode: mode });
+            } catch (error) {
+                console.error('Failed to save last mode:', error);
+            }
+        }
+
+        this.updateRateLimitDisplay();
+
+        // Force the rate limit bar to show if not busy
+        if (!this.currentTask && !this.isRecording) {
+            this.updateStatus('', 'ready');
+        }
+    }
+
+    async sendMessage() {
+        const message = this.chatInput.value.trim();
+
+        if (!message && this.attachments.length === 0 && !this.currentTask && !this.isAudioPlaying) return;
+
+        // Slash command detection
+        if (message.startsWith('/') && !this.currentTask) {
+            const command = message.substring(1).split(' ')[0].toLowerCase();
+            const args = message.substring(command.length + 2);
+
+            if (command === 'importskill') {
+                this.chatInput.value = '';
+                this.autoResizeTextarea();
+                this.handleSlashCommandInput();
+                this.updateSendButton();
+                const res = await window.chatAPI.importSkill();
+                if (res && res.success) {
+                    this.showToast('Skill imported successfully!', 'success');
+                }
+                return;
+            }
+
+            // Check if it's a learned behavior/skill
+            if (window.chatAPI && window.chatAPI.readBehaviors) {
+                const behaviors = await window.chatAPI.readBehaviors();
+                const skill = behaviors.behaviors.find(b => b.name.toLowerCase().replace(/\s+/g, '') === command);
+
+                if (skill) {
+                    this.chatInput.value = '';
+                    this.autoResizeTextarea();
+                    this.handleSlashCommandInput();
+                    this.updateSendButton();
+                    this.addMessage(message, 'user');
+                    this.hideWelcomeScreen();
+                    this.updateStatus('Executing skill...', 'working');
+
+                    const taskPayload = {
+                        type: 'execute_task',
+                        text: `Execute skill "${skill.name}": ${skill.pattern}. ${args ? 'Additional context: ' + args : ''}`,
+                        attachments: [],
+                        skipWorkflowCheck: true
+                    };
+
+                    await window.chatAPI.executeTask(taskPayload, this.currentMode);
+                    return;
+                }
+            }
+        }
+
+        if (this.currentTask) {
+            await this.stopCurrentTask();
+            return;
+        }
+
+        if (this.isAudioPlaying) {
+            await this.stopAudio();
+            return;
+        }
+
+        const isOnline = await this.checkInternetConnection();
+        if (!isOnline) {
+            this.showToast('No internet connection', 'error');
+            return;
+        }
+
+        const taskPayload = {
+            type: 'execute_task',
+            text: message,
+            attachments: this.attachments.map(a => ({
+                name: a.name,
+                type: a.type,
+                size: a.size,
+                data: a.data
+            }))
+        };
+
+        const mode = this.currentMode;
+
+        this.hideWelcomeScreen();
+        this.currentAIResponseContainer = null; // Reset for new AI response
+
+        if (message || this.attachments.length > 0) {
+            this.addMessage(message, 'user', false, this.attachments.length > 0 ? [...this.attachments] : null);
+        }
+
+        this.chatInput.value = '';
+        this.baseText = ''; // Clear baseText after sending
+        const attachmentsToSend = [...this.attachments];
+        this.attachments = [];
+        if (this.attachmentsContainer) this.attachmentsContainer.innerHTML = '';
+        this.autoResizeTextarea();
+        this.updateSendButton();
+        this.handleSlashCommandInput(); // Synchronize backdrop after clearing
+
+        // Show thinking indicator for both Ask and Act modes
+        this.updateStatus('Thinking...', 'working');
+
+        // Add visual thinking message only for Ask mode (optional, but requested)
+        if (mode === 'ask') {
+            this.addActionMessage('Thinking...', 'running');
+        }
+
+        try {
+            if (window.chatAPI) {
+                taskPayload.attachments = attachmentsToSend.map(a => ({
+                    name: a.name,
+                    type: a.type,
+                    size: a.size,
+                    data: a.data
+                }));
+                await window.chatAPI.executeTask(taskPayload, mode);
+            }
+        } catch (error) {
+            console.error('Failed to execute task:', error);
+            const userMessage = this.parseErrorMessage(error.message);
+            this.addMessage(userMessage, 'ai', false);
+            this.updateStatus('Error', 'error');
+            this.updateActionStatus('Thinking...', false, userMessage);
+        }
+    }
+
+    getDynamicGreeting() {
+        const hour = new Date().getHours();
+        const simpleGreetings = [
+            "I'm ready when you are",
+            "How are you?",
+            "let's begin",
+            "let's continue",
+            "Ready to help",
+            "What's the plan?",
+            "Let's get to work"
+        ];
+
+        let greeting = "";
+        const useTimeBased = Math.random() > 0.4; // 60% chance for time-based
+
+        if (useTimeBased) {
+            if (hour >= 5 && hour < 12) {
+                greeting = Math.random() > 0.5 ? "Good morning" : "How was your night?";
+            } else if (hour >= 12 && hour < 17) {
+                greeting = "Good afternoon";
+            } else if (hour >= 17 && hour < 22) {
+                greeting = "Good evening";
+            } else {
+                greeting = Math.random() > 0.5 ? "Aren't you going to sleep?" : "No sleep?";
+            }
+        } else {
+            greeting = simpleGreetings[Math.floor(Math.random() * simpleGreetings.length)];
+        }
+
+        if (this.userName) {
+            if (greeting.endsWith("?")) {
+                return `${this.userName}, ${greeting.toLowerCase()}`;
+            } else {
+                return `${greeting}, ${this.userName}!`;
+            }
+        } else {
+            return greeting.endsWith("?") ? greeting : `${greeting}!`;
+        }
+    }
+
+    async showWelcomeScreen() {
+        if (!this.welcomeScreen || !this.welcomeGreeting) return;
+
+        const personalized = this.getDynamicGreeting();
+        this.welcomeGreeting.textContent = personalized;
+        this.welcomeScreen.classList.remove('welcome-hidden');
+
+        if (window.chatAPI && window.chatAPI.shouldSpeakGreeting) {
+            try {
+                const isLocked = await window.chatAPI.isAppLocked?.();
+                if (isLocked && isLocked.locked) {
+                    console.log('[ChatWindow] App is locked, waiting for PIN before greeting');
+                    return;
+                }
+
+                const result = await window.chatAPI.shouldSpeakGreeting();
+                console.log('[ChatWindow] Greeting TTS check result:', result);
+                if (result && result.shouldSpeak) {
+                    console.log('[ChatWindow] Speaking greeting:', personalized);
+                    window.chatAPI.speakGreeting(personalized);
+                } else {
+                    console.log('[ChatWindow] Greeting TTS disabled, not speaking');
+                }
+            } catch (err) {
+                console.error('Error checking greeting TTS setting:', err);
+            }
+        }
+    }
+
+    hideWelcomeScreen() {
+        if (this.welcomeScreen && !this.welcomeScreen.classList.contains('welcome-hidden')) {
+            this.welcomeScreen.classList.add('welcome-hidden');
+        }
+    }
+
+    checkAndShowWelcomeScreen() {
+        // Check if messages container is empty (excluding welcome screen)
+        const messages = this.messagesContainer.querySelectorAll('.message');
+        if (messages.length === 0) {
+            // Only show welcome screen if it's not already visible
+            if (this.welcomeScreen && this.welcomeScreen.classList.contains('welcome-hidden')) {
+                this.showWelcomeScreen();
+            }
+        } else {
+            // Hide welcome screen if there are messages
+            this.hideWelcomeScreen();
+        }
+    }
+
+    async stopCurrentTask() {
+        try {
+            if (window.chatAPI) {
+                await window.chatAPI.stopAction();
+            }
+        } catch (error) {
+            console.error('Failed to stop action:', error);
+        }
+    }
+
+    startNewConversation(showWelcome = true, keepMode = false) {
+        if (this.currentSessionId) {
+            this.saveCurrentSession();
+        }
+        this.currentSessionId = this.generateSessionId();
+
+        // Ensure welcome screen is attached to messages container
+        if (this.welcomeScreen && !this.messagesContainer.contains(this.welcomeScreen)) {
+            this.messagesContainer.prepend(this.welcomeScreen);
+        }
+
+        // Clear all messages except the welcome screen
+        const messages = Array.from(this.messagesContainer.children);
+        messages.forEach(msg => {
+            if (msg.id !== 'welcomeScreen') {
+                msg.remove();
+            }
+        });
+
+        this.messageGroups.clear();
+        this.collapsedGroups.clear();
+        this.attachments = [];
+        if (this.attachmentsContainer) {
+            this.attachmentsContainer.innerHTML = '';
+        }
+        this.chatInput.value = '';
+        this.baseText = '';
+        this.autoResizeTextarea();
+        this.updateSendButton();
+        this.handleSlashCommandInput();
+        this.actionStatuses.clear();
+        this.lastActionId = null;
+        this.currentAIResponseContainer = null;
+
+        // Show welcome screen and ensure it's visible
+        if (showWelcome !== false) {
+            this.showWelcomeScreen();
+        } else {
+            this.hideWelcomeScreen();
+        }
+
+        this.updateStatus('Ready', 'ready');
+
+        if (!keepMode) {
+            this.setMode('act'); // Default to ACT only if not keeping mode
+        }
+    }
+
+    // Voice recording with Vosk integration (V2 WebSocket)
+    toggleVoiceRecording() {
+        if (this.isRecording) {
+            this.stopVoiceRecording('user_click');
+        } else {
+            this.startVoiceRecording();
+        }
+    }
+
+    async startVoiceRecording() {
+        if (this.isRecording) return;
+        this.isRecording = true;
+        this.lastSpeechTime = Date.now();
+
+        // Pause wake word detection during manual recording
+        if (window.chatAPI && window.chatAPI.setWakewordEnabled) {
+            window.chatAPI.setWakewordEnabled(false);
+        }
+
+        try {
+            // 1. Minimized Hardware Handshake Delay for faster recording
+            // Increased to 500ms to ensure driver-level release of microphone by wakeword engine
+            console.log('[Voice] Waiting for hardware release (500ms)...');
+            await new Promise(resolve => setTimeout(resolve, 500));
+
+            // 3. Request microphone access
+            console.log('[Voice] Requesting microphone access...');
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            this.stream = stream;
+
+            // 4. Initialize AudioContext and AudioWorklet
+            console.log('[Voice] Initializing AudioContext (AudioWorklet)...');
+            const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            this.audioContext = audioContext;
+            await audioContext.resume();
+
+            // Define worklet processor code
+            const workletCode = `
+                class VoiceProcessor extends AudioWorkletProcessor {
+                    process(inputs) {
+                        const input = inputs[0];
+                        if (input && input.length > 0) {
+                            this.port.postMessage(input[0]);
+                        }
+                        return true;
+                    }
+                }
+                registerProcessor('voice-processor', VoiceProcessor);
+            `;
+            const blob = new Blob([workletCode], { type: 'application/javascript' });
+            const url = URL.createObjectURL(blob);
+            await audioContext.audioWorklet.addModule(url);
+            URL.revokeObjectURL(url); // Cleanup URL immediately
+
+            const source = audioContext.createMediaStreamSource(stream);
+            const workletNode = new AudioWorkletNode(audioContext, 'voice-processor');
+            source.connect(workletNode);
+
+            // Use virtual sink only (Strict hardware separation)
+            this.audioDestination = audioContext.createMediaStreamDestination();
+            workletNode.connect(this.audioDestination);
+
+            this.processor = workletNode;
+
+            // 5. Connect to Vosk Server
+            console.log('[Voice] Connecting to ws://127.0.0.1:2700...');
+            this.updateStatus('Connecting to voice server...', 'working');
+
+            this.ws = new WebSocket('ws://127.0.0.1:2700');
+
+            // Pre-allocate buffers for reuse
+            let resampledBuffer = new Float32Array(4096);
+            let int16Buffer = new Int16Array(4096);
+
+            // Buffer for accumulating audio chunks before sending (min 320 samples = 640 bytes)
+            const audioBuffer = [];
+            const MIN_CHUNK_SIZE = 500; // Minimum samples to send (recommended for Vosk)
+            let bufferedSamples = 0;
+
+            this.ws.onopen = () => {
+                console.log('[Voice] ✓ Connected to Vosk Server');
+                this.voiceButton.classList.remove('connecting');
+                this.voiceButton.classList.add('recording');
+
+                if (window.chatAPI && window.chatAPI.logToTerminal) {
+                    window.chatAPI.logToTerminal('✓ Voice WebSocket Connected');
+                }
+                this.voiceButton.classList.add('recording');
+                this.updateStatus('Listening...', 'listening');
+
+                this.baseText = this.chatInput.value.trim();
+
+                let chunkCount = 0;
+
+                // Function to flush accumulated audio buffer
+                const flushBuffer = () => {
+                    if (audioBuffer.length === 0) return;
+
+                    // Combine all buffered chunks
+                    const totalSamples = audioBuffer.reduce((sum, chunk) => sum + chunk.length, 0);
+                    const combined = new Int16Array(totalSamples);
+                    let offset = 0;
+                    for (const chunk of audioBuffer) {
+                        combined.set(chunk, offset);
+                        offset += chunk.length;
+                    }
+
+                    // Send combined buffer
+                    this.ws.send(combined.buffer);
+                    chunkCount++;
+                    if (chunkCount === 1) {
+                        console.log('[Voice] First audio chunk sent via Worklet, size:', combined.length, 'samples');
+                    }
+
+                    // Clear buffer
+                    audioBuffer.length = 0;
+                    bufferedSamples = 0;
+                };
+
+                workletNode.port.onmessage = (event) => {
+                    try {
+                        if (!this.isRecording || !this.ws || this.ws.readyState !== WebSocket.OPEN) return;
+
+                        const inputData = event.data;
+                        const nativeRate = audioContext.sampleRate;
+                        const ratio = nativeRate / 16000;
+                        const newLength = Math.round(inputData.length / ratio);
+
+                        if (resampledBuffer.length < newLength) {
+                            resampledBuffer = new Float32Array(newLength);
+                        }
+
+                        if (nativeRate === 16000) {
+                            resampledBuffer.set(inputData);
+                        } else {
+                            for (let i = 0; i < newLength; i++) {
+                                resampledBuffer[i] = inputData[Math.round(i * ratio)];
+                            }
+                        }
+
+                        if (int16Buffer.length < newLength) {
+                            int16Buffer = new Int16Array(newLength);
+                        }
+
+                        for (let i = 0; i < newLength; i++) {
+                            const s = Math.max(-1, Math.min(1, resampledBuffer[i]));
+                            int16Buffer[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
+                        }
+
+                        // Add to buffer
+                        const dataToSend = int16Buffer.slice(0, newLength);
+                        audioBuffer.push(dataToSend);
+                        bufferedSamples += dataToSend.length;
+
+                        // Send when buffer reaches minimum size
+                        if (bufferedSamples >= MIN_CHUNK_SIZE) {
+                            flushBuffer();
+                        }
+
+                        if (chunkCount % 50 === 0 && chunkCount > 0) {
+                            console.log('[Voice] Sent', chunkCount, 'audio chunks');
+                        }
+                    } catch (err) {
+                        console.error('[Voice] Worklet message error:', err);
+                    }
+                };
+
+                // Flush buffer periodically (every 200ms) to avoid delays
+                const flushInterval = setInterval(() => {
+                    if (audioBuffer.length > 0 && this.isRecording) {
+                        flushBuffer();
+                    }
+                }, 150);
+
+                // Store interval ID for cleanup
+                if (!this.voiceRecordingIntervals) {
+                    this.voiceRecordingIntervals = [];
+                }
+                this.voiceRecordingIntervals.push(flushInterval);
+            };
+
+            this.ws.onerror = (error) => {
+                console.error('[Voice] ✗ WebSocket error:', error);
+                this.addMessage('Voice transcription server not responding. Please ensure the backend is running.', 'ai', false);
+                this.stopVoiceRecording('websocket_error');
+            };
+
+            this.ws.onclose = (event) => {
+                console.log('[Voice] WebSocket closed:', event.code, event.reason);
+                if (this.isRecording) {
+                    this.stopVoiceRecording('websocket_closed');
+                }
+            };
+
+            this.ws.onmessage = (event) => {
+                try {
+                    const result = JSON.parse(event.data);
+
+                    // Only log non-empty responses to reduce console spam
+                    if (result.partial && result.partial.trim()) {
+                        console.log('[Voice] Partial:', result.partial);
+                        if (window.chatAPI && window.chatAPI.logToTerminal) {
+                            window.chatAPI.logToTerminal(`Partial: ${result.partial}`);
+                        }
+                        const separator = this.baseText ? " " : "";
+                        this.chatInput.value = this.baseText + separator + result.partial + "...";
+                        this.autoResizeTextarea();
+
+                        // Activity detected: Reset silence timeout if auto-send is enabled
+                        if (this.autoSendEnabled) this.resetSpeechTimeout();
+                    } else if (result.text && result.text.trim()) {
+                        console.log('[Voice] Final result:', result.text);
+                        if (window.chatAPI && window.chatAPI.logToTerminal) {
+                            window.chatAPI.logToTerminal(`Final: ${result.text}`);
+                        }
+                        const separator = this.baseText ? " " : "";
+                        this.baseText = this.baseText + separator + result.text;
+                        this.chatInput.value = this.baseText;
+                        this.autoResizeTextarea();
+                        this.updateSendButton();
+                        if (this.autoSendEnabled) this.resetSpeechTimeout();
+                    }
+                    // Ignore empty responses (silence detection)
+                } catch (e) {
+                    console.error('[Voice] Message parsing error:', e, event.data);
+                }
+            };
+
+        } catch (e) {
+            console.error('[Voice] Critical recording error:', e);
+            this.addMessage('Microphone access or voice processing failed.', 'ai', false);
+            this.stopVoiceRecording('critical_error');
+        }
+    }
+
+    stopVoiceRecording(reason = 'unknown') {
+        console.log(`Stopped voice recording (Reason: ${reason})`);
+        console.trace('stopVoiceRecording call trace');
+
+        this.isRecording = false;
+
+        // Finalize input value by removing trailing "..." if present
+        if (this.chatInput.value.endsWith('...')) {
+            this.chatInput.value = this.chatInput.value.slice(0, -3);
+            this.handleSlashCommandInput();
+        }
+
+        // Resume wake word detection after manual recording
+        if (window.chatAPI && window.chatAPI.setWakewordEnabled) {
+            window.chatAPI.setWakewordEnabled(true);
+        }
+
+        this.voiceButton.classList.remove('recording');
+        this.voiceButton.classList.remove('connecting');
+        this.updateStatus('Ready', 'ready');
+
+        // Clear any flush intervals
+        if (this.voiceRecordingIntervals) {
+            this.voiceRecordingIntervals.forEach(interval => clearInterval(interval));
+            this.voiceRecordingIntervals = [];
+        }
+
+        if (this.ws) {
+            // Remove handlers to prevent loops
+            this.ws.onclose = null;
+            this.ws.onerror = null;
+            this.ws.onmessage = null;
+            this.ws.close();
+            this.ws = null;
+        }
+        if (this.processor) {
+            try {
+                if (this.processor.onaudioprocess !== undefined) {
+                    this.processor.onaudioprocess = null;
+                }
+                if (this.processor.port) {
+                    this.processor.port.onmessage = null;
+                }
+                this.processor.disconnect();
+            } catch (e) { console.error('Error disconnecting processor:', e); }
+            this.processor = null;
+        }
+        if (this.audioDestination) {
+            try {
+                this.audioDestination.stream.getTracks().forEach(t => t.stop());
+                this.audioDestination.disconnect();
+            } catch (e) { console.error('Error disconnecting destination:', e); }
+            this.audioDestination = null;
+        }
+        if (this.stream) {
+            try {
+                this.stream.getTracks().forEach(t => t.stop());
+            } catch (e) { console.error('Error stopping stream:', e); }
+            this.stream = null;
+        }
+        if (this.audioContext) {
+            try {
+                if (this.audioContext.state !== 'closed') {
+                    this.audioContext.close();
+                }
+            } catch (e) {
+                console.error('Error closing audio context:', e);
+            }
+            this.audioContext = null;
+        }
+        if (this.speechTimeout) {
+            clearTimeout(this.speechTimeout);
+            this.speechTimeout = null;
+        }
+
+    }
+
+    async stopAudio() {
+        try {
+            console.log('Stopping audio playback');
+            if (window.chatAPI && window.chatAPI.stopAudio) {
+                await window.chatAPI.stopAudio();
+                this.setAudioPlayingState(false);
+            }
+        } catch (error) {
+            console.error('Failed to stop audio:', error);
+        }
+    }
+
+    setAudioPlayingState(isPlaying) {
+        console.log('[Voice] Audio playing state:', isPlaying);
+        this.isAudioPlaying = isPlaying;
+        this.updateSendButton();
+    }
+
+    startSpeechTimeout() {
+        // Reset last speech time when starting/restarting the timeout
+        if (!this.lastSpeechTime) this.lastSpeechTime = Date.now();
+
+        if (this.speechTimeout) clearTimeout(this.speechTimeout);
+
+        this.speechTimeout = setTimeout(() => {
+            if (this.isRecording && this.autoSendEnabled) {
+                const elapsed = Date.now() - this.lastSpeechTime;
+                // Use a slightly more lenient timeout (7s) or stay with 5s but ensure it's accurate
+                if (elapsed >= 5000) {
+                    console.log(`[Voice] Silence timeout reached (${elapsed}ms). Stopping recording.`);
+                    this.stopVoiceRecording('silence_timeout');
+                    if (this.chatInput.value.trim()) {
+                        this.sendMessage();
+                    }
+                } else {
+                    // Not enough time has passed since last speech, check again in remaining time
+                    this.startSpeechTimeout();
+                }
+            }
+        }, 1000); // Check more frequently (every 1s) for better responsiveness
+    }
+
+    resetSpeechTimeout() {
+        this.lastSpeechTime = Date.now();
+        // startSpeechTimeout will handle clearing and restarting
+        if (this.autoSendEnabled && this.isRecording) {
+            this.startSpeechTimeout();
+        }
+    }
+
+    async handleWakeWordDetection() {
+        console.log('[ChatWindow] Wake word detected - showing chat and focusing input');
+        this.updateStatus('Wake word detected', 'listening');
+
+        if (this.chatInput) {
+            this.chatInput.focus();
+        }
+
+        // Load latest settings
+        await this.loadSettings();
+
+        console.log('[ChatWindow] Settings loaded. autoSendEnabled:', this.autoSendEnabled, 'isRecording:', this.isRecording);
+
+        if (this.autoSendEnabled && !this.isRecording) {
+            console.log('[ChatWindow] Auto-send enabled, starting voice recording immediately...');
+            // Minimized delay to ensure chat window is ready but without perceived lag
+            setTimeout(() => {
+                if (!this.isRecording) {
+                    console.log('[ChatWindow] Starting voice recording now...');
+                    this.startVoiceRecording();
+                    this.startSpeechTimeout();
+                }
+            }, 50);
+        } else {
+            console.log('[ChatWindow] Auto-send NOT enabled or already recording. autoSendEnabled:', this.autoSendEnabled);
+        }
+    }
+
+    handleFileAttachment() {
+        const fileInput = document.createElement('input');
+        fileInput.type = 'file';
+        fileInput.accept = '*/*';
+        fileInput.style.display = 'none';
+        fileInput.onchange = (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                this.readAndAddFile(file);
+            }
+        };
+        document.body.appendChild(fileInput);
+        fileInput.click();
+        document.body.removeChild(fileInput);
+    }
+
+    async readAndAddFile(file) {
+        // Read file as ArrayBuffer for direct transfer (more efficient than base64)
+        const arrayBuffer = await file.arrayBuffer();
+        const uint8Array = new Uint8Array(arrayBuffer);
+        const attachment = {
+            name: file.name,
+            size: file.size,
+            type: file.type,
+            data: Array.from(uint8Array)  // Convert to regular array for IPC serialization
+        };
+        this.attachments.push(attachment);
+        this.renderAttachments();
+        this.updateSendButton();
+    }
+
+    renderAttachments() {
+        if (!this.attachmentsContainer) return;
+        this.attachmentsContainer.innerHTML = '';
+        this.attachments.forEach((a, idx) => {
+            const pill = document.createElement('div');
+            pill.className = 'attachment-pill';
+            pill.innerHTML = `
+                <div style="font-weight:500">${a.name}</div>
+                <div style="opacity:0.6; font-size:11px">${this.formatFileSize(a.size)}</div>
+                <button class="attachment-remove" title="Remove" data-idx="${idx}">×</button>
+            `;
+            this.attachmentsContainer.appendChild(pill);
+        });
+
+        this.attachmentsContainer.querySelectorAll('.attachment-remove').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const idx = Number(e.currentTarget.getAttribute('data-idx'));
+                this.attachments.splice(idx, 1);
+                this.renderAttachments();
+                this.updateSendButton();
+            });
+        });
+    }
+
+    formatFileSize(bytes) {
+        if (bytes === 0) return '0 Bytes';
+        const k = 1024;
+        const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    }
+
+    escapeHtml(text) {
+        if (!text) return '';
+        const map = {
+            '&': '&amp;',
+            '<': '&lt;',
+            '>': '&gt;',
+            '"': '&quot;',
+            "'": '&#039;'
+        };
+        return text.replace(/[&<>"']/g, function(m) { return map[m]; });
+    }
+
+    getOrCreateAIResponseContainer() {
+        if (this.currentAIResponseContainer && this.currentAIResponseContainer.closest('.message').parentElement === this.messagesContainer) {
+            return this.currentAIResponseContainer;
+        }
+
+        this.hideWelcomeScreen();
+
+        const messageDiv = document.createElement('div');
+        messageDiv.className = 'message ai';
+        const contentDiv = document.createElement('div');
+        contentDiv.className = 'message-content';
+        const innerDiv = document.createElement('div');
+        innerDiv.className = 'ai-response-inner';
+
+        contentDiv.appendChild(innerDiv);
+        messageDiv.appendChild(contentDiv);
+        this.messagesContainer.appendChild(messageDiv);
+
+        this.currentAIResponseContainer = innerDiv;
+        this.currentAIStreamingText = "";
+        this.currentAIStreamingElement = null;
+
+        return innerDiv;
+    }
+
+    addStreamChunk(chunk) {
+        // Defensive check for thinking indicators
+        const thinkingSpinner = this.messagesContainer.querySelector('.action-card[data-action-id].running');
+        if (thinkingSpinner && thinkingSpinner.querySelector('.action-title')?.textContent === 'Thinking...') {
+            this.forceStopThinking();
+        }
+
+        const container = this.getOrCreateAIResponseContainer();
+        this.currentAIStreamingText += chunk;
+
+        if (!this.currentAIStreamingElement) {
+            const div = document.createElement('div');
+            div.className = 'text-block';
+            container.appendChild(div);
+            this.currentAIStreamingElement = div;
+        }
+
+        // We use innerHTML but need to be careful with partial markdown.
+        // For streaming, a simple text replacement or a specialized partial markdown renderer is better.
+        // For now, let's use textContent for safety until we have a full block.
+        this.currentAIStreamingElement.innerHTML = this.parseMarkdown(this.currentAIStreamingText);
+        this.scrollToBottom();
+    }
+
+    getSectionContent(container, type) {
+        // Sections removed per user request, always return container
+        return container;
+    }
+
+    addMessage(text, sender, isAction = false, attachments = null, isFinal = false) {
+        // Defensive check for undefined/null text
+        let safeText = text || '';
+
+        // Strip citations [n] and clean up remnants from AI messages
+        if (sender === 'ai') {
+            // Remove entire citation sequences like [1], [2], [3]
+            safeText = safeText.replace(/\[\d+\](\s*,\s*\[\d+\])*/g, '');
+            // Remove remaining single citations
+            safeText = safeText.replace(/\[\d+\]/g, '');
+            // Clean up punctuation remnants
+            safeText = safeText.replace(/\s+([.,!?;:])/g, '$1');
+            safeText = safeText.replace(/,\s*([.!?;:])/g, '$1');
+            safeText = safeText.replace(/[,]{2,}/g, ',');
+            // Ensure proper spacing after commas
+            safeText = safeText.replace(/,\s*/g, ', ');
+            // Remove leading/trailing junk
+            safeText = safeText.replace(/^[\s,.]+/, '').trim();
+        }
+
+        if (this.lastAddedMessage === safeText && this.lastAddedSender === sender && !attachments) {
+            console.log('[ChatWindow] Skipping duplicate message:', safeText);
+            return;
+        }
+
+        // Immediately hide welcome screen when adding any message
+        this.hideWelcomeScreen();
+
+        this.lastAddedMessage = safeText;
+        this.lastAddedSender = sender;
+        if (sender === 'user') {
+            this.lastUserMessage = safeText;
+        }
+
+        if (sender === 'ai') {
+            const container = this.getOrCreateAIResponseContainer();
+
+            // If we have an active streaming element, use it instead of creating a new one
+            if (this.currentAIStreamingElement) {
+                const div = this.currentAIStreamingElement;
+                div.innerHTML = this.parseMarkdown(safeText);
+
+                // Reset streaming state
+                this.currentAIStreamingElement = null;
+                this.currentAIStreamingText = "";
+
+                if (this.currentMode === 'ask') {
+                    const messageEl = container.closest('.message');
+                    messageEl.querySelector('.message-actions')?.remove();
+                    this.addMessageActions(messageEl, safeText, 'ai');
+                }
+
+                this.scrollToBottom();
+                return div;
+            }
+
+            // If it's a final message, append it to the main container outside collapsible sections
+            if (isFinal) {
+                const div = document.createElement('div');
+                // Only add final-response class (which adds a top border) if there's already content
+                const hasExistingContent = Array.from(container.children).some(c => c.style.display !== 'none');
+                div.className = 'text-block' + (hasExistingContent ? ' final-response' : '');
+                div.innerHTML = this.parseMarkdown(safeText);
+                container.appendChild(div);
+
+                if (this.currentMode === 'ask') {
+                    this.addMessageActions(container.closest('.message'), safeText, 'ai');
+                }
+
+                this.scrollToBottom();
+                return div;
+            }
+
+            const sectionContent = this.getSectionContent(container, 'thinking');
+            const div = document.createElement('div');
+
+            const isShort = safeText.length < 200 && !safeText.includes('\n');
+            const isVeryLong = safeText.length > 800;
+
+            if (isShort) {
+                div.className = 'thought-block';
+                div.innerHTML = this.parseMarkdown(safeText);
+            } else {
+                div.className = 'text-block';
+                if (isVeryLong) {
+                    const collapsibleWrapper = document.createElement('div');
+                    collapsibleWrapper.className = 'collapsible-text';
+                    collapsibleWrapper.innerHTML = this.parseMarkdown(safeText);
+
+                    const readMoreBtn = document.createElement('button');
+                    readMoreBtn.className = 'read-more-btn';
+                    readMoreBtn.innerHTML = '<span>Read More</span> <i class="fas fa-chevron-down"></i>';
+
+                    readMoreBtn.onclick = () => {
+                        const isExpanded = collapsibleWrapper.classList.toggle('expanded');
+                        readMoreBtn.innerHTML = isExpanded ?
+                            '<span>Show Less</span> <i class="fas fa-chevron-up"></i>' :
+                            '<span>Read More</span> <i class="fas fa-chevron-down"></i>';
+                        this.scrollToBottom();
+                    };
+
+                    div.appendChild(collapsibleWrapper);
+                    div.appendChild(readMoreBtn);
+                } else {
+                    div.innerHTML = this.parseMarkdown(safeText);
+                }
+            }
+
+            sectionContent.appendChild(div);
+
+            // Add actions only if it's the main response and not just a thought (simplified for Ask mode)
+            if (this.currentMode === 'ask') {
+                const messageEl = container.closest('.message');
+                // Remove existing actions if any to avoid duplication as parts arrive
+                messageEl.querySelector('.message-actions')?.remove();
+                this.addMessageActions(messageEl, safeText, 'ai');
+            }
+
+            this.scrollToBottom();
+            return div;
+        }
+
+        const messageDiv = document.createElement('div');
+        messageDiv.className = `message ${sender}`;
+        const contentDiv = document.createElement('div');
+        contentDiv.className = 'message-content';
+        contentDiv.innerHTML = this.parseMarkdown(safeText);
+
+        if (this.currentMode === 'ask') {
+            this.addMessageActions(messageDiv, safeText, sender);
+        }
+
+        if (attachments && attachments.length > 0) {
+            const attachmentContainer = document.createElement('div');
+            attachmentContainer.className = 'message-attachments';
+            attachments.forEach(att => {
+                const attDiv = document.createElement('div');
+                if (att.type && att.type.startsWith('image/')) {
+                    attDiv.className = 'message-attachment';
+                    const img = document.createElement('img');
+                    try {
+                        const uint8Array = att.data instanceof Array ? new Uint8Array(att.data) : att.data;
+                        const blob = new Blob([uint8Array], { type: att.type });
+                        img.src = URL.createObjectURL(blob);
+                        img.alt = att.name;
+                        img.onload = () => URL.revokeObjectURL(img.src);
+                        attDiv.appendChild(img);
+                    } catch (e) {
+                        attDiv.textContent = att.name;
+                    }
+                } else {
+                    attDiv.className = 'message-attachment-file';
+                    attDiv.innerHTML = `<i class="fas fa-file"></i><span>${att.name} (${this.formatFileSize(att.size)})</span>`;
+                }
+                attachmentContainer.appendChild(attDiv);
+            });
+            contentDiv.appendChild(attachmentContainer);
+        }
+
+        messageDiv.appendChild(contentDiv);
+        this.messagesContainer.appendChild(messageDiv);
+        this.scrollToBottom();
+        this.checkAndShowWelcomeScreen();
+        return messageDiv;
+    }
+
+    addActionMessage(text, status) {
+        const actionId = Date.now().toString();
+        const container = this.getOrCreateAIResponseContainer();
+        const sectionContent = this.getSectionContent(container, 'actions');
+
+        const actionCard = document.createElement('div');
+        actionCard.className = 'action-card';
+        actionCard.dataset.actionId = actionId;
+        actionCard.innerHTML = `
+            <div class="action-header">
+                <div class="action-icon"><div class="action-spinner"></div></div>
+                <div class="action-title" style="flex:1">${text}</div>
+                <button class="header-btn" style="width:20px; height:20px; font-size:10px" title="Logs">
+                    <i class="fas fa-terminal"></i>
+                </button>
+            </div>
+            <div class="action-details" style="display:none; max-height: 200px; overflow-y:auto; margin-top:8px"></div>
+        `;
+
+        const logBtn = actionCard.querySelector('.header-btn');
+        const detailsDiv = actionCard.querySelector('.action-details');
+        if (logBtn && detailsDiv) {
+            logBtn.addEventListener('click', () => {
+                const isHidden = detailsDiv.style.display === 'none';
+                detailsDiv.style.display = isHidden ? 'block' : 'none';
+                logBtn.classList.toggle('active');
+            });
+        }
+
+        sectionContent.appendChild(actionCard);
+        this.scrollToBottom();
+        this.actionStatuses.set(actionId, { element: actionCard, text, task: this.currentTask || '' });
+        this.lastActionId = actionId;
+    }
+
+    updateActionStatus(actionText, success, details) {
+        let entries = [];
+
+        // Find the action element(s) - only consider actions that belong to the current task (if set)
+        if (actionText) {
+            for (const [id, data] of this.actionStatuses.entries()) {
+                if (data.text === actionText) {
+                    // If there is a currentTask, ensure task matches
+                    if (!this.currentTask || data.task === this.currentTask) {
+                        entries.push(data.element);
+                    }
+                }
+            }
+        }
+
+        // If no explicit match by text, try to pick the last action for the current task
+        if (entries.length === 0 && this.lastActionId) {
+            const lastEntry = this.actionStatuses.get(this.lastActionId);
+            if (lastEntry && (!this.currentTask || lastEntry.task === this.currentTask)) entries.push(lastEntry.element);
+            else {
+                // Fallback: find the most recent action matching current task
+                for (const [id, data] of Array.from(this.actionStatuses.entries()).reverse()) {
+                    if (!this.currentTask || data.task === this.currentTask) {
+                        entries.push(data.element);
+                        break;
+                    }
+                }
+            }
+        }
+
+        // If success is null/undefined but we're calling this, we probably want to stop the spinner
+        const isFinalizing = success !== undefined;
+
+        entries.forEach(entry => {
+            const actionIcon = entry.querySelector('.action-icon');
+            const actionDetailsEl = entry.querySelector('.action-details');
+
+            if (actionIcon) {
+                // Always try to remove spinner if finalizing
+                const spinner = actionIcon.querySelector('.action-spinner');
+                if (spinner) {
+                    spinner.remove();
+                }
+
+                // Update icon based on success
+                if (success === true) {
+                    actionIcon.innerHTML = '<i class="fas fa-check action-success"></i>';
+                } else if (success === false) {
+                    actionIcon.innerHTML = '<i class="fas fa-times action-error"></i>';
+                } else if (isFinalizing && !actionIcon.querySelector('i')) {
+                    // Default to check if finalizing but no icon set
+                    actionIcon.innerHTML = '<i class="fas fa-check action-success"></i>';
+                }
+            }
+
+            // Update details (description) - append if already has content
+            if (details && actionDetailsEl) {
+                if (actionDetailsEl.textContent.trim()) {
+                    // Don't append if it's the same message
+                    if (!actionDetailsEl.textContent.includes(details)) {
+                        actionDetailsEl.textContent += '\n' + details;
+                    }
+                } else {
+                    actionDetailsEl.textContent = details;
+                }
+            }
+        });
+    }
+
+    /**
+     * Force-stop all thinking indicators. Called when AI response is received.
+     * Aggressively clears all spinners and thinking states.
+     */
+    forceStopThinking() {
+        // Remove all 'Thinking...' action elements
+        for (const [id, data] of this.actionStatuses.entries()) {
+            if (data.text === 'Thinking...') {
+                if (data.element) {
+                    data.element.remove();
+                }
+                this.actionStatuses.delete(id);
+            }
+        }
+
+        // Also remove any spinners from remaining action elements
+        for (const [id, data] of this.actionStatuses.entries()) {
+            if (data.element) {
+                const spinner = data.element.querySelector('.action-spinner');
+                if (spinner) {
+                    spinner.remove();
+                }
+            }
+        }
+
+        // Clear lastActionId if it was thinking
+        this.lastActionId = null;
+
+        // Reset status bar to ready + rate display
+        this.updateStatus('Ready', 'ready');
+        this.updateRateLimitDisplay();
+    }
+
+    // Helper to finalize action statuses for a given task
+    finalizeActionStatusesForTask(task, success) {
+        if (!task) return;
+        for (const [id, actionData] of this.actionStatuses.entries()) {
+            if (actionData.task === task) {
+                // Mark with success flag (true => check, false => x)
+                this.updateActionStatus(actionData.text, !!success);
+            }
+        }
+    }
+
+    getOrCreateMessageGroup(timestamp) {
+        const groupTime = Math.floor(timestamp / (10 * 60 * 1000)) * (10 * 60 * 1000);
+        if (!this.messageGroups.has(groupTime)) {
+            const groupId = `group-${groupTime}`;
+            this.messageGroups.set(groupTime, groupId);
+            const groupDiv = document.createElement('div');
+            groupDiv.className = 'message-group';
+            groupDiv.dataset.groupId = groupId;
+            const timeLabel = new Date(groupTime).toLocaleString();
+            const isCollapsed = this.collapsedGroups.has(groupId);
+
+            groupDiv.innerHTML = `
+                <div class="message-group-header" data-group-id="${groupId}">
+                    <span>${timeLabel}</span>
+                    <div class="collapse-toggle ${isCollapsed ? 'collapsed' : ''}">
+                        <i data-lucide="chevron-down" style="width: 14px; height: 14px;"></i>
+                    </div>
+                </div>
+                <div class="message-group-content" ${isCollapsed ? 'style="display: none;"' : ''}></div>
+            `;
+            this.messagesContainer.appendChild(groupDiv);
+            groupDiv.querySelector('.message-group-header').addEventListener('click', () => {
+                this.toggleGroup(groupId);
+            });
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+        }
+        return this.messageGroups.get(groupTime);
+    }
+
+    toggleGroup(groupId) {
+        const group = this.messagesContainer.querySelector(`[data-group-id="${groupId}"]`);
+        if (!group) return;
+        const content = group.querySelector('.message-group-content');
+        const toggle = group.querySelector('.collapse-toggle');
+        if (this.collapsedGroups.has(groupId)) {
+            this.collapsedGroups.delete(groupId);
+            content.style.display = 'block';
+            toggle.classList.remove('collapsed');
+        } else {
+            this.collapsedGroups.add(groupId);
+            content.style.display = 'none';
+            toggle.classList.add('collapsed');
+        }
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+    }
+
+    createIcon(name, color) {
+        const i = document.createElement('i');
+        i.className = name === 'check' ? 'fas fa-check' : 'fas fa-times';
+        i.style.color = color;
+        i.style.width = '12px';
+        return i;
+    }
+
+    escapeHtml(text) {
+        if (!text) return '';
+        const map = {
+            '&': '&amp;',
+            '<': '&lt;',
+            '>': '&gt;',
+            '"': '&quot;',
+            "'": '&#039;'
+        };
+        return text.replace(/[&<>"']/g, function(m) { return map[m]; });
+    }
+
+    parseMarkdown(text) {
+        if (!text) return '';
+
+        // Ensure text is a string
+        const safeText = String(text);
+
+        try {
+            if (typeof marked !== 'undefined') {
+                const renderer = new marked.Renderer();
+
+                // Prevent raw HTML from being rendered as UI elements
+                renderer.html = (token) => {
+                    return token.text.replace(/&/g, "&amp;")
+                                     .replace(/</g, "&lt;")
+                                     .replace(/>/g, "&gt;")
+                                     .replace(/"/g, "&quot;")
+                                     .replace(/'/g, "&#039;");
+                };
+
+                // Custom code block renderer with language label and copy button
+                // Supports marked v12+ token signature
+                renderer.code = (token) => {
+                    const code = String(token.text || '');
+                    const lang = String(token.lang || 'code');
+
+                    // Escape HTML for display to ensure code is shown, not rendered
+                    const escapedForDisplay = code
+                        .replace(/&/g, "&amp;")
+                        .replace(/</g, "&lt;")
+                        .replace(/>/g, "&gt;")
+                        .replace(/"/g, "&quot;")
+                        .replace(/'/g, "&#039;");
+
+                    return `
+                        <div class="code-block-wrapper">
+                            <div class="code-header">
+                                <span class="code-lang">${lang}</span>
+                                <button class="copy-code-btn" title="Copy code" onclick="window.chatWindowInstance.copyToClipboard(this.closest('.code-block-wrapper').querySelector('code').innerText, this)">
+                                    <i class="fas fa-copy"></i>
+                                </button>
+                            </div>
+                            <pre><code class="language-${lang}">${escapedForDisplay}</code></pre>
+                        </div>
+                    `;
+                };
+
+                return marked.parse(safeText, { renderer });
+            }
+        } catch (e) {
+            console.error('Error parsing markdown with marked:', e);
+        }
+
+        // Fallback simple parser
+        return safeText.replace(/\n/g, '<br>');
+        // Fallback simple parser with HTML escaping to prevent raw rendering
+        return this.escapeHtml(text).replace(/\n/g, '<br>');
+    }
+
+    scrollToBottom() {
+        this.messagesContainer.scrollTop = this.messagesContainer.scrollHeight;
+    }
+
+    updateStatus(text, type = 'ready') {
+        if (!this.statusText || !this.statusDot) {
+            console.warn('[ChatWindow] Status elements not found for update:', text);
+            return;
+        }
+
+        const isReady = type === 'ready';
+        const rateLimitContainer = document.getElementById('rateLimitContainer');
+        const statusContent = document.getElementById('statusContent');
+
+        // Clear any existing status timeout
+        if (this.statusRevertTimeout) {
+            clearTimeout(this.statusRevertTimeout);
+            this.statusRevertTimeout = null;
+        }
+
+        if (isReady && rateLimitContainer && statusContent) {
+            statusContent.style.display = 'none';
+            rateLimitContainer.style.display = 'flex';
+            this.updateRateLimitDisplay();
+        } else {
+            if (statusContent) statusContent.style.display = 'flex';
+            if (rateLimitContainer) rateLimitContainer.style.display = 'none';
+
+            this.statusText.textContent = text;
+            this.statusDot.className = 'status-dot';
+            switch (type) {
+                case 'ready': this.statusDot.style.background = '#10b981'; break;
+                case 'working': this.statusDot.style.background = '#f59e0b'; break;
+                case 'error': this.statusDot.style.background = '#ef4444'; break;
+                case 'listening': this.statusDot.style.background = '#3b82f6'; break;
+                default: this.statusDot.style.background = '#10b981';
+            }
+
+            // Auto-revert to rate limit if not in a persistent state
+            if (type !== 'working' && type !== 'listening' && type !== 'error') {
+                this.statusRevertTimeout = setTimeout(() => {
+                    this.updateStatus('Ready', 'ready');
+                }, 3000); // Revert after 3 seconds
+            }
+        }
+    }
+
+    updateRateLimitDisplay() {
+        const rateLimitContainer = document.getElementById('rateLimitContainer');
+        if (!rateLimitContainer) return;
+
+        const user = (this.settings && this.settings.userDetails) ? this.settings.userDetails : {};
+        // Normalize plan name (Firebase may store "Free Plan", "Pro Plan", "Master Plan" etc.)
+        const planRaw = user.plan || 'free';
+        const plan = String(planRaw).toLowerCase().replace(/\s*plan\s*/gi, '').trim() || 'free';
+        const mode = this.currentMode || 'act';
+
+        // Limits matching subscription tiers
+        const limits = {
+            free: { act: 10, ask: 20 },
+            pro: { act: 200, ask: 300 },
+            master: { act: Infinity, ask: Infinity }
+        };
+
+        const limitObj = limits[plan] || limits.free;
+        const limit = limitObj[mode];
+        const currentCount = user[`${mode}Count`] || 0;
+
+        const progressBar = document.getElementById('rateLimitProgress');
+        const textLabel = document.getElementById('rateLimitText');
+
+        if (plan === 'master') {
+            if (progressBar) progressBar.style.width = '100%';
+            if (textLabel) textLabel.innerHTML = '<span class="rate-limit-infinity">∞</span>';
+        } else {
+            const percentage = Math.min(100, (currentCount / limit) * 100);
+            if (progressBar) progressBar.style.width = `${percentage}%`;
+            if (textLabel) textLabel.textContent = `${currentCount}/${limit}`;
+
+            // Color indication
+            if (percentage > 90) {
+                if (progressBar) progressBar.style.background = '#ef4444';
+            } else {
+                if (progressBar) progressBar.style.background = 'var(--accent-color)';
+            }
+        }
+    }
+
+    parseErrorMessage(rawError) {
+        if (typeof rawError === 'object' && rawError !== null) {
+            if (rawError.message) return this.parseErrorMessage(rawError.message);
+            try { return JSON.stringify(rawError); } catch(e) { return 'Unknown error object'; }
+        }
+
+        const errorString = String(rawError || '');
+
+        // Map of technical error patterns to user-friendly messages
+        const errorMappings = [
+            { pattern: /User profile not loaded/i, message: 'Please sign in to continue.' },
+            { pattern: /Authentication required/i, message: 'Please sign in to continue.' },
+            { pattern: /Rate limit exceeded/i, message: 'You\'ve reached your usage limit. Please upgrade your plan or wait.' },
+            { pattern: /quota.*exceeded|exceeded.*quota/i, message: 'Unable to connect to AI. Please try again later.' },
+            { pattern: /429|too many requests/i, message: 'Service temporarily busy. Please try again in a moment.' },
+            { pattern: /fetch failed|ECONNREFUSED|ENOTFOUND/i, message: 'Connection failed. Please check your internet or ensure the local AI server (Ollama) is running.' },
+            { pattern: /timeout/i, message: 'Request timed out. Please try again.' },
+            { pattern: /API.*key.*invalid|invalid.*API.*key/i, message: 'Configuration error. Please contact support.' },
+            { pattern: /User not found/i, message: 'Account not found. Please check your credentials.' },
+            { pattern: /Database not initialized/i, message: 'Service temporarily unavailable. Please try again.' },
+        ];
+
+        // Remove "Error invoking remote method 'xxx':" prefix
+        let cleanedError = errorString.replace(/Error invoking remote method '[^']+':?\s*/gi, '');
+        cleanedError = cleanedError.replace(/^Error:\s*/i, '');
+
+        // Check for pattern matches
+        for (const mapping of errorMappings) {
+            if (mapping.pattern.test(cleanedError)) {
+                return mapping.message;
+            }
+        }
+
+        // If no pattern matches, return first sentence for brevity
+        const firstSentence = cleanedError.split(/[.!?]/)[0].trim();
+        return firstSentence || 'An error occurred. Please try again.';
+    }
+
+
+    async openSettings() {
+        try {
+            if (window.chatAPI) {
+                await window.chatAPI.showSettings();
+            }
+        } catch (error) {
+            console.error('Failed to open settings:', error);
+        }
+    }
+
+    toggleChatVisibility(visible) {
+        const chatContainer = document.querySelector('.chat-container');
+        if (chatContainer) {
+            chatContainer.style.visibility = visible ? 'visible' : 'hidden';
+            chatContainer.style.opacity = visible ? '1' : '0';
+        }
+    }
+
+    async closeChat() {
+        try {
+            if (window.chatAPI && window.chatAPI.hideChat) {
+                await window.chatAPI.hideChat();
+            } else if (window.chatAPI) {
+                await window.chatAPI.closeChat();
+            }
+        } catch (error) {
+            console.error('Failed to close chat:', error);
+        }
+    }
+
+    applyTheme(theme) {
+        if (theme === 'dark') {
+            document.body.classList.add('dark-mode');
+        } else {
+            document.body.classList.remove('dark-mode');
+        }
+    }
+
+    toggleBorderStreak(enabled) {
+        const container = document.querySelector('.chat-container');
+        if (container) {
+            if (enabled !== false) {
+                container.classList.add('streak-active');
+            } else {
+                container.classList.remove('streak-active');
+            }
+        }
+    }
+
+    ensureChatVisible() {
+        const chatContainer = document.querySelector('.chat-container');
+        if (chatContainer) {
+            chatContainer.style.visibility = 'visible';
+            chatContainer.style.opacity = '1';
+        }
+    }
+
+    async showChat() {
+        try {
+            if (window.chatAPI && window.chatAPI.showChat) {
+                await window.chatAPI.showChat();
+            } else {
+                this.ensureChatVisible();
+            }
+        } catch (error) {
+            this.ensureChatVisible();
+        }
+    }
+
+    async loadSettings() {
+        try {
+            if (window.chatAPI && window.chatAPI.getSettings) {
+                const settings = await window.chatAPI.getSettings();
+                this.settings = settings;
+                this.autoSendEnabled = settings.autoSendAfterWakeWord || false;
+
+                if (settings.userDetails && settings.userDetails.name) {
+                    this.userName = settings.userDetails.name;
+                }
+
+                if (settings.theme) {
+                    this.applyTheme(settings.theme);
+                }
+
+                if (settings.borderStreakEnabled !== undefined) {
+                    this.toggleBorderStreak(settings.borderStreakEnabled);
+                }
+            }
+        } catch (error) {
+            console.error('Failed to load settings:', error);
+        }
+    }
+
+    destroy() {
+        if (window.chatAPI) {
+            window.chatAPI.removeAllListeners('ai-response');
+            window.chatAPI.removeAllListeners('action-start');
+            window.chatAPI.removeAllListeners('action-complete');
+            window.chatAPI.removeAllListeners('task-start');
+            window.chatAPI.removeAllListeners('task-complete');
+            window.chatAPI.removeAllListeners('task-stopped');
+            window.chatAPI.removeAllListeners('backend-error');
+        }
+        if (this.isRecording) {
+            this.stopVoiceRecording();
+        }
+        if (this.speechTimeout) {
+            clearTimeout(this.speechTimeout);
+        }
+    }
+
+    generateSessionId() {
+        return 'session_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+    }
+
+    loadSessions() {
+        try {
+            const stored = localStorage.getItem(this.sessionsStorageKey);
+            this.sessions = stored ? JSON.parse(stored) : [];
+        } catch (error) {
+            this.sessions = [];
+        }
+    }
+
+    saveSessions() {
+        try {
+            localStorage.setItem(this.sessionsStorageKey, JSON.stringify(this.sessions));
+        } catch (error) {
+            console.error('Error saving sessions:', error);
+        }
+    }
+
+    saveCurrentSession() {
+        if (!this.currentSessionId) return;
+        const messages = [];
+        const messageElements = this.messagesContainer.querySelectorAll('.message');
+
+        messageElements.forEach(element => {
+            const content = element.querySelector('.message-content');
+            if (content) {
+                const htmlContent = content.innerHTML || "";
+                const textContent = content.innerText || "";
+                const sender = element.classList.contains('user') ? 'user' : 'ai';
+                messages.push({ sender, text: textContent, html: htmlContent, timestamp: new Date().toISOString() });
+            }
+        });
+
+        let session = this.sessions.find(s => s.id === this.currentSessionId);
+        if (!session) {
+            session = {
+                id: this.currentSessionId,
+                created: new Date().toISOString(),
+                title: messages.length > 0 ? (messages[0].text.substring(0, 50) + '...') : 'Untitled Conversation',
+                messages: []
+            };
+            this.sessions.unshift(session);
+        }
+        session.messages = messages;
+        session.updated = new Date().toISOString();
+        this.saveSessions();
+    }
+
+    deleteSession(sessionId) {
+        this.sessions = this.sessions.filter(s => s.id !== sessionId);
+        this.saveSessions();
+    }
+
+    addMessageActions(container, text, sender) {
+        if (this.currentMode !== 'ask') return;
+
+        // Remove existing actions to avoid duplicates
+        container.querySelector('.message-actions')?.remove();
+
+        const actionsDiv = document.createElement('div');
+        actionsDiv.className = 'message-actions';
+
+        // Copy button
+        const copyBtn = document.createElement('button');
+        copyBtn.className = 'action-btn';
+        copyBtn.title = 'Copy';
+        copyBtn.innerHTML = '<i class="fas fa-copy"></i>';
+        copyBtn.onclick = () => this.copyToClipboard(text, copyBtn);
+        actionsDiv.appendChild(copyBtn);
+
+        if (sender === 'ai') {
+            // Speak button (AI Only)
+            const speakBtn = document.createElement('button');
+            speakBtn.className = 'action-btn';
+            speakBtn.title = 'Speak';
+            speakBtn.innerHTML = '<i class="fas fa-volume-up"></i>';
+            speakBtn.onclick = () => {
+                if (window.chatAPI && window.chatAPI.speakGreeting) {
+                    window.chatAPI.speakGreeting(text);
+                }
+            };
+            actionsDiv.appendChild(speakBtn);
+
+            // Redo button (AI Only)
+            const redoBtn = document.createElement('button');
+            redoBtn.className = 'action-btn';
+            redoBtn.title = 'Redo';
+            redoBtn.innerHTML = '<i class="fas fa-redo"></i>';
+            redoBtn.onclick = () => this.redoLastMessage();
+            actionsDiv.appendChild(redoBtn);
+        }
+
+        if (sender === 'user') {
+            // Edit button (User Only)
+            const editBtn = document.createElement('button');
+            editBtn.className = 'action-btn';
+            editBtn.title = 'Edit';
+            editBtn.innerHTML = '<i class="fas fa-edit"></i>';
+            editBtn.onclick = () => this.editMessage(text, container);
+            actionsDiv.appendChild(editBtn);
+        }
+
+        container.appendChild(actionsDiv);
+    }
+
+    copyToClipboard(text, btn) {
+        navigator.clipboard.writeText(text).then(() => {
+            const originalHTML = btn.innerHTML;
+            btn.innerHTML = '<i class="fas fa-check"></i>';
+            setTimeout(() => btn.innerHTML = originalHTML, 2000);
+        });
+    }
+
+    editMessage(text, messageDiv) {
+        this.chatInput.value = text;
+        this.baseText = text; // Update baseText when editing
+        this.chatInput.focus();
+        this.autoResizeTextarea();
+        this.handleSlashCommandInput();
+    }
+
+    redoLastMessage() {
+        if (this.lastUserMessage) {
+            this.chatInput.value = this.lastUserMessage;
+            this.sendMessage();
+        }
+    }
+
+    addCodeMessage(code, language) {
+        const markdown = "```" + language + "\n" + code + "\n```";
+        this.addMessage(markdown, 'ai', false, null, true);
+    }
+
+    restoreSession(sessionId) {
+        const session = this.sessions.find(s => s.id === sessionId);
+        if (!session) return;
+        this.currentSessionId = sessionId;
+
+        // Ensure welcome screen is attached to messages container
+        if (this.welcomeScreen && !this.messagesContainer.contains(this.welcomeScreen)) {
+            this.messagesContainer.prepend(this.welcomeScreen);
+        }
+
+        // Clear all messages except the welcome screen
+        const messages = Array.from(this.messagesContainer.children);
+        messages.forEach(msg => {
+            if (msg.id !== 'welcomeScreen') {
+                msg.remove();
+            }
+        });
+
+        this.messageGroups.clear();
+        this.collapsedGroups.clear();
+        this.baseText = '';
+        this.handleSlashCommandInput();
+
+        if (session.messages && session.messages.length > 0) {
+            session.messages.forEach(msg => {
+                const messageDiv = document.createElement('div');
+                messageDiv.className = `message ${msg.sender}`;
+                const contentDiv = document.createElement('div');
+                contentDiv.className = 'message-content';
+                if (msg.html) {
+                    contentDiv.innerHTML = msg.html;
+                } else {
+                    contentDiv.innerHTML = this.parseMarkdown(msg.text || '');
+                }
+                messageDiv.appendChild(contentDiv);
+                this.messagesContainer.appendChild(messageDiv);
+            });
+            this.scrollToBottom();
+            this.hideWelcomeScreen();
+        } else {
+            this.showWelcomeScreen();
+        }
+    }
+
+    showSessionsModal() {
+        let modal = document.getElementById('sessionsModal');
+        if (!modal) {
+            const modalHTML = `
+                <div id="sessionsModal" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.7); z-index: 10000; align-items: center; justify-content: center;">
+                    <div style="background: white; border-radius: 8px; padding: 24px; max-width: 600px; width: 90%; max-height: 80vh; overflow-y: auto; box-shadow: 0 10px 40px rgba(0,0,0,0.3); scrollbar-width: none; -ms-overflow-style: none;" class="sessions-modal-content">
+                        <style>.sessions-modal-content::-webkit-scrollbar { display: none; }</style>
+                        <h2 style="margin: 0 0 16px 0; color: #333; font-size: 20px;">Past Conversations</h2>
+                        <div id="sessionsList" style="margin-bottom: 16px;"></div>
+                        <button onclick="document.getElementById('sessionsModal').style.display = 'none';" style="padding: 8px 16px; background: #333; color: white; border: none; border-radius: 4px; cursor: pointer; width: 100%;">Close</button>
+                    </div>
+                </div>
+            `;
+            document.body.insertAdjacentHTML('beforeend', modalHTML);
+            modal = document.getElementById('sessionsModal');
+        }
+
+        const sessionsList = modal.querySelector('#sessionsList');
+        sessionsList.innerHTML = this.sessions.map(session => `
+            <div style="padding: 12px; border: 1px solid #ddd; border-radius: 4px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center;">
+                <div style="flex: 1; cursor: pointer;" onclick="window.chatWindowInstance.restoreSession('${session.id}'); document.getElementById('sessionsModal').style.display='none';">
+                    <div style="font-weight: 600; color: #333;">${session.title}</div>
+                    <div style="font-size: 12px; color: #999;">
+                        ${session.messages.length} messages • ${new Date(session.created).toLocaleDateString()}
+                    </div>
+                </div>
+                <button onclick="window.chatWindowInstance.deleteSession('${session.id}'); window.chatWindowInstance.showSessionsModal();" style="padding: 6px 10px; background: transparent; color: #ff6b6b; border: 1px solid #ff6b6b; border-radius: 4px; cursor: pointer; margin-left: 8px;" title="Delete conversation">
+                    <i class="fas fa-trash"></i>
+                </button>
+            </div>
+        `).join('') || '<p style="color: #999;">No past conversations yet.</p>';
+
+        // Tap outside to close
+        modal.onclick = (e) => {
+            if (e.target === modal) {
+                modal.style.display = 'none';
+            }
+        };
+
+        modal.style.display = 'flex';
+    }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    window.chatWindowInstance = new ChatWindow();
+});
+
+window.addEventListener('beforeunload', () => {
+    if (window.chatWindowInstance) {
+        window.chatWindowInstance.destroy();
+    }
+});

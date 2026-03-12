@@ -1,0 +1,1916 @@
+const path = require('path');
+const { app, BrowserWindow, globalShortcut, ipcMain, screen, shell, Tray, Menu } = require('electron');
+const fs = require('fs-extra');
+
+// Environment variable loading strategy for bundled apps
+const isDev = require('electron-is-dev');
+const dotenv = require('dotenv');
+
+const possibleEnvPaths = [
+    path.join(__dirname, '../../.env'), // Development
+    path.join(path.dirname(app.getPath('exe')), '.env'), // Production (next to exe)
+    path.join(app.getPath('userData'), '.env'), // Persistent user data folder
+];
+
+for (const envPath of possibleEnvPaths) {
+    if (fs.existsSync(envPath)) {
+        console.log(`[Main] Loading environment from: ${envPath}`);
+        dotenv.config({ path: envPath });
+        break;
+    }
+}
+
+const { spawn } = require('child_process');
+app.disableHardwareAcceleration();
+
+// Global error handlers
+process.on('uncaughtException', (error) => {
+    console.error('[Main] Uncaught Exception:', error);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+    console.error('[Main] Unhandled Rejection at:', promise, 'reason:', reason);
+});
+
+// Import our custom modules
+const WindowManager = require('./window-manager');
+const HotkeyManager = require('./hotkey-manager');
+const SecurityManager = require('./security-manager-fixed');
+const BackendManager = require('./backend-manager-fixed');
+const WakewordManager = require('./wakeword-manager');
+const EdgeTTSManager = require('./edge-tts');
+const VoskServerManager = require('./vosk-server-manager');
+const SettingsManager = require('./settings-manager');
+const firebaseService = require('./firebase-service');
+const workflowManager = require('./workflow-manager');
+const appUtils = require('./app-utils');
+const electronBrowserManager = require('./electron-browser-manager');
+
+class ComputerUseAgent {
+    constructor() {
+        this.isReady = false;
+        this.isQuitting = false;
+        this.isAuthenticated = false; // ✅ NEW: Track authentication state
+        this.tray = null;
+
+        // Initialize managers
+        this.windowManager = new WindowManager();
+        global.windowManager = this.windowManager; // Required for BackendManager broadcasting
+        this.hotkeyManager = new HotkeyManager();
+        this.securityManager = new SecurityManager();
+        this.backendManager = new BackendManager();
+        this.wakewordManager = new WakewordManager();
+        this.workflowQueue = [];
+        this.isProcessingQueue = false;
+        this.edgeTTS = new EdgeTTSManager();
+        this.voskServerManager = new VoskServerManager();
+        this.settingsManager = new SettingsManager();
+
+        // Load persisted settings
+        this.appSettings = this.settingsManager.getSettings();
+        // Initialize defaults if not present
+        if (this.appSettings.autoSendAfterWakeWord === undefined) {
+            this.appSettings.autoSendAfterWakeWord = false;
+        }
+        if (!this.appSettings.lastMode) {
+            this.appSettings.lastMode = 'act';
+        }
+        if (this.appSettings.windowVisibility === undefined) {
+            this.appSettings.windowVisibility = true;
+        }
+        if (this.appSettings.wakeWordToggleChat === undefined) {
+            this.appSettings.wakeWordToggleChat = false;
+        }
+
+        // Make settings available to window manager
+        global.appSettings = this.appSettings;
+
+        this.setupEventHandlers();
+        this.setupIPCHandlers();
+
+        // Listen for hotkey events emitted by HotkeyManager via process.emit
+        process.on('hotkey-triggered', async (payload) => {
+            try {
+                const { event, data } = payload;
+                console.log(`[Main] hotkey-triggered: ${event}`, data || '');
+
+                switch (event) {
+                    case 'wakeword-detected':
+                        // Optimize: Only hide settings if it might be visible (or let toggleChat handle it if needed)
+                        // Checking visibility via window manager state would be faster than OS call
+                        const settingsWin = this.windowManager.getWindow('settings');
+                        if (settingsWin && settingsWin.isVisible()) {
+                            this.windowManager.hideWindow('settings');
+                        }
+
+                        const workflowWin = this.windowManager.getWindow('workflow');
+                        if (workflowWin && workflowWin.isVisible()) {
+                            this.windowManager.hideWindow('workflow');
+                        }
+
+                        if (this.securityManager && this.securityManager.isEnabled() && !this.isAuthenticated) {
+                            console.log('[Main] PIN required');
+                            const mainWin = this.windowManager.getWindow('main');
+                            if (mainWin && !mainWin.isDestroyed()) {
+                                this.windowManager.setInteractive(true);
+                                mainWin.webContents.send('request-pin-and-toggle');
+                            }
+                        } else {
+                            // Track if chat was closed before this wake word
+                            const wasVisible = this.windowManager.chatVisible;
+
+                            // Check if wake word should toggle chat or just open it
+                            if (this.appSettings.wakeWordToggleChat) {
+                                // Toggle mode
+                                await this.windowManager.toggleChat();
+
+                                // Only send wakeword-detected if chat became visible (was closed, now open)
+                                if (this.windowManager.chatVisible && !wasVisible) {
+                                    const chatWin = this.windowManager.getWindow('chat');
+                                    if (chatWin && !chatWin.isDestroyed()) {
+                                        // Send with flag indicating this opened a closed chat
+                                        chatWin.webContents.send('wakeword-detected', { openedChat: true });
+                                    }
+                                }
+                            } else {
+                                // Default behavior: Ensure open
+                                if (!wasVisible) {
+                                    // Chat was closed, open it and start transcription
+                                    await this.windowManager.showWindow('chat');
+
+                                    const chatWin = this.windowManager.getWindow('chat');
+                                    if (chatWin && !chatWin.isDestroyed()) {
+                                        // Send with flag indicating this opened a closed chat
+                                        chatWin.webContents.send('wakeword-detected', { openedChat: true });
+                                    }
+                                } else {
+                                    // Chat already visible, just focus - NO auto-transcription
+                                    const chatWin = this.windowManager.getWindow('chat');
+                                    if (chatWin && !chatWin.isDestroyed()) {
+                                        chatWin.focus();
+                                    }
+                                    console.log('[Main] Chat already visible, not starting auto-transcription');
+                                }
+                            }
+                        }
+                        break;
+                    case 'toggle-chat':
+                        console.log('[Main] Toggle chat event received');
+                        // Hide other windows when toggling chat
+                        this.windowManager.hideWindow('settings');
+                        this.windowManager.hideWindow('workflow');
+
+                        if (this.securityManager && this.securityManager.isEnabled() && !this.isAuthenticated) {
+                            console.log('[Main] PIN required for toggle - requesting authentication');
+                            const mainWin = this.windowManager.getWindow('main');
+                            if (mainWin && !mainWin.isDestroyed()) {
+                                this.windowManager.setInteractive(true);
+                                mainWin.webContents.send('request-pin-and-toggle');
+                            }
+                        } else {
+                            console.log('[Main] Toggle chat - proceed to windowManager.toggleChat()');
+                            await this.windowManager.toggleChat();
+                        }
+                        break;
+                    case 'stop-action':
+                        console.log('[Main] Stop action event received');
+                        this.backendManager.stopTask();
+                        break;
+                    case 'stop-task':
+                        console.log('[Main] Stop task event received');
+                        this.backendManager.stopTask();
+                        break;
+                    default:
+                        console.log('Unhandled hotkey event:', event);
+                }
+            } catch (e) {
+                console.error('Error handling hotkey event:', e);
+            }
+        });
+
+        // Handle invalid picovoice/porcupine key events emitted by wakeword helper
+        process.on('wakeword-invalid-key', async (payload) => {
+            console.warn('[Main] Wakeword invalid key event received:', payload);
+            console.log('[Main] Handling wakeword-invalid-key: disabling voiceActivation and notifying renderers');
+            try {
+                // Turn off the voice activation setting to avoid broken state
+                this.settingsManager.updateSettings({ voiceActivation: false });
+                this.windowManager.broadcast('settings-updated', this.getSettings());
+
+                // Notify renderers for a user-facing message
+                this.windowManager.broadcast('porcupine-key-invalid', { message: payload && payload.message ? payload.message : 'Invalid Picovoice key' });
+            } catch (e) {
+                console.error('[Main] Failed to handle wakeword-invalid-key:', e);
+            }
+        });
+
+        // Handle wakeword errors (e.g., max retries reached)
+        process.on('wakeword-error', async (payload) => {
+            console.error('[Main] Wakeword error event received:', payload);
+            try {
+                // Disable voice activation setting
+                this.settingsManager.updateSettings({ voiceActivation: false });
+                this.windowManager.broadcast('settings-updated', this.getSettings());
+
+                // Notify renderers
+                this.windowManager.broadcast('wakeword-error', {
+                    message: payload && payload.message ? payload.message : 'Wake word detection failed.'
+                });
+            } catch (e) {
+                console.error('[Main] Failed to handle wakeword-error:', e);
+            }
+        });
+    }
+
+    setupEventHandlers() {
+        app.whenReady().then(() => this.onAppReady());
+        app.on('window-all-closed', () => this.onWindowAllClosed());
+        app.on('activate', () => this.onActivate());
+        app.on('will-quit', () => this.onWillQuit());
+        app.on('before-quit', () => {
+            this.isQuitting = true;
+            if (this.windowManager) this.windowManager.isQuitting = true;
+        });
+    }
+
+    async onAppReady() {
+        try {
+            console.log('[Main] Control starting (High Concurrency Mode)...');
+
+            // --- TIER 1: IMMEDIATE PARALLEL EXECUTION ---
+            // These start simultaneously and don't block each other or the UI
+            const firebaseKeysPromise = firebaseService.fetchAndCacheKeys().catch(e => console.warn('[Main] Key fetch error:', e.message));
+            const backendStartPromise = this.backendManager.startBackend();
+            const voskStartPromise = this.voskServerManager.start();
+            const windowInitPromise = this.windowManager.initializeWindows();
+
+            // Fast non-blocking setup
+            this.setupPermissions();
+            if (this.appSettings.voiceResponse) this.edgeTTS.enable(true);
+
+            // --- TIER 2: USER DATA & SESSION ---
+            const cachedUser = firebaseService.checkCachedUser();
+            let userDataPromise = Promise.resolve();
+
+            if (cachedUser) {
+                this.isAuthenticated = true;
+                this.currentUser = cachedUser;
+                this.settingsManager.updateSettings({ userAuthenticated: true, userDetails: cachedUser });
+
+                // Concurrent sync
+                userDataPromise = firebaseService.syncUserData(cachedUser.id).then(syncedUser => {
+                    this.currentUser = syncedUser || cachedUser;
+                    this.settingsManager.updateSettings({ userDetails: this.currentUser });
+                    const userKey = this.currentUser.picovoiceKey || this.currentUser.porcupine_access_key;
+                    if (userKey) process.env.PORCUPINE_ACCESS_KEY = userKey;
+
+                    this.windowManager.broadcast('user-changed', this.currentUser);
+                    this.windowManager.broadcast('settings-updated', this.getSettings());
+                    return this.currentUser;
+                }).catch(e => {
+                    console.warn('[Main] User sync error:', e.message);
+                    return cachedUser;
+                });
+            } else {
+                this.isAuthenticated = false;
+            }
+
+            // --- TIER 3: UI CRITICAL PATH ---
+            // Await only what's needed for the FIRST pixels
+            await windowInitPromise;
+
+            // Show overlay and entry immediately
+            this.windowManager.showWindow('main');
+            await this.windowManager.showWindow('entry');
+
+            const entryWin = this.windowManager.getWindow('entry');
+            if (this.isAuthenticated && entryWin) {
+                entryWin.minimize();
+            }
+
+            // Quick post-UI setup
+            this.hotkeyManager.setupHotkeys(this.appSettings.hotkeys);
+            this.updateWindowVisibility(this.appSettings.windowVisibility);
+            this.startWorkflowScheduler();
+
+            // --- TIER 4: BACKGROUND FINALIZATION ---
+            // Wakeword needs API keys and potentially user data, so it starts after UI is up but concurrently with other Tier 4 tasks
+            const wakewordStartPromise = (async () => {
+                // Wait for keys to be loaded if they aren't already
+                await firebaseKeysPromise;
+                if (this.appSettings.voiceActivation) {
+                    return this.wakewordManager.enable(true);
+                }
+            })();
+
+            Promise.allSettled([
+                firebaseKeysPromise.then(keys => {
+                    if (keys?.gemini) process.env.GEMINI_API_KEY = keys.gemini;
+                    if (keys?.gemini_model) process.env.GEMINI_MODEL = keys.gemini_model;
+                }),
+                userDataPromise,
+                backendStartPromise,
+                voskStartPromise,
+                wakewordStartPromise
+            ]).then(() => {
+                console.log('[Main] All background services and data sync completed');
+                this.backendManager.waitForReady();
+            });
+
+            // Listen for AI streaming chunks
+            this.backendManager.on('ai-stream', (data) => {
+                const chatWin = this.windowManager.getWindow('chat');
+                if (chatWin && !chatWin.isDestroyed()) {
+                    chatWin.webContents.send('ai-stream', data);
+                }
+            });
+
+            // Setup EdgeTTS event listeners for audio state tracking
+            this.edgeTTS.on('speaking', () => {
+                console.log('[Main] Audio started playing');
+                const chatWin = this.windowManager.getWindow('chat');
+                if (chatWin && !chatWin.isDestroyed()) {
+                    chatWin.webContents.send('audio-started', {});
+                }
+            });
+
+            this.edgeTTS.on('stopped', () => {
+                console.log('[Main] Audio segment stopped');
+                // We don't send audio-stopped here to prevent button flickering between sentences
+            });
+
+            this.edgeTTS.on('queue-empty', () => {
+                console.log('[Main] Audio queue empty');
+                const chatWin = this.windowManager.getWindow('chat');
+                if (chatWin && !chatWin.isDestroyed()) {
+                    chatWin.webContents.send('audio-stopped', { queueEmpty: true });
+                }
+            });
+
+
+            // âœ… Listen for AI responses and check settings before speaking
+            this.backendManager.on('ai-response', (data) => {
+                console.log('[Main] AI response received');
+                console.log('[Main] Response data:', JSON.stringify(data, null, 2));
+                console.log('[Main] voiceResponse setting:', this.appSettings.voiceResponse);
+                console.log('[Main] TTS enabled:', this.edgeTTS.isEnabled());
+
+                // Send to renderer for display
+                const chatWin = this.windowManager.getWindow('chat');
+                if (chatWin && !chatWin.isDestroyed()) {
+                    console.log('[Main] Sending AI response to chat window');
+                    chatWin.webContents.send('ai-response', data);
+                } else {
+                    console.log('[Main] Chat window not found or destroyed');
+                }
+
+                // Speak response only if BOTH conditions are met:
+                // 1. voiceResponse setting is enabled
+                // 2. Response contains text
+                if (this.appSettings.voiceResponse && data && data.text) {
+                    console.log('[Main] ✓ All conditions met - Speaking AI response');
+                    const cleanText = this.cleanMarkdownForTTS(data.text);
+                    console.log('[Main] Cleaned text to speak:', cleanText);
+                    this.edgeTTS.speak(cleanText);
+                } else {
+                    console.log('[Main] ✗ Cannot speak response:');
+                    console.log('    - voiceResponse enabled:', this.appSettings.voiceResponse);
+                    console.log('    - Response has text:', !!(data && data.text));
+                    if (data && data.text) {
+                        console.log('    - Text content:', data.text);
+                    }
+                }
+            });
+
+            // Listen for ACT after-message events and treat them as front-facing messages (display + optional TTS)
+            this.backendManager.on('after-message', (data) => {
+                console.log('[Main] After-message received from ACT:', JSON.stringify(data, null, 2));
+
+                // Send to chat window for display (if present)
+                const chatWin = this.windowManager.getWindow('chat');
+                if (chatWin && !chatWin.isDestroyed()) {
+                    chatWin.webContents.send('after-message', data);
+                }
+
+                // Speak the after-message if voice response enabled and text present
+                if (this.appSettings.voiceResponse && data && data.text) {
+                    console.log('[Main] Speaking ACT after-message via EdgeTTS');
+                    const cleanText = this.cleanMarkdownForTTS(data.text);
+                    this.edgeTTS.speak(cleanText);
+                }
+            });
+
+            // Setup system tray
+            this.setupTray();
+
+            this.isReady = true;
+            console.log('[Main] Control initialized successfully');
+
+            // Notify chat window that initialization is complete (for greeting)
+            const chatWin = this.windowManager.getWindow('chat');
+            if (chatWin && !chatWin.isDestroyed()) {
+                // Small delay to ensure chat window is ready
+                setTimeout(() => {
+                    chatWin.webContents.send('app-initialized', {});
+                }, 500);
+            }
+
+        } catch (error) {
+            console.error('[Main] Application initialization failed:', error);
+            app.quit();
+        }
+    }
+
+    setupPermissions() {
+        // Set up security permissions
+        app.on('web-contents-created', (event, contents) => {
+            contents.on('new-window', (event, navigationUrl) => {
+                event.preventDefault();
+                shell.openExternal(navigationUrl);
+            });
+        });
+    }
+
+    setupIPCHandlers() {
+        // Window management
+        ipcMain.handle('show-window', async (event, windowType) => {
+            await this.windowManager.showWindow(windowType);
+            return { success: true };
+        });
+
+        ipcMain.handle('hide-window', (event, windowType) => {
+            this.windowManager.hideWindow(windowType);
+            return { success: true };
+        });
+
+        // ✅ SINGLE toggle-chat handler - checks authentication state internally
+        ipcMain.handle('toggle-chat', async () => {
+            console.log('[Main] toggle-chat handler called');
+
+            // Check if authentication is required
+            if (this.securityManager && this.securityManager.isEnabled() && !this.isAuthenticated) {
+                console.log('[Main] Authentication required, requesting PIN');
+                const mainWin = this.windowManager.getWindow('main');
+                if (mainWin && !mainWin.isDestroyed()) {
+                    this.windowManager.setInteractive(true);
+                    mainWin.webContents.send('request-pin-and-toggle');
+                }
+                return { success: false, needsAuth: true };
+            }
+
+            // User is authenticated or PIN disabled
+            console.log('[Main] Calling windowManager.toggleChat()');
+            const result = await this.windowManager.toggleChat();
+            console.log('[Main] toggleChat result:', result);
+            return result;
+        });
+
+        ipcMain.handle('close-window', (event, windowType) => {
+            this.windowManager.closeWindow(windowType);
+            return { success: true };
+        });
+
+        // Security
+        ipcMain.handle('verify-pin', (event, pin) => {
+            const result = this.securityManager.verifyPin(pin);
+            if (result.valid) {
+                this.isAuthenticated = true; // ✅ Set authentication state
+                this.windowManager.setOverlayInteractive(false);
+                console.log('[Main] PIN verified, user authenticated');
+            }
+            return result;
+        });
+
+        ipcMain.handle('enable-security-pin', async (event, enabled) => {
+            try {
+                const result = await this.securityManager.enablePin(enabled);
+                // If PIN is disabled, clear authentication requirement
+                if (!enabled) {
+                    this.isAuthenticated = false;
+                }
+                return result;
+            } catch (err) {
+                return { success: false, message: err.message };
+            }
+        });
+
+        ipcMain.handle('set-security-pin', async (event, pin) => {
+            try {
+                return await this.securityManager.setPin(pin);
+            } catch (err) {
+                return { success: false, message: err.message };
+            }
+        });
+
+        // Change PIN (requires current PIN)
+        ipcMain.handle('change-pin', async (event, currentPin, newPin) => {
+            try {
+                return await this.securityManager.changePin(currentPin, newPin);
+            } catch (err) {
+                return { success: false, message: err.message };
+            }
+        });
+
+        // Authentication & entry window
+        ipcMain.handle('authenticate-user', async (event, userId) => {
+            try {
+                const result = await firebaseService.getUserById(userId);
+
+                if (result.success) {
+                    this.settingsManager.updateSettings({
+                        userAuthenticated: true,
+                        userDetails: result.user
+                    });
+                }
+
+                return result;
+            } catch (error) {
+                console.error('Authentication error:', error);
+                return {
+                    success: false,
+                    message: 'Authentication failed. Please try again.'
+                };
+            }
+        });
+
+        ipcMain.handle('get-user-info', async () => {
+            try {
+                const settings = this.settingsManager.getSettings();
+
+                // 1. Check memory settings first
+                if (settings.userAuthenticated && settings.userDetails) {
+                    console.log('[Main] Found user details in settings memory');
+
+                    // Try to get a fresher copy from Firebase (with a short timeout so we don't block startup)
+                    try {
+                        const userId = settings.userDetails.id;
+                        if (userId && firebaseService.getUserById) {
+                            const timeoutMs = 3000; // do not stall renderer for long
+                            const fetchPromise = firebaseService.getUserById(userId);
+                            const timed = await Promise.race([
+                                fetchPromise,
+                                new Promise((_, reject) => setTimeout(() => reject(new Error('Firebase timeout')), timeoutMs))
+                            ]).catch(err => {
+                                console.warn('[Main] Quick Firebase check for user failed or timed out:', err.message || err);
+                                return null;
+                            });
+
+                            if (timed && timed.success && timed.user) {
+                                console.log('[Main] get-user-info: refreshed user data from Firebase for', userId);
+                                // update memory and cache
+                                this.settingsManager.updateSettings({ userDetails: timed.user });
+                                this.currentUser = timed.user;
+
+                                return {
+                                    success: true,
+                                    isAuthenticated: true,
+                                    ...timed.user
+                                };
+                            }
+                        }
+                    } catch (e) {
+                        // don't block on errors
+                        console.warn('[Main] get-user-info: error while checking Firebase for fresh user:', e.message || e);
+                    }
+
+                    // Fallback to in-memory copy if no fresh copy available
+                    return {
+                        success: true,
+                        isAuthenticated: true,
+                        ...settings.userDetails
+                    };
+                }
+
+                // 2. Check disk cache fallback (IMPORTANT for Entry Page reliability)
+                const cachedUser = firebaseService.checkCachedUser();
+                if (cachedUser) {
+                    console.log('[Main] Found user details in disk cache (fallback)');
+                    // Restore to settings memory
+                    this.settingsManager.updateSettings({
+                        userAuthenticated: true,
+                        userDetails: cachedUser
+                    });
+                    this.isAuthenticated = true;
+                    this.currentUser = cachedUser;
+
+                    // Try to sync with Firebase now (quick attempt)
+                    try {
+                        if (cachedUser.id && firebaseService.getUserById) {
+                            const timeoutMs = 3000;
+                            const fetchPromise = firebaseService.getUserById(cachedUser.id);
+                            const timed = await Promise.race([
+                                fetchPromise,
+                                new Promise((_, reject) => setTimeout(() => reject(new Error('Firebase timeout')), timeoutMs))
+                            ]).catch(err => {
+                                console.warn('[Main] Quick Firebase check for cached user failed or timed out:', err.message || err);
+                                return null;
+                            });
+
+                            if (timed && timed.success && timed.user) {
+                                console.log('[Main] get-user-info: refreshed cached user from Firebase for', cachedUser.id);
+                                // Update memory and cache
+                                this.settingsManager.updateSettings({ userDetails: timed.user, userAuthenticated: true });
+                                this.currentUser = timed.user;
+
+                                return {
+                                    success: true,
+                                    isAuthenticated: true,
+                                    ...timed.user
+                                };
+                            }
+                        }
+                    } catch (e) {
+                        console.warn('[Main] get-user-info: error while checking Firebase for cached user:', e.message || e);
+                    }
+
+                    return {
+                        success: true,
+                        isAuthenticated: true,
+                        ...cachedUser
+                    };
+                }
+
+                console.log('[Main] No user info found in memory or cache');
+                return {
+                    success: false,
+                    isAuthenticated: false
+                };
+            } catch (error) {
+                console.error('[Main] get-user-info error:', error);
+                return {
+                    success: false,
+                    isAuthenticated: false
+                };
+            }
+        });
+
+        // Entry verification (Firebase placeholder)
+        ipcMain.handle('verify-entry-id', async (event, entryId) => {
+            try {
+                const result = await firebaseService.verifyEntryID(entryId);
+
+                if (result.success) {
+                    this.settingsManager.updateSettings({
+                        userAuthenticated: true,
+                        userDetails: result.user
+                    });
+
+                    this.isAuthenticated = true;
+                    this.currentUser = result.user;
+
+                    // Broadcast user data to all windows
+                    this.windowManager.broadcast('user-changed', result.user);
+                    this.windowManager.broadcast('settings-updated', this.getSettings());
+
+                    await this.windowManager.showWindow('main');
+                }
+
+                return result;
+            } catch (error) {
+                console.error('Entry ID verification error:', error);
+                return {
+                    success: false,
+                    message: 'Verification failed. Please try again.'
+                };
+            }
+        });
+
+        // Picovoice key management (per-user)
+        ipcMain.handle('get-picovoice-key', async () => {
+            try {
+                console.log('[Main] [IPC] get-picovoice-key called');
+                const user = this.currentUser || firebaseService.checkCachedUser();
+                const hasKey = !!(user && (user.picovoiceKey || user.porcupine_access_key));
+                console.log('[Main] [IPC] get-picovoice-key: userFound=', !!user, 'hasKey=', hasKey);
+                return { success: true, key: user ? (user.picovoiceKey || user.porcupine_access_key || null) : null };
+            } catch (e) {
+                console.error('[Main] [IPC] get-picovoice-key error:', e);
+                return { success: false, message: e.message };
+            }
+        });
+
+        ipcMain.handle('set-picovoice-key', async (event, key) => {
+            try {
+                console.log('[Main] [IPC] set-picovoice-key called by renderer (user id=', this.currentUser ? this.currentUser.id : 'none', ')');
+                if (!this.currentUser || !this.currentUser.id) return { success: false, message: 'Not authenticated' };
+
+                // Try to update Firebase but don't let it block local success
+                firebaseService.updateUser(this.currentUser.id, { picovoiceKey: key, porcupine_access_key: key })
+                    .then(res => console.log('[Main] Picovoice key updated in Firebase:', res.success))
+                    .catch(e => console.warn('[Main] Firebase key update failed, using local only:', e.message));
+
+                // Always update local state
+                this.currentUser.picovoiceKey = key;
+                this.currentUser.porcupine_access_key = key;
+                firebaseService.cacheUser(this.currentUser);
+
+                this.settingsManager.updateSettings({ userDetails: this.currentUser });
+                this.windowManager.broadcast('user-changed', this.currentUser);
+
+                // Apply key for current session
+                process.env.PORCUPINE_ACCESS_KEY = key;
+                console.log('[Main] [IPC] Applied picovoice key to process.env');
+
+                // Enable voice activation
+                this.settingsManager.updateSettings({ voiceActivation: true });
+                this.windowManager.broadcast('settings-updated', this.getSettings());
+
+                return { success: true };
+            } catch (e) {
+                console.error('[Main] [IPC] set-picovoice-key failed:', e);
+                return { success: false, message: e.message };
+            }
+        });
+
+        ipcMain.handle('validate-picovoice-key', async (event, key) => {
+            try {
+                console.log('[Main] [IPC] validate-picovoice-key called (key length=', key ? key.length : 0, ')');
+                const WakewordHelper = require('./backends/wakeword-helper');
+
+                // Create a temporary helper with the same logger as the manager if possible
+                const helper = new WakewordHelper({
+                    accessKey: key,
+                    logger: (msg, level) => this.wakewordManager.logWithDevTools(msg, level)
+                });
+
+                const res = await helper.validateAccessKey(key);
+                console.log('[Main] [IPC] validate-picovoice-key result:', res);
+                return res;
+            } catch (e) {
+                console.error('[Main] [IPC] validate-picovoice-key error:', e);
+                return { success: false, message: `Validation error: ${e.message || 'Unknown error'}` };
+            }
+        });
+
+        ipcMain.handle('open-external-url', (event, url) => {
+            try {
+                shell.openExternal(url);
+                return { success: true };
+            } catch (e) {
+                return { success: false, message: e.message };
+            }
+        });
+
+        // Window helpers
+        ipcMain.handle('minimize-window', (event) => {
+            const w = BrowserWindow.fromWebContents(event.sender);
+            if (w) w.minimize();
+            return { success: true };
+        });
+
+        ipcMain.handle('maximize-window', (event) => {
+            const w = BrowserWindow.fromWebContents(event.sender);
+            if (w) {
+                if (w.isMaximized()) w.unmaximize(); else w.maximize();
+            }
+            return { success: true };
+        });
+
+        ipcMain.handle('get-app-version', () => {
+            return { version: app.getVersion() };
+        });
+
+        // Workflow Management
+        ipcMain.handle('get-installed-apps', async () => {
+            return await appUtils.getInstalledApps();
+        });
+
+        ipcMain.handle('get-all-workflows', () => {
+            return workflowManager.getAllWorkflows();
+        });
+
+        ipcMain.handle('save-workflow', (event, workflow) => {
+            return workflowManager.saveWorkflow(workflow);
+        });
+
+        ipcMain.handle('delete-workflow', (event, id) => {
+            return workflowManager.deleteWorkflow(id);
+        });
+
+        ipcMain.handle('toggle-workflow', (event, id, enabled) => {
+            return workflowManager.toggleWorkflow(id, enabled);
+        });
+
+        ipcMain.handle('pick-item', async (event, type) => {
+            const { dialog } = require('electron');
+            const window = BrowserWindow.fromWebContents(event.sender);
+
+            let properties = ['openFile'];
+            if (type === 'app' && process.platform === 'darwin') {
+                properties = ['openFile'];
+            } else if (type === 'app') {
+                properties = ['openFile']; // On Windows/Linux apps are files
+            }
+
+            const result = await dialog.showOpenDialog(window, {
+                properties: properties,
+                title: `Select ${type}`
+            });
+
+            if (!result.canceled && result.filePaths.length > 0) {
+                return result.filePaths[0];
+            }
+            return null;
+        });
+
+        ipcMain.handle('execute-workflow', async (event, id) => {
+            const workflow = workflowManager.getWorkflowById(id);
+            if (workflow) {
+                this.executeWorkflow(workflow);
+                return { success: true };
+            }
+            return { success: false, message: 'Workflow not found' };
+        });
+
+        ipcMain.handle('export-workflow', async (event, id) => {
+            const workflow = workflowManager.getWorkflowById(id);
+            if (!workflow) return { success: false, message: 'Workflow not found' };
+
+            const { dialog } = require('electron');
+            const window = BrowserWindow.fromWebContents(event.sender);
+
+            const result = await dialog.showSaveDialog(window, {
+                title: 'Export Workflow',
+                defaultPath: `workflow-${workflow.name.toLowerCase().replace(/\s+/g, '-')}.json`,
+                filters: [{ name: 'JSON', extensions: ['json'] }]
+            });
+
+            if (!result.canceled && result.filePath) {
+                try {
+                    fs.writeJsonSync(result.filePath, workflow, { spaces: 2 });
+                    return { success: true };
+                } catch (e) {
+                    return { success: false, message: e.message };
+                }
+            }
+            return { success: false };
+        });
+
+        ipcMain.handle('import-skill', async (event) => {
+            const { dialog } = require('electron');
+            const window = BrowserWindow.fromWebContents(event.sender);
+
+            const result = await dialog.showOpenDialog(window, {
+                title: 'Import Skill',
+                filters: [
+                    { name: 'Supported Files', extensions: ['json', 'md', 'txt', 'markdown'] },
+                    { name: 'JSON', extensions: ['json'] },
+                    { name: 'Markdown', extensions: ['md', 'markdown'] },
+                    { name: 'Text', extensions: ['txt'] }
+                ],
+                properties: ['openFile', 'multiSelections']
+            });
+
+            if (!result.canceled && result.filePaths.length > 0) {
+                const storageManager = require('./storage-manager');
+                let totalCount = 0;
+
+                for (const filePath of result.filePaths) {
+                    try {
+                        const ext = path.extname(filePath).toLowerCase();
+                        if (ext === '.json') {
+                            const skillData = fs.readJsonSync(filePath);
+                            const skills = Array.isArray(skillData) ? skillData : [skillData];
+                            for (const skill of skills) {
+                                if (storageManager.addBehavior(skill)) totalCount++;
+                            }
+                        } else if (['.md', '.txt', '.markdown'].includes(ext)) {
+                            const content = fs.readFileSync(filePath, 'utf8');
+                            // Extract name from filename (remove extension and replace special chars)
+                            const name = path.basename(filePath, ext)
+                                .replace(/[^a-zA-Z0-9]/g, ' ')
+                                .split(' ')
+                                .map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+                                .join('');
+
+                            const skill = {
+                                name: name,
+                                description: `Imported from ${path.basename(filePath)}`,
+                                pattern: content.trim()
+                            };
+                            if (storageManager.addBehavior(skill)) totalCount++;
+                        }
+                    } catch (e) {
+                        console.error(`Failed to import skill from ${filePath}:`, e);
+                    }
+                }
+                if (totalCount > 0) {
+                    this.windowManager.broadcast('skills-updated');
+                }
+                return { success: totalCount > 0, count: totalCount };
+            }
+            return { success: false };
+        });
+
+        ipcMain.handle('delete-skill', async (event, name) => {
+            const storageManager = require('./storage-manager');
+            const success = storageManager.deleteBehavior(name);
+            if (success) {
+                this.windowManager.broadcast('skills-updated');
+            }
+            return { success };
+        });
+
+        ipcMain.handle('import-workflow', async (event) => {
+            const { dialog } = require('electron');
+            const window = BrowserWindow.fromWebContents(event.sender);
+
+            const result = await dialog.showOpenDialog(window, {
+                title: 'Import Workflow',
+                filters: [{ name: 'JSON', extensions: ['json'] }],
+                properties: ['openFile']
+            });
+
+            if (!result.canceled && result.filePaths.length > 0) {
+                try {
+                    const workflowData = fs.readJsonSync(result.filePaths[0]);
+                    const importResult = workflowManager.importWorkflows(workflowData);
+                    return importResult;
+                } catch (e) {
+                    return { success: false, message: 'Invalid workflow file' };
+                }
+            }
+            return { success: false };
+        });
+
+        // Close settings window
+        ipcMain.on('close-settings', () => {
+            this.windowManager.hideWindow('settings');
+        });
+
+        // Window dragging
+        ipcMain.on('window-drag', (event, delta) => {
+            const window = BrowserWindow.fromWebContents(event.sender);
+            if (window && !window.isDestroyed()) {
+                const bounds = window.getBounds();
+                window.setPosition(bounds.x + delta.deltaX, bounds.y + delta.deltaY);
+            }
+        });
+
+        // Window visibility
+        ipcMain.handle('set-window-visibility', (event, visible) => {
+            console.log(`[Main] set-window-visibility called with: ${visible}`);
+            this.appSettings.windowVisibility = !!visible;
+            this.updateWindowVisibility(visible);
+            this.settingsManager.updateSettings({ windowVisibility: visible });
+            // Broadcast to all windows to ensure UI state is synced
+            this.windowManager.broadcast('settings-updated', this.getSettings());
+            return { success: true };
+        });
+
+        // Overlay hover: temporarily enable interactions when hovering the floating button
+        ipcMain.on('overlay-hover', (event, isHover) => {
+            try {
+                this.windowManager.setInteractive(!!isHover);
+            } catch (e) {
+                console.error('Failed handling overlay hover:', e);
+            }
+        });
+
+        ipcMain.on('overlay-focus', (event) => {
+            try {
+                const mainWin = this.windowManager.getWindow('main');
+                if (mainWin && !mainWin.isDestroyed()) {
+                    mainWin.show();
+                    mainWin.focus();
+                }
+            } catch (e) {
+                console.error('Failed to focus overlay:', e);
+            }
+        });
+
+        // Logout handler
+        ipcMain.handle('logout', async () => {
+            console.log('[Main] Logout requested');
+            // Clear authentication state
+            this.isAuthenticated = false;
+            this.currentUser = null;
+
+            // Clear cache
+            firebaseService.clearCachedUser();
+
+            // Update settings
+            this.settingsManager.updateSettings({
+                userAuthenticated: false,
+                userDetails: null
+            });
+
+            // Stop any running tasks
+            await this.backendManager.stopTask();
+
+            // Reset UI - Hide windows instead of destroying them to preserve hotkeys
+            this.windowManager.hideWindow('chat');
+
+            // Reload chat to clear previous session state
+            const chatWin = this.windowManager.getWindow('chat');
+            if (chatWin && !chatWin.isDestroyed()) {
+                chatWin.reload();
+            }
+
+            this.windowManager.hideWindow('settings');
+            await this.windowManager.showWindow('entry');
+
+            return { success: true };
+        });
+
+        // New conversation placeholder
+        ipcMain.handle('new-conversation', async () => {
+            // Implement clearing conversation state if stored
+            return { success: true };
+        });
+
+        ipcMain.handle('lock-app', async () => {
+            console.log('[Main] lock-app handler called');
+            this.isAuthenticated = false; // ✅ Clear authentication state
+            // Close chat and settings windows
+            this.windowManager.hideWindow('chat');
+            this.windowManager.hideWindow('settings');
+            // Lock the app
+            const result = this.securityManager.lockApp();
+            console.log('[Main] App locked, showing overlay and entry screen');
+            // Show the main overlay (overlay is always visible but will show PIN modal on interaction)
+            await this.windowManager.showWindow('main');
+            await this.windowManager.showWindow('entry');
+            return result;
+        });
+
+        ipcMain.handle('is-app-locked', () => {
+            const isLocked = this.securityManager.isAppLocked();
+            console.log('[Main] is-app-locked check:', isLocked);
+            return isLocked;
+        });
+
+        ipcMain.handle('read-behaviors', () => {
+            const storageManager = require('./storage-manager');
+            return storageManager.readBehaviors();
+        });
+
+        ipcMain.handle('unlock-app', async (event, pin) => {
+            console.log('[Main] unlock-app handler called');
+            const result = await this.securityManager.unlockApp(pin);
+            if (result.success) {
+                this.isAuthenticated = true; // ✅ Set authentication state
+                console.log('[Main] App unlocked, user authenticated');
+            }
+            return result;
+        });
+
+        // Backend communication
+        ipcMain.handle('set-wakeword-enabled', (event, enabled) => {
+            if (enabled) {
+                // Only enable if globally enabled in settings
+                if (this.appSettings.voiceActivation) {
+                    this.wakewordManager.enable(true);
+                }
+            } else {
+                this.wakewordManager.enable(false);
+            }
+            return true;
+        });
+
+        ipcMain.handle('set-auto-start', (event, enabled) => {
+            console.log('[Main] Setting auto-start to:', enabled);
+            app.setLoginItemSettings({
+                openAtLogin: enabled,
+                path: app.getPath('exe')
+            });
+            this.appSettings.openAtLogin = enabled;
+            this.settingsManager.updateSettings({ openAtLogin: enabled });
+            return { success: true };
+        });
+
+        ipcMain.handle('execute-task', async (event, task, mode) => {
+            console.log('[Main] [IPC] execute-task:', mode, task);
+
+            // Check for workflow keywords if triggers are enabled
+            if (this.appSettings.workflowTriggersEnabled !== false && task.text && !task.skipWorkflowCheck) {
+                const workflows = workflowManager.getAllWorkflows();
+                const matchedWorkflow = workflows.find(wf => {
+                    if (!wf.enabled || wf.trigger.type !== 'keyword') return false;
+                    const keyword = wf.trigger.value.toLowerCase();
+                    return task.text.toLowerCase().includes(keyword);
+                });
+
+                if (matchedWorkflow) {
+                    console.log(`[Main] Keyword trigger hit for workflow: ${matchedWorkflow.name}`);
+                    this.executeWorkflow(matchedWorkflow);
+                    return { success: true, workflowTriggered: true };
+                }
+            }
+
+            // 1. Check Authentication & Profile
+            if (this.securityManager.isEnabled() && !this.isAuthenticated) {
+                throw new Error('Authentication required');
+            }
+
+            const currentUser = this.currentUser || firebaseService.checkCachedUser();
+            if (!currentUser) {
+                throw new Error('User profile not loaded. Please sign in.');
+            }
+
+            // 2. Check Rate Limit
+            const rateResult = await firebaseService.checkRateLimit(currentUser.id, mode);
+            if (!rateResult.allowed) {
+                throw new Error(rateResult.error || 'Rate limit exceeded');
+            }
+
+            // 3. Get API Key based on Plan
+            let apiKey = await firebaseService.getGeminiKey(currentUser.plan);
+            if (!apiKey) {
+                // Try from local keys cache
+                const cachedKeys = firebaseService.getKeys();
+                if (cachedKeys && cachedKeys.gemini) {
+                    apiKey = cachedKeys.gemini;
+                } else {
+                    console.log('Using default env API key');
+                    apiKey = process.env.GEMINI_API_KEY || process.env.GEMINI_FREE_KEY;
+                }
+            }
+            task.api_key = apiKey;
+
+            try {
+                const result = await this.backendManager.executeTask(task, mode, this.getSettings());
+                await firebaseService.incrementTaskCount(currentUser.id, mode);
+
+                // Re-fetch and broadcast updated user data
+                const updatedUser = await firebaseService.getUserById(currentUser.id);
+                if (updatedUser.success) {
+                    this.currentUser = updatedUser.user;
+                    // Update cache
+                    firebaseService.cacheUser(this.currentUser);
+                    // Broadcast
+                    this.settingsManager.updateSettings({ userDetails: this.currentUser });
+                    this.windowManager.broadcast('user-data-updated', this.currentUser);
+                }
+
+                return result;
+            } catch (error) {
+                console.error('[Main] Execute task error:', error);
+                throw error;
+            }
+        });
+
+        ipcMain.handle('transcribe-audio', async (event, audioData, audioType) => {
+            console.log('[Main] [IPC] transcribe-audio requested');
+            return { success: false, message: 'Transcription now handled via WebSockets' };
+        });
+
+        ipcMain.handle('stop-task', () => {
+            return this.backendManager.stopTask();
+        });
+
+        ipcMain.handle('stop-action', () => {
+            console.log('[Main] Stop action requested');
+            return this.backendManager.stopTask();
+        });
+
+        ipcMain.handle('confirm-action', (event, confirmed) => {
+            console.log('[Main] Action confirmation received:', confirmed);
+            if (this.backendManager.actBackend) {
+                this.backendManager.actBackend.handleConfirmation(confirmed);
+            }
+            return { success: true };
+        });
+
+        ipcMain.on('log-to-terminal', (event, message) => {
+            console.log('[Terminal Log]', message);
+        });
+
+        ipcMain.on('register-devtools-window', (event) => {
+            console.log('[Main] DevTools window registered for logging');
+            if (this.wakewordManager) {
+                this.wakewordManager.registerDevToolsWindow(BrowserWindow.fromWebContents(event.sender));
+            }
+        });
+
+        // TTS Control handlers
+        ipcMain.handle('tts-stop', () => {
+            console.log('[Main] [IPC] tts-stop requested');
+            this.edgeTTS.stop();
+            return { success: true };
+        });
+
+        ipcMain.handle('stop-audio', () => {
+            console.log('[Main] [IPC] stop-audio requested');
+            this.edgeTTS.stop();
+            const chatWin = this.windowManager.getWindow('chat');
+            if (chatWin && !chatWin.isDestroyed()) {
+                chatWin.webContents.send('audio-stopped', { manualStop: true });
+            }
+            return { success: true };
+        });
+
+        ipcMain.handle('tts-get-voices', async () => {
+            console.log('[Main] [IPC] tts-get-voices requested');
+            const voices = await this.edgeTTS.getAvailableVoices();
+            console.log('[Main] [IPC] Available voices:', voices);
+            return { success: true, voices };
+        });
+
+        ipcMain.handle('tts-set-voice', (event, voice) => {
+            console.log('[Main] [IPC] tts-set-voice requested:', voice);
+            this.edgeTTS.setVoice(voice);
+            return { success: true };
+        });
+
+        ipcMain.handle('tts-set-rate', (event, rate) => {
+            console.log('[Main] [IPC] tts-set-rate requested:', rate);
+            this.edgeTTS.setRate(rate);
+            return { success: true };
+        });
+
+        ipcMain.handle('tts-set-volume', (event, volume) => {
+            console.log('[Main] [IPC] tts-set-volume requested:', volume);
+            this.edgeTTS.setVolume(volume);
+            return { success: true };
+        });
+
+        ipcMain.handle('tts-test-voice', async (event, voice, rate, volume) => {
+            console.log('[Main] [IPC] tts-test-voice requested:', { voice, rate, volume });
+            this.edgeTTS.setVoice(voice);
+            this.edgeTTS.setRate(rate);
+            this.edgeTTS.setVolume(volume);
+
+            const sampleText = "Hello! This is a sample of how I will sound with your current settings.";
+            this.edgeTTS.speak(sampleText);
+            return { success: true };
+        });
+
+        // Greeting TTS handlers
+        ipcMain.handle('should-speak-greeting', () => {
+            const shouldSpeak = this.appSettings.greetingTTS || false;
+            console.log('[Main] [IPC] should-speak-greeting requested. Setting:', shouldSpeak);
+            return { shouldSpeak };
+        });
+
+        ipcMain.handle('speak-greeting', (event, text) => {
+            console.log('[Main] [IPC] speak-greeting requested:', text);
+            console.log('[Main] [IPC] greetingTTS setting:', this.appSettings.greetingTTS);
+
+            if (this.appSettings.greetingTTS && text) {
+                console.log('[Main] [IPC] ✓ All conditions met - Speaking greeting via EdgeTTS');
+                if (!this.edgeTTS.isEnabled()) {
+                    this.edgeTTS.enable(true);
+                }
+                this.edgeTTS.speak(text);
+                return { success: true, message: 'Greeting spoken' };
+            } else {
+                return { success: false, message: 'Greeting TTS disabled or no text provided' };
+            }
+        });
+
+
+
+        // Settings
+        ipcMain.handle('get-settings', () => {
+            return this.settingsManager.getSettings();
+        });
+
+        ipcMain.handle('save-settings', async (event, settings) => {
+            return await this.saveSettings(settings);
+        });
+
+        ipcMain.handle('update-hotkeys', (event, newHotkeys) => {
+            console.log('[Main] [IPC] update-hotkeys:', newHotkeys);
+
+            // Validate basic structure
+            if (!newHotkeys || !newHotkeys.toggleChat || !newHotkeys.stopAction) {
+                return { success: false, message: 'Invalid hotkey configuration' };
+            }
+
+            // Update settings
+            const success = this.settingsManager.updateSettings({ hotkeys: newHotkeys });
+
+            if (success) {
+                // Update live hotkeys
+                this.hotkeyManager.updateHotkeys(newHotkeys);
+                this.windowManager.broadcast('settings-updated', this.getSettings());
+                return { success: true };
+            }
+
+            return { success: false, message: 'Failed to save hotkey settings' };
+        });
+
+
+
+        ipcMain.handle('update-floating-button', (event, visible) => {
+            // Update appSettings and persist synchronously so subsequent get-settings calls see the change
+            this.appSettings.floatingButtonVisible = visible;
+            // Update settings manager immediately to make get-settings reflect new value
+            try {
+                this.settingsManager.updateSettings({ floatingButtonVisible: visible });
+            } catch (e) {
+                console.error('[Main] Failed to update settings manager for floating button:', e);
+            }
+
+            // Broadcast new settings to all windows so renderers can react immediately
+            try {
+                this.windowManager.broadcast('settings-updated', this.getSettings());
+            } catch (e) {
+                console.error('[Main] Failed to broadcast settings-updated after floating button change:', e);
+            }
+
+            // Ensure global.appSettings is in sync
+            try {
+                global.appSettings = this.appSettings;
+            } catch (e) {
+                console.error('[Main] Failed to update global.appSettings:', e);
+            }
+
+            console.log('[Main] Floating button updated:', visible);
+
+            // Broadcast to overlay window about the toggle so it can enforce visibility immediately
+            const mainWin = this.windowManager.getWindow('main');
+            if (mainWin && !mainWin.isDestroyed()) {
+                mainWin.webContents.send('floating-button-toggle', visible);
+            }
+
+            // Also return the new persisted state
+            return { success: true, floatingButtonVisible: visible };
+        });
+
+        ipcMain.handle('open-website', () => {
+            shell.openExternal('https://controlrebuild-website.vercel.app');
+            return { success: true };
+        });
+
+        // App control
+        ipcMain.handle('quit-app', () => {
+            // Close all windows first (cleanup)
+            this.windowManager.closeAllWindows();
+            // Stop backend
+            this.backendManager.stopBackend();
+            // Quit app
+            this.quitApp();
+            return { success: true };
+        });
+
+        ipcMain.handle('restart-app', () => {
+            app.relaunch();
+            app.exit();
+            return { success: true };
+        });
+
+        // Data Management Handlers
+        ipcMain.handle('delete-all-data', async () => {
+            console.log('[Main] Delete all data requested');
+            try {
+                // Clear settings
+                this.settingsManager.resetSettings();
+
+                // Clear user profile
+                firebaseService.clearCachedUser();
+                this.isAuthenticated = false;
+                this.currentUser = null;
+
+                // Clear workflows
+                workflowManager.deleteAllWorkflows();
+
+                // Clear screenshots
+                const screenshotDir = path.join(os.tmpdir(), "control_screenshots");
+                if (fs.existsSync(screenshotDir)) {
+                    const files = fs.readdirSync(screenshotDir);
+                    for (const file of files) {
+                        fs.unlinkSync(path.join(screenshotDir, file));
+                    }
+                }
+
+                return { success: true };
+            } catch (e) {
+                console.error('Failed to delete all data:', e);
+                return { success: false, message: e.message };
+            }
+        });
+
+        ipcMain.handle('export-data', async () => {
+            console.log('[Main] Export data requested');
+            try {
+                const settings = this.settingsManager.getSettings();
+                const workflows = workflowManager.getAllWorkflows();
+                const data = {
+                    version: '1.0.0',
+                    exportDate: new Date().toISOString(),
+                    settings,
+                    workflows
+                };
+                return { success: true, data };
+            } catch (e) {
+                console.error('Failed to export data:', e);
+                return { success: false, message: e.message };
+            }
+        });
+
+        // Agentic Browser Handlers (Native Electron)
+        ipcMain.handle('browser-navigate', async (event, url) => {
+            console.log(`[Main] Browser navigate: ${url}`);
+            try {
+                return await electronBrowserManager.open(url);
+            } catch (e) {
+                return { success: false, message: e.message };
+            }
+        });
+
+        ipcMain.handle('browser-execute-js', async (event, script) => {
+            console.log(`[Main] Browser execute JS`);
+            try {
+                const result = await electronBrowserManager.executeJs(script);
+                return { success: true, result };
+            } catch (e) {
+                return { success: false, message: e.message };
+            }
+        });
+
+        ipcMain.handle('browser-get-status', async () => {
+            return await electronBrowserManager.getStatus();
+        });
+
+        ipcMain.handle('browser-close', async () => {
+            await electronBrowserManager.close();
+            return { success: true };
+        });
+    }
+
+    getSettings() {
+        const settings = this.settingsManager.getSettings();
+        // Ensure security manager PIN status is reflected
+        // We use the raw pinEnabled property to ensure the toggle state is preserved even before a PIN hash is set
+        settings.pinEnabled = this.securityManager.pinEnabled;
+        // Include autoSendAfterWakeWord, lastMode, windowVisibility, and wakeWordToggleChat
+        settings.autoSendAfterWakeWord = this.appSettings.autoSendAfterWakeWord || false;
+        settings.lastMode = this.appSettings.lastMode || 'act';
+        settings.windowVisibility = this.appSettings.windowVisibility !== undefined ? this.appSettings.windowVisibility : true;
+        settings.wakeWordToggleChat = this.appSettings.wakeWordToggleChat || false;
+        settings.edgeGlowEnabled = this.appSettings.edgeGlowEnabled !== false;
+        settings.borderStreakEnabled = this.appSettings.borderStreakEnabled !== false;
+        settings.workflowTriggersEnabled = this.appSettings.workflowTriggersEnabled !== false;
+        settings.theme = this.appSettings.theme || 'light';
+        settings.chatVisible = this.windowManager.chatVisible;
+        settings.modelProvider = this.appSettings.modelProvider || 'gemini';
+        settings.openrouterModel = this.appSettings.openrouterModel || 'anthropic/claude-3.5-sonnet';
+        settings.openrouterCustomModel = this.appSettings.openrouterCustomModel || '';
+        settings.openrouterApiKey = this.appSettings.openrouterApiKey || '';
+        settings.ollamaUrl = this.appSettings.ollamaUrl || 'http://localhost:11434';
+        settings.ollamaModel = this.appSettings.ollamaModel || 'llama3';
+        settings.universalApiKey = this.appSettings.universalApiKey || '';
+        settings.universalModel = this.appSettings.universalModel || '';
+        settings.universalBaseUrl = this.appSettings.universalBaseUrl || '';
+        settings.cloudRegion = this.appSettings.cloudRegion || '';
+        settings.cloudCredentials = this.appSettings.cloudCredentials || '';
+        settings.cloudModel = this.appSettings.cloudModel || '';
+        settings.openaiApiKey = this.appSettings.openaiApiKey || '';
+        settings.openaiModel = this.appSettings.openaiModel || 'gpt-4o';
+        settings.anthropicApiKey = this.appSettings.anthropicApiKey || '';
+        settings.anthropicModel = this.appSettings.anthropicModel || 'claude-3-5-sonnet-20240620';
+        settings.xaiApiKey = this.appSettings.xaiApiKey || '';
+        settings.xaiModel = this.appSettings.xaiModel || 'grok-beta';
+        settings.deepseekApiKey = this.appSettings.deepseekApiKey || '';
+        settings.deepseekModel = this.appSettings.deepseekModel || 'deepseek-chat';
+        settings.moonshotApiKey = this.appSettings.moonshotApiKey || '';
+        settings.moonshotModel = this.appSettings.moonshotModel || 'moonshot-v1-8k';
+        settings.zaiApiKey = this.appSettings.zaiApiKey || '';
+        settings.zaiModel = this.appSettings.zaiModel || 'zai-model';
+        settings.litellmApiKey = this.appSettings.litellmApiKey || '';
+        settings.litellmModel = this.appSettings.litellmModel || 'gpt-4o';
+        settings.minimaxApiKey = this.appSettings.minimaxApiKey || '';
+        settings.minimaxModel = this.appSettings.minimaxModel || 'abab6.5-chat';
+        settings.lmstudioApiKey = this.appSettings.lmstudioApiKey || '';
+        settings.lmstudioModel = this.appSettings.lmstudioModel || 'model-identifier';
+        settings.ttsVoice = this.appSettings.ttsVoice || 'en-US-AriaNeural';
+        settings.ttsRate = this.appSettings.ttsRate !== undefined ? this.appSettings.ttsRate : 1.0;
+        settings.ttsVolume = this.appSettings.ttsVolume !== undefined ? this.appSettings.ttsVolume : 1.0;
+
+        // Add gemini model from cache
+        const cachedKeys = firebaseService.getKeys();
+        settings.geminiModel = cachedKeys ? cachedKeys.gemini_model : (process.env.GEMINI_MODEL || "gemini-1.5-flash");
+
+        return settings;
+    }
+
+    async executeWorkflow(workflow) {
+        this.workflowQueue.push(workflow);
+        this.processWorkflowQueue();
+    }
+
+    async processWorkflowQueue() {
+        if (this.isProcessingQueue || this.workflowQueue.length === 0) return;
+        this.isProcessingQueue = true;
+
+        while (this.workflowQueue.length > 0) {
+            const workflow = this.workflowQueue.shift();
+            await this.runWorkflow(workflow);
+        }
+
+        this.isProcessingQueue = false;
+    }
+
+    async runWorkflow(workflow) {
+        console.log(`[Main] Running workflow: ${workflow.name}`);
+
+        // Convert steps to natural language instructions
+        let taskDescription = `Perform the workflow: "${workflow.name}".\nSteps:\n`;
+        workflow.steps.forEach((step, index) => {
+            let detail = "";
+            if (step.type === 'app') {
+                if (process.platform === 'win32' && step.value.includes('!')) {
+                    detail = `Open the application with ID: "${step.value}". You can use the terminal command "explorer shell:AppsFolder\\${step.value}" to launch it if it's not already open.`;
+                } else {
+                    detail = `Open application: "${step.value}"`;
+                }
+            }
+            else if (step.type === 'file' || step.type === 'document') detail = `Open file: "${step.value}"`;
+            else if (step.type === 'web_search') detail = `Search the web for: "${step.value}" and retrieve relevant information.`;
+            else if (step.type === 'browser_search') detail = `Search for "${step.value}" using the agentic browser. Open the browser to a search engine, perform the search, and extract relevant data using JS injection if needed.`;
+            else if (step.type === 'nl_task') detail = step.value;
+
+            taskDescription += `${index + 1}. ${detail}\n`;
+        });
+
+        const task = {
+            text: taskDescription,
+            attachments: []
+        };
+
+        // Switch to ACT mode for workflows
+        const mode = 'act';
+
+        try {
+            // Re-use execute-task logic
+            const currentUser = this.currentUser || firebaseService.checkCachedUser();
+            let apiKey = await firebaseService.getGeminiKey(currentUser.plan);
+            if (!apiKey) {
+                const cachedKeys = firebaseService.getKeys();
+                apiKey = (cachedKeys && cachedKeys.gemini) ? cachedKeys.gemini : (process.env.GEMINI_API_KEY || process.env.GEMINI_FREE_KEY);
+            }
+            task.api_key = apiKey;
+
+            // Broadcast task start to chat
+            const chatWin = this.windowManager.getWindow('chat');
+            if (chatWin) {
+                chatWin.webContents.send('workflow-started', { name: workflow.name });
+            }
+
+            await this.backendManager.executeTask(task, mode, this.getSettings());
+            console.log(`[Main] Workflow ${workflow.name} completed`);
+        } catch (error) {
+            console.error(`[Main] Workflow ${workflow.name} failed:`, error);
+        }
+    }
+
+    startWorkflowScheduler() {
+        console.log('[Main] Starting workflow scheduler...');
+        this.lastCheckedMinute = null;
+
+        setInterval(() => {
+            if (this.appSettings.workflowTriggersEnabled === false) return;
+
+            const now = new Date();
+            const currentTime = now.getHours().toString().padStart(2, '0') + ':' + now.getMinutes().toString().padStart(2, '0');
+
+            // Only process if the minute has changed
+            if (this.lastCheckedMinute === currentTime) return;
+            this.lastCheckedMinute = currentTime;
+
+            const currentDayFull = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][now.getDay()];
+            const currentDayShort = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][now.getDay()];
+
+            console.log(`[Scheduler] Checking workflows for ${currentDayFull} ${currentTime}`);
+
+            const workflows = workflowManager.getAllWorkflows();
+            workflows.forEach(wf => {
+                if (wf.enabled && wf.trigger && wf.trigger.type === 'time' && wf.trigger.value === currentTime) {
+                    // Check if today is one of the scheduled days
+                    const days = wf.trigger.days || [];
+                    if (days.length === 0 || days.includes(currentDayFull) || days.includes(currentDayShort)) {
+                        console.log(`[Scheduler] Triggering workflow: ${wf.name}`);
+                        this.executeWorkflow(wf);
+                    }
+                }
+            });
+        }, 10000); // Check every 10 seconds
+    }
+
+    updateWindowVisibility(visible) {
+        console.log(`[Main] Updating window visibility in real-time: ${visible}`);
+        this.appSettings.windowVisibility = visible;
+        global.appSettings = this.appSettings;
+
+        if (this.windowManager) {
+            this.windowManager.updateAllWindowVisibility(visible);
+        }
+    }
+
+    async saveSettings(settings) {
+        console.log('[Main] saveSettings called with updates:', settings);
+        try {
+            const oldSettings = this.settingsManager.getSettings();
+
+            if (settings.securityPin !== undefined) {
+                await this.securityManager.setPin(settings.securityPin);
+            }
+            if (settings.pinEnabled !== undefined) {
+                await this.securityManager.enablePin(settings.pinEnabled);
+                // If disabling PIN, clear authentication requirement
+                if (!settings.pinEnabled) {
+                    this.isAuthenticated = false;
+                }
+            }
+            if (settings.voiceActivation !== undefined) {
+                console.log('[Main] saveSettings: request to set voiceActivation=', !!settings.voiceActivation, 'PORCUPINE_KEY_PRESENT=', !!process.env.PORCUPINE_ACCESS_KEY);
+                this.appSettings.voiceActivation = !!settings.voiceActivation;
+                await this.wakewordManager.enable(this.appSettings.voiceActivation);
+            }
+            if (settings.voiceResponse !== undefined) {
+                this.appSettings.voiceResponse = !!settings.voiceResponse;
+                this.edgeTTS.enable(this.appSettings.voiceResponse);
+            }
+            if (settings.greetingTTS !== undefined) {
+                this.appSettings.greetingTTS = !!settings.greetingTTS;
+            }
+            if (settings.autoSendAfterWakeWord !== undefined) {
+                this.appSettings.autoSendAfterWakeWord = !!settings.autoSendAfterWakeWord;
+            }
+            if (settings.lastMode !== undefined) {
+                this.appSettings.lastMode = settings.lastMode;
+                if (this.appSettings.userDetails) {
+                    this.appSettings.userDetails.lastMode = settings.lastMode;
+                }
+            }
+            if (settings.windowVisibility !== undefined) {
+                this.appSettings.windowVisibility = !!settings.windowVisibility;
+                this.updateWindowVisibility(this.appSettings.windowVisibility);
+            }
+            if (settings.wakeWordToggleChat !== undefined) {
+                this.appSettings.wakeWordToggleChat = !!settings.wakeWordToggleChat;
+            }
+            if (settings.edgeGlowEnabled !== undefined) {
+                this.appSettings.edgeGlowEnabled = !!settings.edgeGlowEnabled;
+            }
+            if (settings.borderStreakEnabled !== undefined) {
+                this.appSettings.borderStreakEnabled = !!settings.borderStreakEnabled;
+            }
+            if (settings.workflowTriggersEnabled !== undefined) {
+                this.appSettings.workflowTriggersEnabled = !!settings.workflowTriggersEnabled;
+            }
+            if (settings.theme !== undefined) {
+                this.appSettings.theme = settings.theme;
+            }
+            if (settings.modelProvider !== undefined) {
+                this.appSettings.modelProvider = settings.modelProvider;
+            }
+            if (settings.openrouterModel !== undefined) {
+                this.appSettings.openrouterModel = settings.openrouterModel;
+            }
+            if (settings.openrouterCustomModel !== undefined) {
+                this.appSettings.openrouterCustomModel = settings.openrouterCustomModel;
+            }
+            if (settings.openrouterApiKey !== undefined) {
+                this.appSettings.openrouterApiKey = settings.openrouterApiKey;
+            }
+            if (settings.ollamaUrl !== undefined) {
+                this.appSettings.ollamaUrl = settings.ollamaUrl;
+            }
+            if (settings.ollamaModel !== undefined) {
+                this.appSettings.ollamaModel = settings.ollamaModel;
+            }
+            if (settings.universalApiKey !== undefined) this.appSettings.universalApiKey = settings.universalApiKey;
+            if (settings.universalModel !== undefined) this.appSettings.universalModel = settings.universalModel;
+            if (settings.universalBaseUrl !== undefined) this.appSettings.universalBaseUrl = settings.universalBaseUrl;
+            if (settings.cloudRegion !== undefined) this.appSettings.cloudRegion = settings.cloudRegion;
+            if (settings.cloudCredentials !== undefined) this.appSettings.cloudCredentials = settings.cloudCredentials;
+            if (settings.cloudModel !== undefined) this.appSettings.cloudModel = settings.cloudModel;
+            if (settings.openaiApiKey !== undefined) this.appSettings.openaiApiKey = settings.openaiApiKey;
+            if (settings.openaiModel !== undefined) this.appSettings.openaiModel = settings.openaiModel;
+            if (settings.anthropicApiKey !== undefined) this.appSettings.anthropicApiKey = settings.anthropicApiKey;
+            if (settings.anthropicModel !== undefined) this.appSettings.anthropicModel = settings.anthropicModel;
+            if (settings.xaiApiKey !== undefined) this.appSettings.xaiApiKey = settings.xaiApiKey;
+            if (settings.xaiModel !== undefined) this.appSettings.xaiModel = settings.xaiModel;
+            if (settings.deepseekApiKey !== undefined) this.appSettings.deepseekApiKey = settings.deepseekApiKey;
+            if (settings.deepseekModel !== undefined) this.appSettings.deepseekModel = settings.deepseekModel;
+            if (settings.moonshotApiKey !== undefined) this.appSettings.moonshotApiKey = settings.moonshotApiKey;
+            if (settings.moonshotModel !== undefined) this.appSettings.moonshotModel = settings.moonshotModel;
+            if (settings.zaiApiKey !== undefined) this.appSettings.zaiApiKey = settings.zaiApiKey;
+            if (settings.zaiModel !== undefined) this.appSettings.zaiModel = settings.zaiModel;
+            if (settings.litellmApiKey !== undefined) this.appSettings.litellmApiKey = settings.litellmApiKey;
+            if (settings.litellmModel !== undefined) this.appSettings.litellmModel = settings.litellmModel;
+            if (settings.minimaxApiKey !== undefined) this.appSettings.minimaxApiKey = settings.minimaxApiKey;
+            if (settings.minimaxModel !== undefined) this.appSettings.minimaxModel = settings.minimaxModel;
+            if (settings.lmstudioApiKey !== undefined) this.appSettings.lmstudioApiKey = settings.lmstudioApiKey;
+            if (settings.lmstudioModel !== undefined) this.appSettings.lmstudioModel = settings.lmstudioModel;
+
+            if (settings.ttsVoice !== undefined) {
+                this.appSettings.ttsVoice = settings.ttsVoice;
+                this.edgeTTS.setVoice(settings.ttsVoice);
+            }
+            if (settings.ttsRate !== undefined) {
+                this.appSettings.ttsRate = settings.ttsRate;
+                this.edgeTTS.setRate(settings.ttsRate);
+            }
+            if (settings.ttsVolume !== undefined) {
+                this.appSettings.ttsVolume = settings.ttsVolume;
+                this.edgeTTS.setVolume(settings.ttsVolume);
+            }
+
+            // Handle hotkeys if present
+            if (settings.hotkeys) {
+                const oldHotkeys = JSON.stringify(oldSettings.hotkeys);
+                const newHotkeys = JSON.stringify(settings.hotkeys);
+
+                if (oldHotkeys !== newHotkeys) {
+                    console.log('[Main] Hotkeys changed, updating manager...');
+                    this.hotkeyManager.updateHotkeys(settings.hotkeys);
+                }
+            }
+
+            // Save all settings to persistent storage
+            this.settingsManager.updateSettings({
+                ...settings,
+                // Ensure critical ones use appSettings state if not provided in updates
+                voiceActivation: this.appSettings.voiceActivation,
+                voiceResponse: this.appSettings.voiceResponse,
+                greetingTTS: this.appSettings.greetingTTS,
+                autoSendAfterWakeWord: this.appSettings.autoSendAfterWakeWord,
+                lastMode: this.appSettings.lastMode,
+                windowVisibility: this.appSettings.windowVisibility,
+                wakeWordToggleChat: this.appSettings.wakeWordToggleChat,
+                edgeGlowEnabled: this.appSettings.edgeGlowEnabled,
+                borderStreakEnabled: this.appSettings.borderStreakEnabled,
+                workflowTriggersEnabled: this.appSettings.workflowTriggersEnabled,
+                theme: this.appSettings.theme,
+                modelProvider: this.appSettings.modelProvider,
+                openrouterModel: this.appSettings.openrouterModel,
+                openrouterCustomModel: this.appSettings.openrouterCustomModel,
+                openrouterApiKey: this.appSettings.openrouterApiKey,
+                ollamaUrl: this.appSettings.ollamaUrl,
+                ollamaModel: this.appSettings.ollamaModel,
+                universalApiKey: this.appSettings.universalApiKey,
+                universalModel: this.appSettings.universalModel,
+                universalBaseUrl: this.appSettings.universalBaseUrl,
+                cloudRegion: this.appSettings.cloudRegion,
+                cloudCredentials: this.appSettings.cloudCredentials,
+                cloudModel: this.appSettings.cloudModel,
+                openaiApiKey: this.appSettings.openaiApiKey,
+                openaiModel: this.appSettings.openaiModel,
+                anthropicApiKey: this.appSettings.anthropicApiKey,
+                anthropicModel: this.appSettings.anthropicModel,
+                xaiApiKey: this.appSettings.xaiApiKey,
+                xaiModel: this.appSettings.xaiModel,
+                deepseekApiKey: this.appSettings.deepseekApiKey,
+                deepseekModel: this.appSettings.deepseekModel,
+                moonshotApiKey: this.appSettings.moonshotApiKey,
+                moonshotModel: this.appSettings.moonshotModel,
+                zaiApiKey: this.appSettings.zaiApiKey,
+                zaiModel: this.appSettings.zaiModel,
+                litellmApiKey: this.appSettings.litellmApiKey,
+                litellmModel: this.appSettings.litellmModel,
+                minimaxApiKey: this.appSettings.minimaxApiKey,
+                minimaxModel: this.appSettings.minimaxModel,
+                lmstudioApiKey: this.appSettings.lmstudioApiKey,
+                lmstudioModel: this.appSettings.lmstudioModel,
+                ttsVoice: this.appSettings.ttsVoice,
+                ttsRate: this.appSettings.ttsRate,
+                ttsVolume: this.appSettings.ttsVolume
+            });
+
+            // Update local clone to match full state
+            this.appSettings = this.settingsManager.getSettings();
+
+            // Broadcast update to all windows
+            this.windowManager.broadcast('settings-updated', this.getSettings());
+
+            return { success: true };
+        } catch (error) {
+            console.error('Failed to save settings:', error);
+            return { success: false, error: error.message };
+        }
+    }
+
+    onWindowAllClosed() {
+        // Don't quit on Windows/Linux when all windows are closed
+        // Keep the app running in background
+        if (process.platform !== 'darwin' && this.isQuitting) {
+            app.quit();
+        }
+    }
+
+    onActivate() {
+        if (!this.isReady) {
+            this.onAppReady();
+        }
+    }
+
+    onWillQuit() {
+        this.hotkeyManager.unregisterAll();
+        if (this.backendManager) this.backendManager.stopBackend();
+        if (this.voskServerManager) this.voskServerManager.stop();
+        this.windowManager.closeAllWindows();
+    }
+
+    setupTray() {
+        try {
+            // Path to tray icon
+            const iconPath = path.join(__dirname, '../../assets/icons/icon-removebg-preview.png');
+
+            // Create tray icon
+            this.tray = new Tray(iconPath);
+            this.tray.setToolTip('Control - AI Assistant');
+
+            // Create tray context menu
+            const contextMenu = Menu.buildFromTemplate([
+                {
+                    label: 'Show/Hide Chat',
+                    click: () => {
+                        this.windowManager.toggleChat();
+                    }
+                },
+                {
+                    label: 'Settings',
+                    click: async () => {
+                        await this.windowManager.showWindow('settings');
+                    }
+                },
+                {
+                    label: 'Sign In / Account',
+                    click: async () => {
+                        await this.windowManager.showWindow('entry');
+                    }
+                },
+                { type: 'separator' },
+                {
+                    label: 'Quit',
+                    click: () => {
+                        this.quitApp();
+                    }
+                }
+            ]);
+
+            this.tray.setContextMenu(contextMenu);
+
+            // Double click to toggle chat
+            this.tray.on('double-click', () => {
+                this.windowManager.toggleChat();
+            });
+
+            console.log('System tray initialized');
+        } catch (error) {
+            console.error('Failed to setup system tray:', error);
+        }
+    }
+
+    quitApp() {
+        this.isQuitting = true;
+        if (this.tray) {
+            this.tray.destroy();
+        }
+        app.quit();
+    }
+
+    cleanMarkdownForTTS(text) {
+        if (!text) return '';
+        return text
+            .replace(/\*\*(.*?)\*\*/g, '$1') // Bold
+            .replace(/\*([^*\n]+)\*/g, '$1') // Italic
+            .replace(/__([^_]+)__/g, '$1') // Bold/Italic
+            .replace(/`([^`]+)`/g, '$1') // Inline code
+            .replace(/```[\s\S]*?```/g, 'Code block skipped') // Code blocks (skip content or say "code")
+            .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1') // Links: [text](url) -> text
+            .replace(/^#+\s+/gm, '') // Headers
+            .replace(/^\s*[-*+]\s+/gm, '') // List bullets
+            .replace(/[*_~`]/g, '') // Remaining markdown symbols
+            .trim();
+    }
+}
+
+// Single instance lock
+const gotTheLock = app.requestSingleInstanceLock();
+
+if (!gotTheLock) {
+    console.log('[Main] Another instance is already running, quitting...');
+    console.log('[Main] Application already running - exiting this instance');
+    app.quit();
+} else {
+    // Create and start the application
+    const agent = new ComputerUseAgent();
+
+    app.on('second-instance', async (event, commandLine, workingDirectory) => {
+        console.log('[Main] Second instance detected, showing entry window');
+        console.log('[Main] Attempting to open entry page for second instance');
+        // If someone tried to run a second instance, we should focus our window.
+        if (agent && agent.windowManager) {
+            // Log the second instance attempt
+            console.log('[Main] Second instance - current authentication state:', agent.isAuthenticated);
+
+            const entryWin = agent.windowManager.getWindow('entry');
+            if (entryWin && !entryWin.isDestroyed()) {
+                console.log('[Main] Entry window exists, showing and focusing it');
+                if (entryWin.isMinimized()) entryWin.restore();
+                entryWin.show();
+                entryWin.focus();
+            } else {
+                // If entry window doesn't exist or was closed, recreate/show it
+                console.log('[Main] Entry window does not exist, creating it');
+                await agent.windowManager.showWindow('entry');
+            }
+        }
+    });
+
+    }

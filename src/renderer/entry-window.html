@@ -1,0 +1,1036 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Control - Entry</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --bg-primary: #ffffff;
+            --bg-secondary: #f7f7f8;
+            --bg-dark: #0d0d0d;
+            --text-primary: #0d0d0d;
+            --text-secondary: #6b6b6b;
+            --text-muted: #999999;
+            --border-color: #e5e5e5;
+            --accent-color: #0d0d0d;
+            --streak-color: #a855f7;
+        }
+
+        body.dark-mode {
+            --bg-primary: #000000;
+            --bg-secondary: #121212;
+            --bg-dark: #ffffff;
+            --text-primary: #ffffff;
+            --text-secondary: #b0b0b0;
+            --text-muted: #888888;
+            --border-color: #333333;
+            --accent-color: #ffffff;
+        }
+
+        body.dark-mode img[alt="Logo"] {
+            filter: brightness(0) invert(1);
+        }
+
+        html,
+        body {
+            width: 100%;
+            height: 100vh;
+            background: var(--bg-primary);
+            display: flex;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            color: var(--text-primary);
+            overflow: hidden;
+            scroll-behavior: smooth;
+        }
+
+        /* Left Section */
+        .left-section {
+            flex: 1;
+            padding: 24px 32px 60px 32px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            background: var(--bg-secondary);
+            border-right: 1px solid var(--border-color);
+            -webkit-app-region: drag;
+            scroll-behavior: smooth;
+        }
+
+        .app-title {
+            font-size: 32px;
+            font-weight: 700;
+            margin-bottom: 4px;
+            color: var(--text-primary);
+        }
+
+        .app-subtitle {
+            font-size: 14px;
+            color: var(--text-secondary);
+            margin-bottom: 24px;
+        }
+
+        .features-list {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .feature-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+        }
+
+        .feature-icon {
+            width: 36px;
+            height: 36px;
+            background: var(--bg-primary);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+
+        .feature-icon svg {
+            width: 18px;
+            height: 18px;
+            stroke: var(--text-primary);
+            fill: none;
+            stroke-width: 2;
+        }
+
+        .feature-content h3 {
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 2px;
+        }
+
+        .feature-content p {
+            font-size: 12px;
+            color: var(--text-secondary);
+            line-height: 1.4;
+        }
+
+        .version-info {
+            position: absolute;
+            bottom: 24px;
+            left: 32px;
+            font-size: 11px;
+            color: var(--text-muted);
+        }
+
+        .tips-section {
+            margin-top: 20px;
+            padding-top: 16px;
+            border-top: 1px solid var(--border-color);
+        }
+
+        .tips-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 16px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .tips-container {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            min-height: 80px;
+            height: 80px;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .tip-item {
+            display: none;
+            gap: 12px;
+            padding: 12px;
+            background: rgba(0, 0, 0, 0.02);
+            border-radius: 8px;
+            border: 1px solid rgba(0, 0, 0, 0.05);
+            opacity: 0;
+            transform: translateY(10px);
+            transition: opacity 0.5s ease, transform 0.5s ease;
+            position: absolute;
+            width: calc(100% - 24px);
+            top: 0;
+            left: 12px;
+        }
+
+        .tip-item.show {
+            opacity: 1;
+            transform: translateY(0);
+            display: flex;
+        }
+
+        .tip-icon {
+            flex-shrink: 0;
+            width: 24px;
+            height: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .tip-icon svg {
+            width: 20px;
+            height: 20px;
+            stroke: var(--text-secondary);
+            fill: none;
+            stroke-width: 2;
+        }
+
+        .tip-content {
+            flex: 1;
+        }
+
+        .tip-title {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 4px;
+        }
+
+        .tip-description {
+            font-size: 12px;
+            color: var(--text-secondary);
+            line-height: 1.5;
+        }
+
+        /* Right Section */
+        .right-section {
+            width: 420px;
+            background: var(--bg-primary);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+        }
+
+        .auth-container {
+            width: 320px;
+            text-align: center;
+        }
+
+        .lock-icon {
+            width: 56px;
+            height: 56px;
+            margin: 0 auto 20px;
+            background: var(--bg-dark);
+            border-radius: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .lock-icon svg {
+            width: 28px;
+            height: 28px;
+            stroke: var(--bg-primary);
+            fill: none;
+            stroke-width: 2;
+        }
+
+        .auth-title {
+            font-size: 22px;
+            font-weight: 600;
+            margin-bottom: 6px;
+        }
+
+        .auth-subtitle {
+            font-size: 14px;
+            color: var(--text-secondary);
+            margin-bottom: 28px;
+        }
+
+        .input-group {
+            text-align: left;
+            margin-bottom: 20px;
+        }
+
+        .input-label {
+            font-size: 13px;
+            font-weight: 500;
+            margin-bottom: 8px;
+            display: block;
+            color: var(--text-primary);
+        }
+
+        .input-wrapper {
+            position: relative;
+        }
+
+        .input-field {
+            width: 100%;
+            padding: 14px 14px 14px 44px;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            color: var(--text-primary);
+            font-size: 15px;
+            outline: none;
+            transition: border-color 0.2s ease;
+        }
+
+        .input-field:focus {
+            border-color: var(--accent-color);
+        }
+
+        .input-field::placeholder {
+            color: var(--text-muted);
+        }
+
+        .input-icon {
+            position: absolute;
+            left: 14px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 18px;
+            height: 18px;
+            stroke: var(--text-muted);
+            fill: none;
+            stroke-width: 2;
+        }
+
+        .connect-button {
+            width: 100%;
+            padding: 14px;
+            background: var(--bg-dark);
+            border: none;
+            border-radius: 10px;
+            color: var(--bg-primary);
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: opacity 0.2s ease;
+            margin-bottom: 16px;
+        }
+
+        .connect-button:hover {
+            opacity: 0.85;
+        }
+
+        .connect-button:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+
+        .auth-footer {
+            font-size: 13px;
+            color: var(--text-secondary);
+        }
+
+        .auth-link {
+            color: var(--text-primary);
+            text-decoration: none;
+            font-weight: 500;
+        }
+
+        .auth-link:hover {
+            text-decoration: underline;
+        }
+
+        /* Window controls */
+        .window-controls {
+            position: absolute;
+            top: 16px;
+            right: 16px;
+            display: flex;
+            gap: 6px;
+            -webkit-app-region: no-drag;
+        }
+
+        .control-button {
+            width: 28px;
+            height: 28px;
+            border-radius: 6px;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            color: var(--text-secondary);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.15s ease;
+        }
+
+        .control-button:hover {
+            background: var(--border-color);
+            color: var(--text-primary);
+        }
+
+        .control-button.close:hover {
+            background: #ef4444;
+            border-color: #ef4444;
+            color: white;
+        }
+
+        /* Loading state */
+        .loading-spinner {
+            display: none;
+            width: 18px;
+            height: 18px;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-top: 2px solid white;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            margin: 0 auto;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        .connect-button.loading .button-text {
+            display: none;
+        }
+
+        .connect-button.loading .loading-spinner {
+            display: block;
+        }
+
+        /* Messages */
+        .error-message,
+        .success-message {
+            display: none;
+            border-radius: 8px;
+            padding: 10px 12px;
+            font-size: 13px;
+            margin-bottom: 16px;
+            text-align: left;
+        }
+
+        .error-message {
+            background: #fef2f2;
+            border: 1px solid #fecaca;
+            color: #dc2626;
+        }
+
+        .success-message {
+            background: #f0fdf4;
+            border: 1px solid #bbf7d0;
+            color: #16a34a;
+        }
+
+        .error-message.show,
+        .success-message.show {
+            display: block;
+        }
+
+        /* Authenticated state */
+        .authenticated-state {
+            display: none;
+        }
+
+        .authenticated-state.show {
+            display: block;
+        }
+
+        .user-info-display {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+
+        .user-avatar-large {
+            width: 56px;
+            height: 56px;
+            border-radius: 50%;
+            background: var(--bg-dark);
+            color: var(--bg-primary);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 22px;
+            font-weight: 600;
+            margin: 0 auto 12px;
+        }
+
+        .user-name-large {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+
+        .user-email-large {
+            font-size: 13px;
+            color: var(--text-secondary);
+            margin-bottom: 8px;
+        }
+
+        .user-plan-large {
+            display: inline-block;
+            background: var(--bg-dark);
+            color: var(--bg-primary);
+            padding: 4px 12px;
+            border-radius: 16px;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+    </style>
+</head>
+
+<body>
+    <!-- Left Section -->
+    <div class="left-section">
+        
+        <div class="app-title">Control</div>
+        <div class="app-subtitle">Your intelligent AI assistant for computer control</div>
+        <!-- <img src="./assets/icons/icon-removebg-preview.png" alt="Logo" style="width: 64px; height: 64px; margin-bottom: 24px; -webkit-app-region: no-drag;"> -->
+
+        <div class="features-list">
+            <div class="feature-item">
+                <div class="feature-icon">
+                    <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                        <rect x="3" y="3" width="18" height="18" rx="2" />
+                        <path d="M3 9h18M9 21V9" />
+                    </svg>
+                </div>
+                <div class="feature-content">
+                    <h3>Overlay Mode</h3>
+                    <p>Click-through overlay stays on top without blocking your workflow.</p>
+                </div>
+            </div>
+
+            <div class="feature-item">
+                <div class="feature-icon">
+                    <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                        <circle cx="12" cy="12" r="3" />
+                        <path
+                            d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
+                    </svg>
+                </div>
+                <div class="feature-content">
+                    <h3>Settings</h3>
+                    <p>Access settings and account management anytime from the panel.</p>
+                </div>
+            </div>
+
+            <div class="feature-item">
+                <div class="feature-icon">
+                    <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+                        <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+                    </svg>
+                </div>
+                <div class="feature-content">
+                    <h3>Quick Toggle</h3>
+                    <p id="hotkeyTipText">Press Ctrl+Space to toggle chat. Alt+Z to stop current task.</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="tips-section">
+            <h3 class="tips-title">Tips & Help</h3>
+            <div class="tips-container">
+                <!-- Tip 1 -->
+                <div class="tip-item">
+                    <div class="tip-icon">
+                        <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <circle cx="12" cy="12" r="10" />
+                            <line x1="12" y1="8" x2="12" y2="12" />
+                            <line x1="12" y1="16" x2="12.01" y2="16" />
+                        </svg>
+                    </div>
+                    <div class="tip-content">
+                        <div class="tip-title">Avoid Interactions During ACT</div>
+                        <div class="tip-description">Don't interact with your computer while ACT mode is running tasks.
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tip 2 -->
+                <div class="tip-item">
+                    <div class="tip-icon">
+                        <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
+                            <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07" />
+                        </svg>
+                    </div>
+                    <div class="tip-content">
+                        <div class="tip-title">Toggle Greetings</div>
+                        <div class="tip-description">Enable or disable greeting voice in settings. Greetings wait if
+                            locked.</div>
+                    </div>
+                </div>
+
+                <!-- Tip 3 -->
+                <div class="tip-item">
+                    <div class="tip-icon">
+                        <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <line x1="1" y1="1" x2="23" y2="23" />
+                            <path d="M16.72 11.06A10.94 10.94 0 0 1 19 12.55" />
+                            <path d="M5 12.55a10.94 10.94 0 0 1 5.17-2.39" />
+                            <path d="M10.71 5.05A16 16 0 0 1 22.58 9" />
+                            <path d="M1.42 9a15.91 15.91 0 0 1 4.7-2.88" />
+                            <path d="M8.53 16.11a6 6 0 0 1 6.95 0" />
+                            <line x1="12" y1="20" x2="12.01" y2="20" />
+                        </svg>
+                    </div>
+                    <div class="tip-content">
+                        <div class="tip-title">Offline Mode</div>
+                        <div class="tip-description">Cached settings and account data work offline. Offline TTS is used
+                            automatically.</div>
+                    </div>
+                </div>
+
+                <!-- Tip 4 -->
+                <div class="tip-item">
+                    <div class="tip-icon">
+                        <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
+                            <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+                            <line x1="12" y1="19" x2="12" y2="23" />
+                            <line x1="8" y1="23" x2="16" y2="23" />
+                        </svg>
+                    </div>
+                    <div class="tip-content">
+                        <div class="tip-title">Wake Word</div>
+                        <div class="tip-description">Say "Hey Control" to activate. Enable auto-send for automatic
+                            transcription.</div>
+                    </div>
+                </div>
+
+                <!-- Tip 5 -->
+                <div class="tip-item">
+                    <div class="tip-icon">
+                        <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <rect x="2" y="4" width="20" height="16" rx="2" ry="2" />
+                            <line x1="6" y1="8" x2="18" y2="8" />
+                            <line x1="6" y1="12" x2="18" y2="12" />
+                            <line x1="6" y1="16" x2="12" y2="16" />
+                        </svg>
+                    </div>
+                    <div class="tip-content">
+                        <div class="tip-title">Keyboard Shortcuts</div>
+                        <div class="tip-description">Ctrl+Space: Toggle chat | Alt+Z: Stop task | Escape: Clear input
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tip 6 -->
+                <div class="tip-item">
+                    <div class="tip-icon">
+                        <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <path
+                                d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" />
+                        </svg>
+                    </div>
+                    <div class="tip-content">
+                        <div class="tip-title">Attachments</div>
+                        <div class="tip-description">Attach images, PDFs, or files. They display with your messages in
+                            chat.</div>
+                    </div>
+                </div>
+
+                <!-- Extra Tips -->
+                <div class="tip-item">
+                    <div class="tip-icon"><svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <circle cx="12" cy="12" r="3" />
+                            <path
+                                d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
+                        </svg></div>
+                    <div class="tip-content">
+                        <div class="tip-title">Model Selection</div>
+                        <div class="tip-description">Choose between different AI models in settings to suit your needs.
+                        </div>
+                    </div>
+                </div>
+
+                <div class="tip-item">
+                    <div class="tip-icon"><svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
+                            <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+                            <line x1="12" y1="19" x2="12" y2="23" />
+                            <line x1="8" y1="23" x2="16" y2="23" />
+                        </svg></div>
+                    <div class="tip-content">
+                        <div class="tip-title">Voice Response</div>
+                        <div class="tip-description">Enable voice responses for a more interactive audible experience.
+                        </div>
+                    </div>
+                </div>
+
+                <div class="tip-item">
+                    <div class="tip-icon"><svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <rect x="3" y="11" width="18" height="11" rx="2" />
+                            <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                        </svg></div>
+                    <div class="tip-content">
+                        <div class="tip-title">Pin Protection</div>
+                        <div class="tip-description">Secure your app with a PIN code in settings for extra privacy.
+                        </div>
+                    </div>
+                </div>
+
+                <div class="tip-item">
+                    <div class="tip-icon"><svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <polyline points="1 4 1 10 7 10" />
+                            <polyline points="23 20 23 14 17 14" />
+                            <path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 0 1 3.51 15" />
+                        </svg></div>
+                    <div class="tip-content">
+                        <div class="tip-title">History Access</div>
+                        <div class="tip-description">Scroll up in chat to view previous conversation history easily.
+                        </div>
+                    </div>
+                </div>
+
+                <div class="tip-item">
+                    <div class="tip-icon"><svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                            <circle cx="12" cy="12" r="3" />
+                        </svg></div>
+                    <div class="tip-content">
+                        <div class="tip-title">Window Visibility</div>
+                        <div class="tip-description">Toggle whether Control windows appear in screen recordings.</div>
+                    </div>
+                </div>
+
+                <div class="tip-item">
+                    <div class="tip-icon"><svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <circle cx="12" cy="12" r="10" />
+                            <line x1="12" y1="16" x2="12" y2="12" />
+                            <line x1="12" y1="8" x2="12.01" y2="8" />
+                        </svg></div>
+                    <div class="tip-content">
+                        <div class="tip-title">Floating Button</div>
+                        <div class="tip-description">Use the floating button for quick access to tools from anywhere.
+                        </div>
+                    </div>
+                </div>
+
+                <div class="tip-item">
+                    <div class="tip-icon"><svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <line x1="22" y1="2" x2="11" y2="13" />
+                            <polygon points="22 2 15 22 11 13 2 9 22 2" />
+                        </svg></div>
+                    <div class="tip-content">
+                        <div class="tip-title">Auto-Send</div>
+                        <div class="tip-description">Enable auto-send to skip pressing enter manually after dictation.
+                        </div>
+                    </div>
+                </div>
+
+                <div class="tip-item">
+                    <div class="tip-icon"><svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <circle cx="12" cy="12" r="10" />
+                            <line x1="15" y1="9" x2="9" y2="15" />
+                            <line x1="9" y1="9" x2="15" y2="15" />
+                        </svg></div>
+                    <div class="tip-content">
+                        <div class="tip-title">Task Cancellation</div>
+                        <div class="tip-description">Use the stop button or Alt+Z to cancel any running task
+                            immediately.</div>
+                    </div>
+                </div>
+
+                <div class="tip-item">
+                    <div class="tip-icon"><svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <rect x="2" y="3" width="20" height="14" rx="2" ry="2" />
+                            <line x1="8" y1="21" x2="16" y2="21" />
+                            <line x1="12" y1="17" x2="12" y2="21" />
+                        </svg></div>
+                    <div class="tip-content">
+                        <div class="tip-title">Multi-Monitor</div>
+                        <div class="tip-description">Control works across multiple monitors seamlessly and intuitively.
+                        </div>
+                    </div>
+                </div>
+
+                <div class="tip-item">
+                    <div class="tip-icon"><svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+                        </svg></div>
+                    <div class="tip-content">
+                        <div class="tip-title">Dark Mode</div>
+                        <div class="tip-description">The interface adapts to your system's dark mode preferences
+                            automatically.</div>
+                    </div>
+                </div>
+
+                <div class="tip-item">
+                    <div class="tip-icon"><svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+                            <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                        </svg></div>
+                    <div class="tip-content">
+                        <div class="tip-title">Privacy Focused</div>
+                        <div class="tip-description">Your data is processed securely. We prioritize your privacy.</div>
+                    </div>
+                </div>
+
+                <div class="tip-item">
+                    <div class="tip-icon"><svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                            <circle cx="12" cy="12" r="3" />
+                        </svg></div>
+                    <div class="tip-content">
+                        <div class="tip-title">Context Awareness</div>
+                        <div class="tip-description">Control understands what's on your screen for better assistance.
+                        </div>
+                    </div>
+                </div>
+
+                <div class="tip-item">
+                    <div class="tip-icon"><svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+                        </svg></div>
+                    <div class="tip-content">
+                        <div class="tip-title">Natural Language</div>
+                        <div class="tip-description">Speak naturally; Control understands context and intent without
+                            commands.</div>
+                    </div>
+                </div>
+
+                <div class="tip-item">
+                    <div class="tip-icon"><svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
+                            <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+                            <line x1="12" y1="19" x2="12" y2="23" />
+                            <line x1="8" y1="23" x2="16" y2="23" />
+                        </svg></div>
+                    <div class="tip-content">
+                        <div class="tip-title">Text-to-Speech</div>
+                        <div class="tip-description">Control can read out responses to you for eyes-free operation.
+                        </div>
+                    </div>
+                </div>
+
+                <div class="tip-item">
+                    <div class="tip-icon"><svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+                            <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+                            <line x1="2" y1="2" x2="22" y2="22" />
+                        </svg></div>
+                    <div class="tip-content">
+                        <div class="tip-title">Silent Mode</div>
+                        <div class="tip-description">Mute notifications in settings for uninterrupted focus time.</div>
+                    </div>
+                </div>
+
+                <div class="tip-item">
+                    <div class="tip-icon"><svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7" />
+                            <line x1="16" y1="5" x2="22" y2="5" />
+                            <line x1="19" y1="2" x2="19" y2="8" />
+                        </svg></div>
+                    <div class="tip-content">
+                        <div class="tip-title">Update Checks</div>
+                        <div class="tip-description">Control automatically checks for updates on startup to keep you
+                            new.</div>
+                    </div>
+                </div>
+
+                <div class="tip-item">
+                    <div class="tip-icon"><svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <path
+                                d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" />
+                        </svg></div>
+                    <div class="tip-content">
+                        <div class="tip-title">Feedback</div>
+                        <div class="tip-description">Send feedback via the help menu to help us improve Control.</div>
+                    </div>
+                </div>
+
+                <div class="tip-item">
+                    <div class="tip-icon"><svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <polyline points="16 18 22 12 16 6" />
+                            <polyline points="8 6 2 12 8 18" />
+                        </svg></div>
+                    <div class="tip-content">
+                        <div class="tip-title">Code Highlighting</div>
+                        <div class="tip-description">Code snippets in chat are syntax-highlighted for better
+                            readability.</div>
+                    </div>
+                </div>
+
+                <div class="tip-item">
+                    <div class="tip-icon"><svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                        </svg></div>
+                    <div class="tip-content">
+                        <div class="tip-title">Copy Code</div>
+                        <div class="tip-description">One-click copy for code blocks in chat saves you time.</div>
+                    </div>
+                </div>
+
+                <div class="tip-item">
+                    <div class="tip-icon"><svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <circle cx="12" cy="12" r="10" />
+                            <polygon points="10 8 16 12 10 16 10 8" />
+                        </svg></div>
+                    <div class="tip-content">
+                        <div class="tip-title">Quick Actions</div>
+                        <div class="tip-description">Use predefined quick action buttons for common tasks instantly.
+                        </div>
+                    </div>
+                </div>
+
+                <div class="tip-item">
+                    <div class="tip-icon"><svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <rect x="4" y="4" width="16" height="16" rx="2" ry="2" />
+                            <rect x="9" y="9" width="6" height="6" />
+                            <line x1="9" y1="1" x2="9" y2="4" />
+                            <line x1="15" y1="1" x2="15" y2="4" />
+                            <line x1="9" y1="20" x2="9" y2="23" />
+                            <line x1="15" y1="20" x2="15" y2="23" />
+                            <line x1="20" y1="9" x2="23" y2="9" />
+                            <line x1="20" y1="14" x2="23" y2="14" />
+                            <line x1="1" y1="9" x2="4" y2="9" />
+                            <line x1="1" y1="14" x2="4" y2="14" />
+                        </svg></div>
+                    <div class="tip-content">
+                        <div class="tip-title">System Info</div>
+                        <div class="tip-description">Control is aware of your OS version and capabilities for best
+                            results.</div>
+                    </div>
+                </div>
+
+                <div class="tip-item">
+                    <div class="tip-icon"><svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <circle cx="12" cy="12" r="10" />
+                            <line x1="4.93" y1="4.93" x2="19.07" y2="19.07" />
+                        </svg></div>
+                    <div class="tip-content">
+                        <div class="tip-title">Accessibility</div>
+                        <div class="tip-description">Designed with high contrast and accessibility standards in mind.
+                        </div>
+                    </div>
+                </div>
+
+                <div class="tip-item">
+                    <div class="tip-icon"><svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M5 12.55a11 11 0 0 1 14.08 0" />
+                            <path d="M1.42 9a16 16 0 0 1 21.16 0" />
+                            <path d="M8.53 16.11a6 6 0 0 1 6.95 0" />
+                            <line x1="12" y1="20" x2="12.01" y2="20" />
+                        </svg></div>
+                    <div class="tip-content">
+                        <div class="tip-title">Network Status</div>
+                        <div class="tip-description">Indicators show your connection status to ensure you're online.
+                        </div>
+                    </div>
+                </div>
+
+                <div class="tip-item">
+                    <div class="tip-icon"><svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+                            <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                        </svg></div>
+                    <div class="tip-content">
+                        <div class="tip-title">Secure Storage</div>
+                        <div class="tip-description">Credentials are encrypted and stored locally for your security.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="version-info">Version 1.0.0</div>
+    </div>
+
+    <!-- Right Section -->
+    <div class="right-section">
+        <div class="window-controls">
+            <button class="control-button" id="minimizeButton">
+                <svg width="10" height="10" viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="2">
+                    <line x1="5" y1="12" x2="19" y2="12" />
+                </svg>
+            </button>
+            <button class="control-button" id="maximizeButton">
+                <svg width="10" height="10" viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="2">
+                    <rect x="3" y="3" width="18" height="18" rx="2" />
+                </svg>
+            </button>
+            <button class="control-button close" id="closeButton">
+                <svg width="10" height="10" viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="2">
+                    <line x1="18" y1="6" x2="6" y2="18" />
+                    <line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
+            </button>
+        </div>
+
+        <div class="auth-container">
+            <div class="lock-icon">
+                <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <rect x="3" y="11" width="18" height="11" rx="2" />
+                    <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                </svg>
+            </div>
+
+            <!-- Unauthenticated State -->
+            <div id="unauthenticatedState">
+                <h2 class="auth-title">Sign In</h2>
+                <p class="auth-subtitle">Enter your unique ID to sync your profile.</p>
+
+                <div class="error-message" id="errorMessage"></div>
+                <div class="success-message" id="successMessage"></div>
+
+                <div class="input-group">
+                    <label class="input-label">User ID</label>
+                    <div class="input-wrapper">
+                        <svg class="input-icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                            <circle cx="12" cy="7" r="4" />
+                        </svg>
+                        <input type="text" id="userIdInput" class="input-field" placeholder="XXXX-XXXX-XXXX"
+                            maxlength="15">
+                    </div>
+                </div>
+
+                <button class="connect-button" id="connectButton">
+                    <span class="button-text">Continue</span>
+                    <div class="loading-spinner"></div>
+                </button>
+
+                <div class="auth-footer">
+                    Don't have an ID? <a href="#" class="auth-link" id="getLink">Get one here</a>
+                </div>
+            </div>
+
+            <!-- Authenticated State -->
+            <div class="authenticated-state" id="authenticatedState">
+                <div class="user-info-display">
+                    <div class="user-avatar-large" id="userAvatar">A</div>
+                    <div class="user-name-large" id="userName">Loading...</div>
+                    <div class="user-email-large" id="userEmail">Loading...</div>
+                    <div class="user-plan-large" id="userPlan">PRO</div>
+                </div>
+
+                <button class="connect-button" id="startButton">
+                    Start Using Control
+                </button>
+
+                <div class="auth-footer">
+                    <a href="#" class="auth-link" id="switchAccount">Use different account</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="entry-window.js"></script>
+</body>
+
+</html>
