@@ -4,25 +4,33 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Control - Lite</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
 
         :root {
-            --glass-bg: rgba(255, 255, 255, 0.75);
+            --glass-bg: rgba(255, 255, 255, 0.8);
             --glass-border: rgba(255, 255, 255, 0.4);
-            --text-primary: #000;
+            --text-primary: #1a1a1a;
+            --text-secondary: #65676b;
             --accent: #000;
-            --shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            --ai-bubble: #ffffff;
+            --user-bubble: #000;
+            --user-text: #fff;
+            --shadow: 0 12px 40px rgba(0, 0, 0, 0.12);
         }
 
         body.dark-mode {
-            --glass-bg: rgba(0, 0, 0, 0.65);
-            --glass-border: rgba(255, 255, 255, 0.1);
-            --text-primary: #fff;
+            --glass-bg: rgba(20, 20, 20, 0.7);
+            --glass-border: rgba(255, 255, 255, 0.08);
+            --text-primary: #f5f5f7;
+            --text-secondary: #a1a1a6;
             --accent: #fff;
-            --shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+            --ai-bubble: #2c2c2e;
+            --user-bubble: #ffffff;
+            --user-text: #000;
+            --shadow: 0 12px 40px rgba(0, 0, 0, 0.4);
         }
 
         html, body {
@@ -30,96 +38,190 @@
             width: 100%;
             overflow: hidden;
             background: transparent !important;
-            font-family: 'Inter', sans-serif;
+            font-family: 'Inter', -apple-system, sans-serif;
         }
 
-        .lite-wrapper {
+        .lite-container {
             height: 100%;
             width: 100%;
             display: flex;
             flex-direction: column;
             justify-content: flex-end;
-            padding: 20px;
-            gap: 12px;
+            padding: 24px;
+            gap: 16px;
+            position: relative;
         }
 
         /* Glassmorphism */
         .glass {
             background: var(--glass-bg);
-            backdrop-filter: blur(20px) saturate(180%);
-            -webkit-backdrop-filter: blur(20px) saturate(180%);
+            backdrop-filter: blur(25px) saturate(160%);
+            -webkit-backdrop-filter: blur(25px) saturate(160%);
             border: 1px solid var(--glass-border);
             box-shadow: var(--shadow);
         }
 
+        /* Messages Window (The "Drawer") */
         .messages-popup {
             flex: 1;
-            max-height: 70vh;
-            border-radius: 24px;
+            max-height: calc(100vh - 160px);
+            border-radius: 28px;
             display: none;
             flex-direction: column;
-            padding: 20px;
             overflow-y: auto;
-            margin-bottom: 4px;
             opacity: 0;
-            transform: translateY(10px);
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            transform: translateY(20px) scale(0.98);
+            transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+            padding: 24px;
+            gap: 20px;
         }
 
         .messages-popup.visible {
             display: flex;
             opacity: 1;
-            transform: translateY(0);
+            transform: translateY(0) scale(1);
         }
 
+        /* Professional Message Styling */
         .message {
-            margin-bottom: 16px;
-            font-size: 14px;
-            line-height: 1.5;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
             max-width: 90%;
+            animation: fadeIn 0.3s ease-out;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(8px); }
+            to { opacity: 1; transform: translateY(0); }
         }
 
         .message.user {
             align-self: flex-end;
-            text-align: right;
-            opacity: 0.8;
+            align-items: flex-end;
         }
 
         .message.ai {
             align-self: flex-start;
+            width: 100%;
         }
 
-        .controls {
+        .bubble {
+            padding: 12px 18px;
+            border-radius: 20px;
+            font-size: 14px;
+            line-height: 1.55;
+            word-wrap: break-word;
+        }
+
+        .user .bubble {
+            background: var(--user-bubble);
+            color: var(--user-text);
+            border-bottom-right-radius: 4px;
+            font-weight: 500;
+        }
+
+        .ai .bubble {
+            background: var(--ai-bubble);
+            color: var(--text-primary);
+            border: 1px solid var(--glass-border);
+            border-top-left-radius: 4px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+        }
+
+        /* Agentic Elements */
+        .thought {
+            font-size: 12px;
+            color: var(--text-secondary);
+            font-style: italic;
+            padding-left: 12px;
+            border-left: 2px solid var(--glass-border);
+            margin: 4px 0;
+        }
+
+        .action-log {
+            background: rgba(128, 128, 128, 0.05);
+            border: 1px solid var(--glass-border);
+            border-radius: 12px;
+            padding: 10px 14px;
             display: flex;
-            justify-content: center;
-            gap: 10px;
+            align-items: center;
+            gap: 12px;
+            font-size: 13px;
+            color: var(--text-secondary);
+            margin-bottom: 8px;
+        }
+
+        .action-icon {
+            color: var(--accent);
+            width: 16px;
+            text-align: center;
+        }
+
+        .action-status {
+            margin-left: auto;
+            font-size: 11px;
+            text-transform: uppercase;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+        }
+
+        .status-running { color: #007aff; }
+        .status-success { color: #34c759; }
+        .status-error { color: #ff3b30; }
+
+        /* Controls Row */
+        .bottom-row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .control-btns {
+            display: flex;
+            gap: 8px;
         }
 
         .control-btn {
-            width: 38px;
-            height: 38px;
+            width: 44px;
+            height: 44px;
             border-radius: 50%;
             display: flex;
             align-items: center;
             justify-content: center;
             cursor: pointer;
-            transition: all 0.2s;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
             color: var(--text-primary);
-            font-size: 14px;
+            font-size: 16px;
         }
 
         .control-btn:hover {
-            transform: translateY(-2px);
-            background: rgba(128, 128, 128, 0.1);
+            transform: scale(1.08);
+            background: var(--accent);
+            color: var(--glass-bg);
+            border-color: var(--accent);
         }
 
+        .control-btn.active {
+            background: var(--accent);
+            color: var(--glass-bg);
+        }
+
+        /* Input Bar */
         .input-bar {
+            flex: 1;
             height: 56px;
             border-radius: 28px;
             display: flex;
             align-items: center;
-            padding: 0 12px;
-            gap: 8px;
+            padding: 0 16px;
+            gap: 12px;
+            transition: all 0.3s;
+        }
+
+        .input-bar:focus-within {
+            box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.1);
+            border-color: rgba(0, 122, 255, 0.3);
         }
 
         textarea {
@@ -128,11 +230,12 @@
             border: none;
             outline: none;
             color: var(--text-primary);
-            font-size: 14px;
+            font-size: 15px;
             font-weight: 500;
             resize: none;
-            max-height: 100px;
-            padding: 10px 0;
+            max-height: 120px;
+            padding: 16px 0;
+            font-family: inherit;
         }
 
         .icon-btn {
@@ -144,120 +247,118 @@
             justify-content: center;
             background: transparent;
             border: none;
-            color: var(--text-primary);
+            color: var(--text-secondary);
             cursor: pointer;
-            transition: 0.2s;
+            transition: all 0.2s;
         }
 
         .icon-btn:hover {
+            color: var(--text-primary);
             background: rgba(128, 128, 128, 0.1);
         }
 
         .send-btn {
             background: var(--accent);
             color: var(--glass-bg);
+            width: 36px;
+            height: 36px;
         }
 
-        /* Scrollbar */
-        .messages-popup::-webkit-scrollbar { width: 4px; }
-        .messages-popup::-webkit-scrollbar-thumb { background: rgba(128,128,128,0.2); border-radius: 10px; }
+        .send-btn:disabled {
+            opacity: 0.3;
+            cursor: not-allowed;
+        }
 
-        /* Drag region */
+        /* Markdown Overrides */
+        code { font-family: 'JetBrains Mono', monospace; background: rgba(128,128,128,0.1); padding: 2px 4px; border-radius: 4px; font-size: 0.9em; }
+        pre { background: rgba(0,0,0,0.05); padding: 12px; border-radius: 8px; overflow-x: auto; margin: 8px 0; }
+        .dark-mode pre { background: rgba(255,255,255,0.05); }
+
+        /* Window Drag */
         .drag-handle {
             position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            height: 100%;
-            pointer-events: none;
+            top: 0; left: 0; right: 0; bottom: 0;
             -webkit-app-region: drag;
+            z-index: -1;
         }
 
-        .no-drag {
-            -webkit-app-region: no-drag;
-            pointer-events: auto;
-        }
+        .no-drag { -webkit-app-region: no-drag; }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar { width: 5px; }
+        ::-webkit-scrollbar-thumb { background: rgba(128,128,128,0.3); border-radius: 10px; }
     </style>
 </head>
 <body>
     <div class="drag-handle"></div>
 
-    <div class="lite-wrapper">
-        <div class="messages-popup glass no-drag" id="messagesPopup"></div>
-
-        <div class="controls no-drag">
-            <button class="control-btn glass" id="workflowBtn" title="Workflows"><i class="fas fa-project-diagram"></i></button>
-            <button class="control-btn glass" id="newChatBtn" title="New Chat"><i class="fas fa-plus"></i></button>
-            <button class="control-btn glass" id="settingsBtn" title="Settings"><i class="fas fa-cog"></i></button>
-            <button class="control-btn glass" id="toggleMessages"><i class="fas fa-chevron-up"></i></button>
+    <div class="lite-container">
+        <div class="messages-popup glass no-drag" id="messagesPopup">
+            <!-- Messages go here -->
         </div>
 
-        <div class="input-bar glass no-drag">
-            <button class="icon-btn" id="voiceBtn"><i class="fas fa-microphone"></i></button>
-            <textarea id="chatInput" placeholder="How can I help?" rows="1"></textarea>
-            <button class="icon-btn send-btn" id="sendBtn"><i class="fas fa-arrow-up"></i></button>
+        <div class="bottom-row no-drag">
+            <div class="control-btns">
+                <button class="control-btn glass" id="newChatBtn" title="New Chat"><i class="fas fa-plus"></i></button>
+                <button class="control-btn glass" id="settingsBtn" title="Settings"><i class="fas fa-sliders-h"></i></button>
+                <button class="control-btn glass" id="toggleMessages" title="Toggle Messages"><i class="fas fa-chevron-up"></i></button>
+            </div>
+
+            <div class="input-bar glass">
+                <button class="icon-btn" id="voiceBtn"><i class="fas fa-microphone"></i></button>
+                <textarea id="chatInput" placeholder="Describe a task..." rows="1"></textarea>
+                <button class="icon-btn send-btn" id="sendBtn" disabled><i class="fas fa-arrow-up"></i></button>
+            </div>
         </div>
     </div>
 
     <script src="./js/lib/marked.min.js"></script>
     <script>
-        class LiteWindow {
+        class LiteAgent {
             constructor() {
                 this.popup = document.getElementById('messagesPopup');
                 this.input = document.getElementById('chatInput');
                 this.sendBtn = document.getElementById('sendBtn');
+                this.messagesVisible = false;
+                this.streamContainer = null;
+                this.streamText = "";
+
                 this.init();
             }
 
             async init() {
                 this.setupListeners();
+
                 const settings = await window.chatAPI.getSettings();
-                if (settings.theme === 'dark') document.body.classList.add('dark-mode');
+                this.applySettings(settings);
 
-                window.chatAPI.onAIResponse((e, data) => {
-                    this.addMessage(data.text || data.message, 'ai');
-                    this.forceShowMessages();
-                });
+                window.chatAPI.onAIStream((e, data) => this.handleStream(data.chunk));
+                window.chatAPI.onAIResponse((e, data) => this.handleResponse(data));
 
-                window.chatAPI.onAIStream((e, data) => {
-                    this.handleStream(data.chunk);
-                    this.forceShowMessages();
-                });
+                window.chatAPI.onActionStart((e, data) => this.logAction(data.description, 'running'));
+                window.chatAPI.onActionComplete((e, data) => this.updateAction(data.description, data.success ? 'success' : 'error'));
 
-                window.chatAPI.onSettingsUpdated((e, s) => {
-                    if (s.theme === 'dark') document.body.classList.add('dark-mode');
-                    else document.body.classList.remove('dark-mode');
-
-                    // If layout changed back to classic, window manager handles it, but we can close ourselves
-                    if (s.layout === 'classic') {
-                        // Window manager will hide us
-                    }
-                });
+                window.chatAPI.onSettingsUpdated((e, s) => this.applySettings(s));
 
                 this.input.focus();
             }
 
+            applySettings(settings) {
+                if (settings.theme === 'dark') document.body.classList.add('dark-mode');
+                else document.body.classList.remove('dark-mode');
+            }
+
             setupListeners() {
-                document.getElementById('toggleMessages').onclick = () => {
-                    const isVisible = this.popup.classList.toggle('visible');
-                    document.getElementById('toggleMessages').innerHTML = isVisible ?
-                        '<i class="fas fa-chevron-down"></i>' : '<i class="fas fa-chevron-up"></i>';
-                    if (isVisible) {
-                        this.popup.scrollTop = this.popup.scrollHeight;
-                    }
-                };
-
+                document.getElementById('toggleMessages').onclick = () => this.toggleMessages();
                 document.getElementById('settingsBtn').onclick = () => window.chatAPI.showSettings();
-                document.getElementById('workflowBtn').onclick = () => window.chatAPI.showWindow('workflow');
-
-                document.getElementById('newChatBtn').onclick = () => {
-                    this.popup.innerHTML = '';
-                    this.input.value = '';
-                    this.popup.classList.remove('visible');
-                    document.getElementById('toggleMessages').innerHTML = '<i class="fas fa-chevron-up"></i>';
-                };
+                document.getElementById('newChatBtn').onclick = () => this.reset();
 
                 this.sendBtn.onclick = () => this.sendMessage();
+                this.input.oninput = () => {
+                    this.sendBtn.disabled = !this.input.value.trim();
+                    this.input.style.height = 'auto';
+                    this.input.style.height = Math.min(this.input.scrollHeight, 120) + 'px';
+                };
 
                 this.input.onkeydown = (e) => {
                     if (e.key === 'Enter' && !e.shiftKey) {
@@ -265,17 +366,16 @@
                         this.sendMessage();
                     }
                 };
-
-                this.input.oninput = () => {
-                    this.input.style.height = 'auto';
-                    this.input.style.height = Math.min(this.input.scrollHeight, 100) + 'px';
-                };
             }
 
-            forceShowMessages() {
-                if (!this.popup.classList.contains('visible')) {
-                    this.popup.classList.add('visible');
-                    document.getElementById('toggleMessages').innerHTML = '<i class="fas fa-chevron-down"></i>';
+            toggleMessages(force) {
+                this.messagesVisible = force !== undefined ? force : !this.messagesVisible;
+                this.popup.classList.toggle('visible', this.messagesVisible);
+                document.getElementById('toggleMessages').innerHTML = this.messagesVisible ?
+                    '<i class="fas fa-chevron-down"></i>' : '<i class="fas fa-chevron-up"></i>';
+
+                if (this.messagesVisible) {
+                    setTimeout(() => this.popup.scrollTop = this.popup.scrollHeight, 100);
                 }
             }
 
@@ -284,34 +384,101 @@
                 if (!text) return;
 
                 this.addMessage(text, 'user');
-                this.forceShowMessages();
+                this.toggleMessages(true);
 
                 window.chatAPI.executeTask({ text, attachments: [] }, 'act');
-                this.input.value = '';
-                this.input.style.height = 'auto';
 
-                // Clear stream state
-                this.currentStream = null;
+                this.input.value = '';
+                this.sendBtn.disabled = true;
+                this.input.style.height = 'auto';
+                this.streamContainer = null;
                 this.streamText = "";
             }
 
-            addMessage(text, sender) {
-                const div = document.createElement('div');
-                div.className = `message ${sender}`;
-                div.innerHTML = sender === 'ai' ? marked.parse(text) : this.escapeHtml(text);
-                this.popup.appendChild(div);
+            addMessage(content, sender, isHtml = false) {
+                const msgDiv = document.createElement('div');
+                msgDiv.className = `message \${sender}`;
+
+                const bubble = document.createElement('div');
+                bubble.className = 'bubble';
+                bubble.innerHTML = isHtml ? content : this.escapeHtml(content);
+
+                msgDiv.appendChild(bubble);
+                this.popup.appendChild(msgDiv);
                 this.popup.scrollTop = this.popup.scrollHeight;
+                return msgDiv;
             }
 
             handleStream(chunk) {
-                if (!this.currentStream) {
-                    this.currentStream = document.createElement('div');
-                    this.currentStream.className = 'message ai';
-                    this.popup.appendChild(this.currentStream);
+                this.toggleMessages(true);
+                if (!this.streamContainer) {
+                    this.streamContainer = this.addMessage('', 'ai', true);
                 }
-                this.streamText = (this.streamText || '') + chunk;
-                this.currentStream.innerHTML = marked.parse(this.streamText);
+                this.streamText += chunk;
+                // Check if it's JSON or markdown
+                if (this.streamText.trim().startsWith('{')) {
+                    this.streamContainer.querySelector('.bubble').innerHTML = '<div class="thought">Thinking...</div>';
+                } else {
+                    this.streamContainer.querySelector('.bubble').innerHTML = marked.parse(this.streamText);
+                }
                 this.popup.scrollTop = this.popup.scrollHeight;
+            }
+
+            handleResponse(data) {
+                this.toggleMessages(true);
+                const text = data.text || data.message;
+                if (!text) return;
+
+                if (this.streamContainer) {
+                    this.streamContainer.querySelector('.bubble').innerHTML = marked.parse(text);
+                } else {
+                    this.addMessage(marked.parse(text), 'ai', true);
+                }
+                this.streamContainer = null;
+                this.streamText = "";
+            }
+
+            logAction(description, status) {
+                this.toggleMessages(true);
+                const log = document.createElement('div');
+                log.className = 'action-log';
+                log.dataset.desc = description;
+
+                let icon = 'fa-cog fa-spin';
+                if (description.toLowerCase().includes('click')) icon = 'fa-mouse-pointer';
+                if (description.toLowerCase().includes('type')) icon = 'fa-keyboard';
+                if (description.toLowerCase().includes('search')) icon = 'fa-search';
+
+                log.innerHTML = \`
+                    <div class="action-icon"><i class="fas \${icon}"></i></div>
+                    <div class="action-desc">\${description}</div>
+                    <div class="action-status status-\${status}">\${status}</div>
+                \`;
+
+                this.popup.appendChild(log);
+                this.popup.scrollTop = this.popup.scrollHeight;
+            }
+
+            updateAction(description, status) {
+                const logs = this.popup.querySelectorAll('.action-log');
+                for (let i = logs.length - 1; i >= 0; i--) {
+                    if (logs[i].dataset.desc === description) {
+                        const statusEl = logs[i].querySelector('.action-status');
+                        statusEl.className = \`action-status status-\${status}\`;
+                        statusEl.textContent = status;
+                        const icon = logs[i].querySelector('.action-icon i');
+                        icon.className = icon.className.replace('fa-spin', '');
+                        break;
+                    }
+                }
+            }
+
+            reset() {
+                this.popup.innerHTML = '';
+                this.toggleMessages(false);
+                this.input.value = '';
+                this.input.style.height = 'auto';
+                this.input.focus();
             }
 
             escapeHtml(text) {
@@ -320,7 +487,10 @@
                 return div.innerHTML;
             }
         }
-        new LiteWindow();
+
+        document.addEventListener('DOMContentLoaded', () => {
+            window.liteAgent = new LiteAgent();
+        });
     </script>
 </body>
 </html>

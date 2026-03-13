@@ -32,14 +32,15 @@ EXPOSE 6080
 
 # Set up working directory
 WORKDIR /home/controluser
-USER controluser
 
 # Entrypoint script to start services
-COPY --chown=controluser:controluser entrypoint.sh .
-RUN chmod +x entrypoint.sh
+COPY entrypoint.sh /home/controluser/entrypoint.sh
+RUN chown controluser:controluser /home/controluser/entrypoint.sh && chmod +x /home/controluser/entrypoint.sh
+
+USER controluser
 
 # Environment variables for VNC
 ENV DISPLAY=:1
 ENV RESOLUTION=1280x800x24
 
-ENTRYPOINT ["./entrypoint.sh"]
+ENTRYPOINT ["/home/controluser/entrypoint.sh"]
