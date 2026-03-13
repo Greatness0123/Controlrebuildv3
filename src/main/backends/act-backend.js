@@ -10,6 +10,7 @@ const Jimp = require("jimp");
 const storageManager = require("../storage-manager");
 const electronBrowserManager = require("../electron-browser-manager");
 const promptManager = require("../prompt-manager");
+const searchManager = require("../search-manager");
 
 const SYSTEM_PROMPT = promptManager.getPrompt('act-system-prompt');
 const GENERAL_SYSTEM_PROMPT = promptManager.getPrompt('act-general-system-prompt');
