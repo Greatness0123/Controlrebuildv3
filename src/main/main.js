@@ -1116,7 +1116,7 @@ class ComputerUseAgent {
                     dbService.cacheUser(this.currentUser);
                     // Broadcast
                     this.settingsManager.updateSettings({ userDetails: this.currentUser });
-                    this.windowManager.broadcast('user-data-updated', this.currentUser);
+                    this.windowManager.broadcast('user-changed', this.currentUser);
                 }
 
                 return result;

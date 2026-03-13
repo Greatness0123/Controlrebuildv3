@@ -2131,9 +2131,6 @@ class ChatWindow {
         }
 
         const isReady = type === 'ready';
-        const isLite = this.settings && this.settings.layout === 'lite';
-        const rateLimitContainer = document.getElementById('rateLimitContainer');
-        const statusContent = document.getElementById('statusContent');
 
         // Clear any existing status timeout
         if (this.statusRevertTimeout) {
@@ -2141,16 +2138,7 @@ class ChatWindow {
             this.statusRevertTimeout = null;
         }
 
-        // Only show rate limit in header for Classic mode when ready
-        if (isReady && !isLite && rateLimitContainer && statusContent) {
-            statusContent.style.display = 'none';
-            rateLimitContainer.style.display = 'flex';
-            this.updateRateLimitDisplay();
-        } else {
-            if (statusContent) statusContent.style.display = 'flex';
-            if (rateLimitContainer) rateLimitContainer.style.display = 'none';
-
-            this.statusText.textContent = text;
+        this.statusText.textContent = text;
             this.statusDot.className = 'status-dot';
             switch (type) {
                 case 'ready': this.statusDot.style.background = '#10b981'; break;
@@ -2170,9 +2158,8 @@ class ChatWindow {
     }
 
     updateRateLimitDisplay() {
-        const rateLimitContainer = document.getElementById('rateLimitContainer');
-        if (!rateLimitContainer) return;
-
+        // Rate limit display moved to Settings -> Account
+        // Keep functionality but remove UI dependency in chat window
         const user = (this.settings && this.settings.userDetails) ? this.settings.userDetails : {};
         // Normalize plan name (Firebase may store "Free Plan", "Pro Plan", "Master Plan" etc.)
         const planRaw = user.plan || 'free';
