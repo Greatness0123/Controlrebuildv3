@@ -44,19 +44,11 @@ ON CONFLICT (key) DO NOTHING;
 -- Users: Authenticated users can read/update their own data
 ALTER TABLE public.users ENABLE ROW LEVEL SECURITY;
 
--- IMPORTANT: Do NOT query public.users inside its own policy (causes infinite recursion).
 CREATE POLICY "Users can read own data" ON public.users
-    FOR SELECT TO authenticated
-    USING (auth.uid() = auth_id);
+    FOR SELECT USING (auth.uid() = auth_id OR id = (SELECT id FROM public.users WHERE auth_id = auth.uid()));
 
 CREATE POLICY "Users can update own data" ON public.users
-    FOR UPDATE TO authenticated
-    USING (auth.uid() = auth_id);
-
--- Allow authenticated users to insert their own profile row (used by website signup).
-CREATE POLICY "Users can insert own data" ON public.users
-    FOR INSERT TO authenticated
-    WITH CHECK (auth.uid() = auth_id);
+    FOR UPDATE USING (auth.uid() = auth_id);
 
 -- App Config: Read-only for authenticated users
 ALTER TABLE public.app_config ENABLE ROW LEVEL SECURITY;

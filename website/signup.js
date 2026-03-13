@@ -119,12 +119,13 @@ class SignupPage {
         this.hideMessages();
 
         try {
-            // Generate unique User ID
+            // Generate unique User ID for app linking
             const userId = await this.db.generateUserId();
 
             // Create user account
             const userData = {
-                id: userId,
+                id: 'u_' + Date.now(),
+                app_id: userId,
                 name: `${firstName} ${lastName}`,
                 email: email,
                 plan: this.selectedPlan + ' Plan',
@@ -139,8 +140,8 @@ class SignupPage {
             // Store user
             await this.db.createUser(userData);
 
-            // Show success message with User ID
-            this.showSuccessMessage(`Account created successfully! Your User ID is: ${userId}`);
+            // Show success message
+            this.showSuccessMessage(`Account created successfully! You can now log in with your email.`);
             this.displayUserId(userId);
 
             // Reset form

@@ -246,8 +246,11 @@ class ChatWindow {
         const workflowButton = document.getElementById('workflowButton');
         if (workflowButton) {
             workflowButton.addEventListener('click', () => {
-                if (window.chatAPI) {
+                console.log('Workflow button clicked');
+                if (window.chatAPI && window.chatAPI.showWindow) {
                     window.chatAPI.showWindow('workflow');
+                } else if (window.chatAPI && window.chatAPI.showWorkflow) {
+                    window.chatAPI.showWorkflow();
                 }
             });
         }
@@ -2128,6 +2131,7 @@ class ChatWindow {
         }
 
         const isReady = type === 'ready';
+        const isLite = this.settings && this.settings.layout === 'lite';
         const rateLimitContainer = document.getElementById('rateLimitContainer');
         const statusContent = document.getElementById('statusContent');
 
@@ -2137,7 +2141,8 @@ class ChatWindow {
             this.statusRevertTimeout = null;
         }
 
-        if (isReady && rateLimitContainer && statusContent) {
+        // Only show rate limit in header for Classic mode when ready
+        if (isReady && !isLite && rateLimitContainer && statusContent) {
             statusContent.style.display = 'none';
             rateLimitContainer.style.display = 'flex';
             this.updateRateLimitDisplay();
@@ -2246,8 +2251,11 @@ class ChatWindow {
 
     async openSettings() {
         try {
-            if (window.chatAPI) {
+            console.log('Opening settings...');
+            if (window.chatAPI && window.chatAPI.showSettings) {
                 await window.chatAPI.showSettings();
+            } else if (window.chatAPI && window.chatAPI.showWindow) {
+                await window.chatAPI.showWindow('settings');
             }
         } catch (error) {
             console.error('Failed to open settings:', error);
