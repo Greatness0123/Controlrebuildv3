@@ -3,7 +3,7 @@
 
 class LoginPage {
     constructor() {
-        this.firebase = new FirebaseService();
+        this.db = new SupabaseService();
         this.setupEventListeners();
     }
 
@@ -27,23 +27,17 @@ class LoginPage {
     }
 
     formatUserId(input) {
-        // Remove non-alphanumeric characters except hyphens
-        let value = input.value.replace(/[^A-Za-z0-9-]/g, '').toUpperCase();
-        
-        // Auto-format as XXXX-XXXX-XXXX-XXXX (24 chars with hyphens)
-        if (value.length > 4 && value.length <= 8) {
-            value = value.slice(0, 4) + '-' + value.slice(4);
-        } else if (value.length > 8 && value.length <= 12) {
-            value = value.slice(0, 4) + '-' + value.slice(4, 8) + '-' + value.slice(8, 12);
-        } else if (value.length > 12 && value.length <= 16) {
-            value = value.slice(0, 4) + '-' + value.slice(4, 8) + '-' + value.slice(8, 12) + '-' + value.slice(12, 16);
-        } else if (value.length > 16 && value.length <= 20) {
-            value = value.slice(0, 4) + '-' + value.slice(4, 8) + '-' + value.slice(8, 12) + '-' + value.slice(12, 16) + '-' + value.slice(16, 20);
-        } else if (value.length > 20) {
-            value = value.slice(0, 4) + '-' + value.slice(4, 8) + '-' + value.slice(8, 12) + '-' + value.slice(12, 16) + '-' + value.slice(16, 20) + '-' + value.slice(20, 24);
+        // Remove all non-alphanumeric characters
+        let value = input.value.replace(/[^A-Za-z0-9]/g, '').toUpperCase();
+
+        // Auto-format as XXXX-XXXX-XXXX-XXXX-XXXX (24 chars with 4 hyphens)
+        let formatted = '';
+        for (let i = 0; i < value.length && i < 20; i++) {
+            if (i > 0 && i % 4 === 0) formatted += '-';
+            formatted += value[i];
         }
-        
-        input.value = value;
+
+        input.value = formatted;
     }
 
     async login() {
@@ -58,7 +52,8 @@ class LoginPage {
             return;
         }
 
-        if (userId.length !== 23 && userId.length !== 24) {
+        // 20 chars + 4 hyphens = 24 chars
+        if (userId.length !== 24) {
             this.showError('Invalid User ID format');
             return;
         }
@@ -69,7 +64,7 @@ class LoginPage {
         try {
             // In a real app, we'd verify the password
             // For demo, we'll just authenticate by User ID
-            const result = await this.firebase.signIn(userId);
+            const result = await this.db.signIn(userId);
 
             if (result.success) {
                 // Redirect to dashboard

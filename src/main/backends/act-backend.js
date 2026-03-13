@@ -11,6 +11,7 @@ const storageManager = require("../storage-manager");
 const electronBrowserManager = require("../electron-browser-manager");
 const promptManager = require("../prompt-manager");
 const searchManager = require("../search-manager");
+const supabaseService = require("../supabase-service");
 
 const SYSTEM_PROMPT = promptManager.getPrompt('act-system-prompt');
 const GENERAL_SYSTEM_PROMPT = promptManager.getPrompt('act-general-system-prompt');
@@ -28,7 +29,7 @@ class ActBackend {
 
     this.stopRequested = false;
     this.screenSize = { width: 1920, height: 1080 };
-    
+
     this.conversationHistory = [];
     this.maxHistoryLength = 20;
     this.currentBlueprint = [];
@@ -78,7 +79,7 @@ class ActBackend {
 
       // Important: Use primary display bounds for perceived screen size to match executeAction scaling
       const primaryDisplay = screen.getPrimaryDisplay();
-      this.screenSize = { 
+      this.screenSize = {
         width: primaryDisplay.bounds.width,
         height: primaryDisplay.bounds.height,
         x: primaryDisplay.bounds.x,
@@ -634,7 +635,7 @@ Analyze the state and determine if the action was successful. Respond ONLY with 
     if (!url) throw new Error(`Endpoint for provider ${provider} not found.`);
 
     if (provider === 'openrouter') {
-      apiKey = settings.openrouterApiKey || (require("../firebase-service").getKeys()?.openrouter);
+      apiKey = settings.openrouterApiKey || (require("../supabase-service").getKeys()?.openrouter);
       model = settings.openrouterModel === "custom" ? settings.openrouterCustomModel : settings.openrouterModel;
     }
 
@@ -792,15 +793,14 @@ Analyze the state and determine if the action was successful. Respond ONLY with 
     }
     this.currentProvider = effectiveProvider;
 
-    const firebaseService = require('../firebase-service');
-    const cachedKeys = firebaseService.getKeys();
+    const cachedKeys = supabaseService.getKeys();
     const defaultGeminiModel = cachedKeys ? cachedKeys.gemini_model : "gemini-1.5-flash";
     const geminiModel = settings.selectedModel || defaultGeminiModel;
 
     if (effectiveProvider === 'gemini') {
       this.setupGeminiAPI(apiKey, geminiModel);
     }
-    const cachedUser = firebaseService.checkCachedUser();
+    const cachedUser = supabaseService.checkCachedUser();
 
     onEvent("task_start", { task: userRequest, show_effects: true });
 
@@ -918,7 +918,7 @@ Analyze screen and provide IMMEDIATE ACTIONS. Respond with JSON.`;
             }
           }
           const response = await result.response;
-          if (response.usageMetadata && cachedUser) firebaseService.updateTokenUsage(cachedUser.id, 'act', response.usageMetadata);
+          if (response.usageMetadata && cachedUser) supabaseService.updateTokenUsage(cachedUser.id, 'act', response.usageMetadata);
         } else {
           throw new Error(`Provider ${effectiveProvider} is not yet fully integrated in this mode. Please use LiteLLM or OpenRouter as a gateway.`);
         }
@@ -1012,12 +1012,12 @@ Analyze screen and provide IMMEDIATE ACTIONS. Respond with JSON.`;
       const provider = settings.modelProvider || 'gemini';
       if (errorStr.includes("quota") || errorStr.includes("exceeded") || errorStr.includes("429")) {
         userMessage = "AI Quota exceeded. Rotating API key for next request. Please try again in a moment.";
-        if (provider === 'openrouter') firebaseService.rotateOpenRouterKey();
-        else firebaseService.rotateGeminiKey();
+        if (provider === 'openrouter') supabaseService.rotateOpenRouterKey();
+        else supabaseService.rotateGeminiKey();
       } else if (errorStr.includes("google_search_retrieval")) {
         userMessage = "Search tool configuration error. Rotating key and updating tool settings. Please retry.";
-        if (provider === 'openrouter') firebaseService.rotateOpenRouterKey();
-        else firebaseService.rotateGeminiKey();
+        if (provider === 'openrouter') supabaseService.rotateOpenRouterKey();
+        else supabaseService.rotateGeminiKey();
       }
 
       onError({ message: userMessage });

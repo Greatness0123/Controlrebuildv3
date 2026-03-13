@@ -1,6 +1,6 @@
 class SignupPage {
     constructor() {
-        this.firebase = new FirebaseService();
+        this.db = new SupabaseService();
         this.selectedPlan = 'Free';
         this.setupEventListeners();
     }
@@ -46,18 +46,18 @@ class SignupPage {
 
     updatePasswordStrength(password) {
         const strengthBar = document.getElementById('passwordStrengthBar');
-        
+
         if (password.length === 0) {
             strengthBar.className = 'password-strength-bar';
             return;
         }
 
         let strength = 0;
-        
+
         // Length check
         if (password.length >= 8) strength++;
         if (password.length >= 12) strength++;
-        
+
         // Character variety checks
         if (/[a-z]/.test(password)) strength++;
         if (/[A-Z]/.test(password)) strength++;
@@ -77,7 +77,7 @@ class SignupPage {
     validatePasswords() {
         const password = document.getElementById('password').value;
         const confirmPassword = document.getElementById('confirmPassword').value;
-        
+
         if (confirmPassword && password !== confirmPassword) {
             document.getElementById('confirmPassword').style.borderColor = '#ef4444';
             return false;
@@ -120,9 +120,9 @@ class SignupPage {
 
         try {
             // Generate unique User ID
-            const userId = await this.firebase.generateUserId();
-            
-            // Create user account (mock implementation)
+            const userId = await this.db.generateUserId();
+
+            // Create user account
             const userData = {
                 id: userId,
                 name: `${firstName} ${lastName}`,
@@ -136,13 +136,13 @@ class SignupPage {
                 passwordLastChanged: new Date()
             };
 
-            // Store user (mock implementation)
-            this.firebase.users.set(userId, userData);
+            // Store user
+            await this.db.createUser(userData);
 
             // Show success message with User ID
             this.showSuccessMessage(`Account created successfully! Your User ID is: ${userId}`);
             this.displayUserId(userId);
-            
+
             // Reset form
             document.getElementById('signupForm').reset();
             document.getElementById('passwordStrengthBar').className = 'password-strength-bar';
@@ -163,7 +163,7 @@ class SignupPage {
     displayUserId(userId) {
         const userIdDisplay = document.getElementById('userIdDisplay');
         const userIdValue = document.getElementById('userIdValue');
-        
+
         userIdValue.textContent = userId;
         userIdDisplay.classList.add('show');
     }
@@ -182,7 +182,7 @@ class SignupPage {
     showError(message) {
         const errorMessage = document.getElementById('errorMessage');
         const successMessage = document.getElementById('successMessage');
-        
+
         errorMessage.textContent = message;
         errorMessage.classList.add('show');
         successMessage.classList.remove('show');
@@ -191,7 +191,7 @@ class SignupPage {
     showSuccessMessage(message) {
         const errorMessage = document.getElementById('errorMessage');
         const successMessage = document.getElementById('successMessage');
-        
+
         successMessage.textContent = message;
         successMessage.classList.add('show');
         errorMessage.classList.remove('show');

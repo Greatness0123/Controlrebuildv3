@@ -15,7 +15,7 @@ class AskBackend {
     this.currentApiKey = null;
     this.stopRequested = false;
     this.setupGeminiAPI();
-    
+
     this.conversationHistory = [];
     this.maxHistoryLength = 20;
   }
@@ -222,7 +222,7 @@ class AskBackend {
 
     // Handle OpenRouter specific logic
     if (provider === 'openrouter') {
-      apiKey = settings.openrouterApiKey || (require("../firebase-service").getKeys()?.openrouter);
+      apiKey = settings.openrouterApiKey || (require("../supabase-service").getKeys()?.openrouter);
       model = settings.openrouterModel === "custom" ? settings.openrouterCustomModel : settings.openrouterModel;
     }
 
@@ -409,15 +409,15 @@ class AskBackend {
         effectiveProvider = "gemini";
     }
 
-    const firebaseService = require("../firebase-service");
-    const cachedKeys = firebaseService.getKeys();
+    const supabaseService = require("../supabase-service");
+    const cachedKeys = supabaseService.getKeys();
     const defaultGeminiModel = cachedKeys ? cachedKeys.gemini_model : "gemini-1.5-flash";
     const geminiModel = settings.selectedModel || defaultGeminiModel;
 
     if (effectiveProvider === "gemini") {
       this.setupGeminiAPI(apiKey, geminiModel);
     }
-    const cachedUser = firebaseService.checkCachedUser();
+    const cachedUser = supabaseService.checkCachedUser();
 
     try {
       const conversationParts = [];
@@ -478,7 +478,7 @@ class AskBackend {
             }
           }
           responseObj = await result.response;
-          if (responseObj.usageMetadata && cachedUser) firebaseService.updateTokenUsage(cachedUser.id, "ask", responseObj.usageMetadata);
+          if (responseObj.usageMetadata && cachedUser) supabaseService.updateTokenUsage(cachedUser.id, "ask", responseObj.usageMetadata);
         } else {
           throw new Error(`Provider ${effectiveProvider} is not yet fully integrated in this mode. Please use LiteLLM or OpenRouter as a gateway.`);
         }
@@ -548,8 +548,8 @@ class AskBackend {
 
       if (errorStr.includes("quota") || errorStr.includes("exceeded") || errorStr.includes("429")) {
         userMessage = "AI Quota exceeded. Rotating API key for next request. Please try again in a moment.";
-        if (provider === "openrouter") firebaseService.rotateOpenRouterKey();
-        else firebaseService.rotateGeminiKey();
+        if (provider === "openrouter") supabaseService.rotateOpenRouterKey();
+        else supabaseService.rotateGeminiKey();
       }
 
       onError({ message: userMessage });

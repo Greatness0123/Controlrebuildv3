@@ -41,7 +41,8 @@ const WakewordManager = require('./wakeword-manager');
 const EdgeTTSManager = require('./edge-tts');
 const VoskServerManager = require('./vosk-server-manager');
 const SettingsManager = require('./settings-manager');
-const firebaseService = require('./firebase-service');
+const dbService = require('./supabase-service');
+const RemoteDesktopManager = require('./remote-desktop-manager');
 const workflowManager = require('./workflow-manager');
 const appUtils = require('./app-utils');
 const electronBrowserManager = require('./electron-browser-manager');
@@ -65,6 +66,7 @@ class ComputerUseAgent {
         this.edgeTTS = new EdgeTTSManager();
         this.voskServerManager = new VoskServerManager();
         this.settingsManager = new SettingsManager();
+        this.remoteDesktopManager = new RemoteDesktopManager(this.windowManager);
 
         // Load persisted settings
         this.appSettings = this.settingsManager.getSettings();
@@ -239,7 +241,7 @@ class ComputerUseAgent {
 
             // --- TIER 1: IMMEDIATE PARALLEL EXECUTION ---
             // These start simultaneously and don't block each other or the UI
-            const firebaseKeysPromise = firebaseService.fetchAndCacheKeys().catch(e => console.warn('[Main] Key fetch error:', e.message));
+            const dbKeysPromise = dbService.fetchAndCacheKeys().catch(e => console.warn('[Main] Key fetch error:', e.message));
             const backendStartPromise = this.backendManager.startBackend();
             const voskStartPromise = this.voskServerManager.start();
             const windowInitPromise = this.windowManager.initializeWindows();
@@ -249,7 +251,7 @@ class ComputerUseAgent {
             if (this.appSettings.voiceResponse) this.edgeTTS.enable(true);
 
             // --- TIER 2: USER DATA & SESSION ---
-            const cachedUser = firebaseService.checkCachedUser();
+            const cachedUser = dbService.checkCachedUser();
             let userDataPromise = Promise.resolve();
 
             if (cachedUser) {
@@ -258,14 +260,19 @@ class ComputerUseAgent {
                 this.settingsManager.updateSettings({ userAuthenticated: true, userDetails: cachedUser });
 
                 // Concurrent sync
-                userDataPromise = firebaseService.syncUserData(cachedUser.id).then(syncedUser => {
-                    this.currentUser = syncedUser || cachedUser;
-                    this.settingsManager.updateSettings({ userDetails: this.currentUser });
-                    const userKey = this.currentUser.picovoiceKey || this.currentUser.porcupine_access_key;
-                    if (userKey) process.env.PORCUPINE_ACCESS_KEY = userKey;
+                userDataPromise = dbService.updateUser(cachedUser.id, {}).then(res => {
+                    // Refresh from DB
+                    return dbService.verifyEntryID(cachedUser.id);
+                }).then(result => {
+                    if (result.success) {
+                        this.currentUser = result.user;
+                        this.settingsManager.updateSettings({ userDetails: this.currentUser });
+                        const userKey = this.currentUser.picovoiceKey;
+                        if (userKey) process.env.PORCUPINE_ACCESS_KEY = userKey;
 
-                    this.windowManager.broadcast('user-changed', this.currentUser);
-                    this.windowManager.broadcast('settings-updated', this.getSettings());
+                        this.windowManager.broadcast('user-changed', this.currentUser);
+                        this.windowManager.broadcast('settings-updated', this.getSettings());
+                    }
                     return this.currentUser;
                 }).catch(e => {
                     console.warn('[Main] User sync error:', e.message);
@@ -297,14 +304,14 @@ class ComputerUseAgent {
             // Wakeword needs API keys and potentially user data, so it starts after UI is up but concurrently with other Tier 4 tasks
             const wakewordStartPromise = (async () => {
                 // Wait for keys to be loaded if they aren't already
-                await firebaseKeysPromise;
+                await dbKeysPromise;
                 if (this.appSettings.voiceActivation) {
                     return this.wakewordManager.enable(true);
                 }
             })();
 
             Promise.allSettled([
-                firebaseKeysPromise.then(keys => {
+                dbKeysPromise.then(keys => {
                     if (keys?.gemini) process.env.GEMINI_API_KEY = keys.gemini;
                     if (keys?.gemini_model) process.env.GEMINI_MODEL = keys.gemini_model;
                 }),
@@ -514,7 +521,7 @@ class ComputerUseAgent {
         // Authentication & entry window
         ipcMain.handle('authenticate-user', async (event, userId) => {
             try {
-                const result = await firebaseService.getUserById(userId);
+                const result = await dbService.verifyEntryID(userId);
 
                 if (result.success) {
                     this.settingsManager.updateSettings({
@@ -541,22 +548,22 @@ class ComputerUseAgent {
                 if (settings.userAuthenticated && settings.userDetails) {
                     console.log('[Main] Found user details in settings memory');
 
-                    // Try to get a fresher copy from Firebase (with a short timeout so we don't block startup)
+                    // Try to get a fresher copy from DB (with a short timeout so we don't block startup)
                     try {
                         const userId = settings.userDetails.id;
-                        if (userId && firebaseService.getUserById) {
+                        if (userId) {
                             const timeoutMs = 3000; // do not stall renderer for long
-                            const fetchPromise = firebaseService.getUserById(userId);
+                            const fetchPromise = dbService.verifyEntryID(userId);
                             const timed = await Promise.race([
                                 fetchPromise,
-                                new Promise((_, reject) => setTimeout(() => reject(new Error('Firebase timeout')), timeoutMs))
+                                new Promise((_, reject) => setTimeout(() => reject(new Error('DB timeout')), timeoutMs))
                             ]).catch(err => {
-                                console.warn('[Main] Quick Firebase check for user failed or timed out:', err.message || err);
+                                console.warn('[Main] Quick DB check for user failed or timed out:', err.message || err);
                                 return null;
                             });
 
                             if (timed && timed.success && timed.user) {
-                                console.log('[Main] get-user-info: refreshed user data from Firebase for', userId);
+                                console.log('[Main] get-user-info: refreshed user data from DB for', userId);
                                 // update memory and cache
                                 this.settingsManager.updateSettings({ userDetails: timed.user });
                                 this.currentUser = timed.user;
@@ -570,7 +577,7 @@ class ComputerUseAgent {
                         }
                     } catch (e) {
                         // don't block on errors
-                        console.warn('[Main] get-user-info: error while checking Firebase for fresh user:', e.message || e);
+                        console.warn('[Main] get-user-info: error while checking DB for fresh user:', e.message || e);
                     }
 
                     // Fallback to in-memory copy if no fresh copy available
@@ -582,7 +589,7 @@ class ComputerUseAgent {
                 }
 
                 // 2. Check disk cache fallback (IMPORTANT for Entry Page reliability)
-                const cachedUser = firebaseService.checkCachedUser();
+                const cachedUser = dbService.checkCachedUser();
                 if (cachedUser) {
                     console.log('[Main] Found user details in disk cache (fallback)');
                     // Restore to settings memory
@@ -592,36 +599,6 @@ class ComputerUseAgent {
                     });
                     this.isAuthenticated = true;
                     this.currentUser = cachedUser;
-
-                    // Try to sync with Firebase now (quick attempt)
-                    try {
-                        if (cachedUser.id && firebaseService.getUserById) {
-                            const timeoutMs = 3000;
-                            const fetchPromise = firebaseService.getUserById(cachedUser.id);
-                            const timed = await Promise.race([
-                                fetchPromise,
-                                new Promise((_, reject) => setTimeout(() => reject(new Error('Firebase timeout')), timeoutMs))
-                            ]).catch(err => {
-                                console.warn('[Main] Quick Firebase check for cached user failed or timed out:', err.message || err);
-                                return null;
-                            });
-
-                            if (timed && timed.success && timed.user) {
-                                console.log('[Main] get-user-info: refreshed cached user from Firebase for', cachedUser.id);
-                                // Update memory and cache
-                                this.settingsManager.updateSettings({ userDetails: timed.user, userAuthenticated: true });
-                                this.currentUser = timed.user;
-
-                                return {
-                                    success: true,
-                                    isAuthenticated: true,
-                                    ...timed.user
-                                };
-                            }
-                        }
-                    } catch (e) {
-                        console.warn('[Main] get-user-info: error while checking Firebase for cached user:', e.message || e);
-                    }
 
                     return {
                         success: true,
@@ -644,10 +621,10 @@ class ComputerUseAgent {
             }
         });
 
-        // Entry verification (Firebase placeholder)
+        // Entry verification
         ipcMain.handle('verify-entry-id', async (event, entryId) => {
             try {
-                const result = await firebaseService.verifyEntryID(entryId);
+                const result = await dbService.verifyEntryID(entryId);
 
                 if (result.success) {
                     this.settingsManager.updateSettings({
@@ -679,10 +656,10 @@ class ComputerUseAgent {
         ipcMain.handle('get-picovoice-key', async () => {
             try {
                 console.log('[Main] [IPC] get-picovoice-key called');
-                const user = this.currentUser || firebaseService.checkCachedUser();
-                const hasKey = !!(user && (user.picovoiceKey || user.porcupine_access_key));
+                const user = this.currentUser || dbService.checkCachedUser();
+                const hasKey = !!(user && user.picovoiceKey);
                 console.log('[Main] [IPC] get-picovoice-key: userFound=', !!user, 'hasKey=', hasKey);
-                return { success: true, key: user ? (user.picovoiceKey || user.porcupine_access_key || null) : null };
+                return { success: true, key: user ? (user.picovoiceKey || null) : null };
             } catch (e) {
                 console.error('[Main] [IPC] get-picovoice-key error:', e);
                 return { success: false, message: e.message };
@@ -694,15 +671,14 @@ class ComputerUseAgent {
                 console.log('[Main] [IPC] set-picovoice-key called by renderer (user id=', this.currentUser ? this.currentUser.id : 'none', ')');
                 if (!this.currentUser || !this.currentUser.id) return { success: false, message: 'Not authenticated' };
 
-                // Try to update Firebase but don't let it block local success
-                firebaseService.updateUser(this.currentUser.id, { picovoiceKey: key, porcupine_access_key: key })
-                    .then(res => console.log('[Main] Picovoice key updated in Firebase:', res.success))
-                    .catch(e => console.warn('[Main] Firebase key update failed, using local only:', e.message));
+                // Try to update DB but don't let it block local success
+                dbService.updateUser(this.currentUser.id, { picovoiceKey: key })
+                    .then(res => console.log('[Main] Picovoice key updated in DB:', res.success))
+                    .catch(e => console.warn('[Main] DB key update failed, using local only:', e.message));
 
                 // Always update local state
                 this.currentUser.picovoiceKey = key;
-                this.currentUser.porcupine_access_key = key;
-                firebaseService.cacheUser(this.currentUser);
+                dbService.cacheUser(this.currentUser);
 
                 this.settingsManager.updateSettings({ userDetails: this.currentUser });
                 this.windowManager.broadcast('user-changed', this.currentUser);
@@ -987,7 +963,7 @@ class ComputerUseAgent {
             this.currentUser = null;
 
             // Clear cache
-            firebaseService.clearCachedUser();
+            dbService.clearCachedUser();
 
             // Update settings
             this.settingsManager.updateSettings({
@@ -1103,22 +1079,22 @@ class ComputerUseAgent {
                 throw new Error('Authentication required');
             }
 
-            const currentUser = this.currentUser || firebaseService.checkCachedUser();
+            const currentUser = this.currentUser || dbService.checkCachedUser();
             if (!currentUser) {
                 throw new Error('User profile not loaded. Please sign in.');
             }
 
             // 2. Check Rate Limit
-            const rateResult = await firebaseService.checkRateLimit(currentUser.id, mode);
+            const rateResult = await dbService.checkRateLimit(currentUser.id, mode);
             if (!rateResult.allowed) {
                 throw new Error(rateResult.error || 'Rate limit exceeded');
             }
 
             // 3. Get API Key based on Plan
-            let apiKey = await firebaseService.getGeminiKey(currentUser.plan);
+            let apiKey = await dbService.getGeminiKey(currentUser.plan);
             if (!apiKey) {
                 // Try from local keys cache
-                const cachedKeys = firebaseService.getKeys();
+                const cachedKeys = dbService.getKeys();
                 if (cachedKeys && cachedKeys.gemini) {
                     apiKey = cachedKeys.gemini;
                 } else {
@@ -1130,14 +1106,14 @@ class ComputerUseAgent {
 
             try {
                 const result = await this.backendManager.executeTask(task, mode, this.getSettings());
-                await firebaseService.incrementTaskCount(currentUser.id, mode);
+                await dbService.incrementTaskCount(currentUser.id, mode);
 
                 // Re-fetch and broadcast updated user data
-                const updatedUser = await firebaseService.getUserById(currentUser.id);
+                const updatedUser = await dbService.verifyEntryID(currentUser.id);
                 if (updatedUser.success) {
                     this.currentUser = updatedUser.user;
                     // Update cache
-                    firebaseService.cacheUser(this.currentUser);
+                    dbService.cacheUser(this.currentUser);
                     // Broadcast
                     this.settingsManager.updateSettings({ userDetails: this.currentUser });
                     this.windowManager.broadcast('user-data-updated', this.currentUser);
@@ -1359,7 +1335,7 @@ class ComputerUseAgent {
                 this.settingsManager.resetSettings();
 
                 // Clear user profile
-                firebaseService.clearCachedUser();
+                dbService.clearCachedUser();
                 this.isAuthenticated = false;
                 this.currentUser = null;
 
@@ -1480,7 +1456,7 @@ class ComputerUseAgent {
         settings.ttsVolume = this.appSettings.ttsVolume !== undefined ? this.appSettings.ttsVolume : 1.0;
 
         // Add gemini model from cache
-        const cachedKeys = firebaseService.getKeys();
+        const cachedKeys = dbService.getKeys();
         settings.geminiModel = cachedKeys ? cachedKeys.gemini_model : (process.env.GEMINI_MODEL || "gemini-1.5-flash");
 
         return settings;
@@ -1535,10 +1511,10 @@ class ComputerUseAgent {
 
         try {
             // Re-use execute-task logic
-            const currentUser = this.currentUser || firebaseService.checkCachedUser();
-            let apiKey = await firebaseService.getGeminiKey(currentUser.plan);
+            const currentUser = this.currentUser || dbService.checkCachedUser();
+            let apiKey = await dbService.getGeminiKey(currentUser.plan);
             if (!apiKey) {
-                const cachedKeys = firebaseService.getKeys();
+                const cachedKeys = dbService.getKeys();
                 apiKey = (cachedKeys && cachedKeys.gemini) ? cachedKeys.gemini : (process.env.GEMINI_API_KEY || process.env.GEMINI_FREE_KEY);
             }
             task.api_key = apiKey;

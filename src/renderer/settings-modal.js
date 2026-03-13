@@ -82,6 +82,23 @@ class SettingsModal {
                 this.saveSettings();
             });
         });
+
+        // Remote Access Toggles
+        document.getElementById('remoteAccessToggle')?.addEventListener('change', async (e) => {
+            const enabled = e.target.checked;
+            document.getElementById('remotePairingSection').style.display = enabled ? 'block' : 'none';
+            if (window.chatAPI && window.chatAPI.toggleRemoteAccess) {
+                await window.chatAPI.toggleRemoteAccess(enabled);
+            }
+        });
+
+        document.getElementById('generatePairingBtn')?.addEventListener('click', async () => {
+            if (window.chatAPI && window.chatAPI.getRemotePairingCode) {
+                const code = await window.chatAPI.getRemotePairingCode();
+                document.getElementById('pairingCodeDisplay').textContent = code;
+                this.showToast('New pairing code generated', 'success');
+            }
+        });
     }
 
     setupLayoutCards() {
@@ -206,11 +223,34 @@ class SettingsModal {
         }
     }
 
+    async loadUserStatus() {
+        if (window.settingsAPI && window.settingsAPI.getUserInfo) {
+            const res = await window.settingsAPI.getUserInfo();
+            if (res && res.success) {
+                this.currentUser = res;
+                this.isAuthenticated = true;
+            }
+        } else if (window.chatAPI && window.chatAPI.getUserInfo) {
+            const res = await window.chatAPI.getUserInfo();
+            if (res && res.success) {
+                this.currentUser = res;
+                this.isAuthenticated = true;
+            }
+        }
+    }
+
     updateUserInfo() {
         if (this.currentUser) {
-            document.getElementById('userName').textContent = this.currentUser.name || 'Control User';
-            document.getElementById('userEmail').textContent = this.currentUser.email || 'user@control.ai';
-            // ... update avatar, etc.
+            const nameEl = document.getElementById('userName');
+            const emailEl = document.getElementById('userEmail');
+            const avatarEl = document.getElementById('userAvatar');
+
+            if (nameEl) nameEl.textContent = this.currentUser.name || 'Control User';
+            if (emailEl) emailEl.textContent = this.currentUser.email || 'user@control.ai';
+            if (avatarEl) avatarEl.textContent = (this.currentUser.name || 'C').charAt(0).toUpperCase();
+
+            const planBadge = document.querySelector('.plan-badge');
+            if (planBadge) planBadge.textContent = (this.currentUser.plan || 'Free Plan').toUpperCase();
         }
     }
 

@@ -1,0 +1,31 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: #ffffff;
+  --foreground: #000000;
+  --accent: #111111;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #000000;
+    --foreground: #ffffff;
+    --accent: #eeeeee;
+  }
+}
+
+body {
+  color: var(--foreground);
+  background: var(--background);
+  font-family: 'Inter', sans-serif;
+}
+
+.card {
+  @apply border border-gray-200 dark:border-gray-800 rounded-lg p-4 transition-all hover:border-gray-400 dark:hover:border-gray-600;
+}
+
+.btn-primary {
+  @apply bg-black text-white dark:bg-white dark:text-black px-4 py-2 rounded font-medium transition-opacity hover:opacity-90;
+}

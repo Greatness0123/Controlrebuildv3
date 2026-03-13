@@ -3,7 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sign Up - Control</title>
+    <title>Control - Sign Up</title>
+    <link rel="stylesheet" href="styles.css">
     <style>
         * {
             margin: 0;
@@ -19,26 +20,26 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            padding: 1rem;
+            padding: 2rem 1rem;
         }
 
-        .signup-container {
-            background: rgba(15, 15, 25, 0.8);
+        .signup-card {
+            background: rgba(15, 15, 25, 0.6);
             backdrop-filter: blur(20px);
             border-radius: 1rem;
             padding: 3rem;
             width: 100%;
-            max-width: 450px;
+            max-width: 600px;
             border: 1px solid rgba(255, 255, 255, 0.1);
-            box-shadow: 0 25px 50px rgba(0, 0, 0, 0.3);
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+        }
+
+        .signup-header {
+            text-align: center;
+            margin-bottom: 2.5rem;
         }
 
         .logo {
-            text-align: center;
-            margin-bottom: 2rem;
-        }
-
-        .logo h1 {
             font-size: 2rem;
             font-weight: 700;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
@@ -46,21 +47,18 @@
             -webkit-text-fill-color: transparent;
             background-clip: text;
             margin-bottom: 0.5rem;
+            display: inline-block;
         }
 
-        .logo p {
+        .subtitle {
             color: rgba(255, 255, 255, 0.6);
-            font-size: 0.9rem;
-        }
-
-        .signup-form {
-            margin-bottom: 2rem;
+            font-size: 1rem;
         }
 
         .form-row {
             display: grid;
             grid-template-columns: 1fr 1fr;
-            gap: 1rem;
+            gap: 1.5rem;
             margin-bottom: 1.5rem;
         }
 
@@ -73,120 +71,77 @@
             margin-bottom: 0.5rem;
             font-weight: 500;
             color: rgba(255, 255, 255, 0.8);
-            font-size: 0.9rem;
         }
 
         .form-input {
             width: 100%;
-            padding: 0.75rem 1rem;
+            padding: 0.875rem 1rem;
             background: rgba(255, 255, 255, 0.05);
             border: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: 0.5rem;
+            border-radius: 0.75rem;
             color: white;
             font-size: 1rem;
             outline: none;
             transition: all 0.2s ease;
+            font-family: inherit;
         }
 
         .form-input:focus {
             border-color: #667eea;
             background: rgba(255, 255, 255, 0.08);
+            box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.1);
         }
 
-        .form-input::placeholder {
-            color: rgba(255, 255, 255, 0.4);
-        }
-
-        .password-strength {
-            margin-top: 0.5rem;
-            height: 4px;
-            background: rgba(255, 255, 255, 0.1);
-            border-radius: 2px;
-            overflow: hidden;
-        }
-
-        .password-strength-bar {
-            height: 100%;
-            transition: all 0.3s ease;
-            border-radius: 2px;
-        }
-
-        .password-strength-bar.weak {
-            width: 33%;
-            background: #ef4444;
-        }
-
-        .password-strength-bar.medium {
-            width: 66%;
-            background: #f59e0b;
-        }
-
-        .password-strength-bar.strong {
-            width: 100%;
-            background: #10b981;
-        }
-
+        /* Plan Selection */
         .plan-selector {
-            margin-bottom: 1.5rem;
-        }
-
-        .plan-options {
             display: grid;
-            grid-template-columns: 1fr 1fr;
+            grid-template-columns: 1fr 1fr 1fr;
             gap: 1rem;
-            margin-top: 0.5rem;
+            margin-bottom: 2rem;
         }
 
         .plan-option {
             background: rgba(255, 255, 255, 0.05);
-            border: 2px solid rgba(255, 255, 255, 0.1);
-            border-radius: 0.5rem;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 0.75rem;
             padding: 1rem;
+            text-align: center;
             cursor: pointer;
             transition: all 0.2s ease;
-            text-align: center;
         }
 
         .plan-option:hover {
             background: rgba(255, 255, 255, 0.08);
+            border-color: rgba(255, 255, 255, 0.2);
         }
 
         .plan-option.selected {
+            background: rgba(102, 126, 234, 0.2);
             border-color: #667eea;
-            background: rgba(102, 126, 234, 0.1);
+            box-shadow: 0 0 0 1px #667eea;
         }
 
         .plan-name {
+            display: block;
             font-weight: 600;
             margin-bottom: 0.25rem;
         }
 
         .plan-price {
-            color: #667eea;
-            font-size: 1.2rem;
-            font-weight: 700;
-            margin-bottom: 0.25rem;
-        }
-
-        .plan-features {
             font-size: 0.8rem;
             color: rgba(255, 255, 255, 0.6);
         }
 
         .btn {
             width: 100%;
-            padding: 0.75rem 1rem;
-            border-radius: 0.5rem;
+            padding: 1rem;
+            border-radius: 0.75rem;
             border: none;
             font-size: 1rem;
             font-weight: 600;
             cursor: pointer;
             transition: all 0.2s ease;
-            text-decoration: none;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            gap: 0.5rem;
+            margin-top: 1rem;
         }
 
         .btn-primary {
@@ -196,91 +151,80 @@
 
         .btn-primary:hover {
             transform: translateY(-1px);
-            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+            box-shadow: 0 8px 20px rgba(102, 126, 234, 0.4);
         }
 
-        .btn-primary:disabled {
-            opacity: 0.5;
+        .btn-primary.loading {
+            opacity: 0.7;
             cursor: not-allowed;
-            transform: none;
+            position: relative;
+            color: transparent;
         }
 
-        .auth-footer {
-            text-align: center;
-            color: rgba(255, 255, 255, 0.6);
-            font-size: 0.9rem;
-        }
-
-        .auth-footer a {
-            color: #667eea;
-            text-decoration: none;
-            font-weight: 500;
-            transition: color 0.2s ease;
-        }
-
-        .auth-footer a:hover {
-            color: #764ba2;
-        }
-
-        .error-message {
-            background: rgba(239, 68, 68, 0.1);
-            border: 1px solid rgba(239, 68, 68, 0.3);
-            border-radius: 0.5rem;
-            padding: 0.75rem;
-            font-size: 0.9rem;
-            color: #f87171;
-            margin-bottom: 1.5rem;
-            display: none;
-        }
-
-        .error-message.show {
-            display: block;
-        }
-
-        .success-message {
-            background: rgba(34, 197, 94, 0.1);
-            border: 1px solid rgba(34, 197, 94, 0.3);
-            border-radius: 0.5rem;
-            padding: 0.75rem;
-            font-size: 0.9rem;
-            color: #4ade80;
-            margin-bottom: 1.5rem;
-            display: none;
-        }
-
-        .success-message.show {
-            display: block;
-        }
-
-        .loading-spinner {
-            display: none;
+        .btn-primary.loading::after {
+            content: "";
+            position: absolute;
             width: 20px;
             height: 20px;
+            top: 50%;
+            left: 50%;
+            margin: -10px 0 0 -10px;
             border: 2px solid rgba(255, 255, 255, 0.3);
-            border-top: 2px solid white;
+            border-top-color: white;
             border-radius: 50%;
-            animation: spin 1s linear infinite;
+            animation: spin 0.8s linear infinite;
         }
 
         @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
+            to { transform: rotate(360deg); }
         }
 
-        .btn.loading .btn-text {
+        .footer-links {
+            margin-top: 2rem;
+            text-align: center;
+            font-size: 0.9rem;
+            color: rgba(255, 255, 255, 0.6);
+        }
+
+        .footer-links a {
+            color: #667eea;
+            text-decoration: none;
+            font-weight: 500;
+        }
+
+        .messages {
+            margin-bottom: 1.5rem;
+        }
+
+        .message {
+            padding: 0.875rem 1rem;
+            border-radius: 0.75rem;
+            font-size: 0.9rem;
             display: none;
         }
 
-        .btn.loading .loading-spinner {
-            display: inline-block;
+        .message.error {
+            background: rgba(239, 68, 68, 0.1);
+            border: 1px solid rgba(239, 68, 68, 0.2);
+            color: #f87171;
+        }
+
+        .message.success {
+            background: rgba(34, 197, 94, 0.1);
+            border: 1px solid rgba(34, 197, 94, 0.2);
+            color: #4ade80;
+        }
+
+        .message.show {
+            display: block;
         }
 
         .user-id-display {
+            margin-top: 1.5rem;
+            padding: 1.5rem;
             background: rgba(102, 126, 234, 0.1);
-            border: 1px solid rgba(102, 126, 234, 0.3);
-            border-radius: 0.5rem;
-            padding: 1rem;
-            margin-bottom: 1.5rem;
+            border: 1px dashed #667eea;
+            border-radius: 0.75rem;
             text-align: center;
             display: none;
         }
@@ -289,39 +233,59 @@
             display: block;
         }
 
-        .user-id-label {
-            font-size: 0.8rem;
-            color: rgba(255, 255, 255, 0.6);
-            margin-bottom: 0.5rem;
+        .user-id-value {
+            display: block;
+            font-family: monospace;
+            font-size: 1.2rem;
+            font-weight: 700;
+            color: #667eea;
+            margin-top: 0.5rem;
+            letter-spacing: 0.05em;
         }
 
-        .user-id-value {
-            font-family: monospace;
-            font-size: 1.1rem;
-            font-weight: 600;
-            color: #667eea;
-            word-break: break-all;
+        .password-strength {
+            height: 4px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 2px;
+            margin-top: 0.5rem;
+            overflow: hidden;
         }
+
+        .password-strength-bar {
+            height: 100%;
+            width: 0;
+            transition: all 0.3s ease;
+        }
+
+        .password-strength-bar.weak { width: 33%; background: #ef4444; }
+        .password-strength-bar.medium { width: 66%; background: #f59e0b; }
+        .password-strength-bar.strong { width: 100%; background: #10b981; }
 
         @media (max-width: 480px) {
-            .form-row,
-            .plan-options {
-                grid-template-columns: 1fr;
-            }
+            .form-row { grid-template-columns: 1fr; }
+            .plan-selector { grid-template-columns: 1fr; }
         }
     </style>
 </head>
 <body>
-    <div class="signup-container">
-        <div class="logo">
-            <h1>Control</h1>
-            <p>Create your account</p>
+    <div class="signup-card">
+        <div class="signup-header">
+            <div class="logo">Control</div>
+            <p class="subtitle">Create your professional account</p>
         </div>
 
-        <div class="error-message" id="errorMessage"></div>
-        <div class="success-message" id="successMessage"></div>
+        <div class="messages">
+            <div class="message error" id="errorMessage"></div>
+            <div class="message success" id="successMessage"></div>
+        </div>
 
-        <form class="signup-form" id="signupForm">
+        <div class="user-id-display" id="userIdDisplay">
+            <p>Registration successful! Please save your User ID:</p>
+            <span class="user-id-value" id="userIdValue">XXXX-XXXX-XXXX-XXXX</span>
+            <p style="font-size: 0.8rem; margin-top: 1rem; color: rgba(255,255,255,0.5)">You will need this to log in.</p>
+        </div>
+
+        <form id="signupForm">
             <div class="form-row">
                 <div class="form-group">
                     <label class="form-label" for="firstName">First Name</label>
@@ -338,51 +302,45 @@
                 <input type="email" id="email" class="form-input" placeholder="john@example.com" required>
             </div>
 
-            <div class="form-group">
-                <label class="form-label" for="password">Password</label>
-                <input type="password" id="password" class="form-input" placeholder="Create a strong password" required>
-                <div class="password-strength">
-                    <div class="password-strength-bar" id="passwordStrengthBar"></div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label class="form-label" for="password">Password</label>
+                    <input type="password" id="password" class="form-input" placeholder="••••••••" required>
+                    <div class="password-strength">
+                        <div class="password-strength-bar" id="passwordStrengthBar"></div>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="confirmPassword">Confirm Password</label>
+                    <input type="password" id="confirmPassword" class="form-input" placeholder="••••••••" required>
                 </div>
             </div>
 
-            <div class="form-group">
-                <label class="form-label" for="confirmPassword">Confirm Password</label>
-                <input type="password" id="confirmPassword" class="form-input" placeholder="Confirm your password" required>
-            </div>
-
+            <label class="form-label">Select Plan</label>
             <div class="plan-selector">
-                <label class="form-label">Choose Your Plan</label>
-                <div class="plan-options">
-                    <div class="plan-option selected" data-plan="Free">
-                        <div class="plan-name">Free</div>
-                        <div class="plan-price">$0/month</div>
-                        <div class="plan-features">Basic features</div>
-                    </div>
-                    <div class="plan-option" data-plan="Pro">
-                        <div class="plan-name">Pro</div>
-                        <div class="plan-price">$29/month</div>
-                        <div class="plan-features">All features</div>
-                    </div>
+                <div class="plan-option selected" data-plan="Free">
+                    <span class="plan-name">Free</span>
+                    <span class="plan-price">$0/mo</span>
+                </div>
+                <div class="plan-option" data-plan="Pro">
+                    <span class="plan-name">Pro</span>
+                    <span class="plan-price">$20/mo</span>
+                </div>
+                <div class="plan-option" data-plan="Master">
+                    <span class="plan-name">Master</span>
+                    <span class="plan-price">$50/mo</span>
                 </div>
             </div>
 
-            <button type="submit" class="btn btn-primary" id="signupBtn">
-                <span class="btn-text">Create Account</span>
-                <div class="loading-spinner"></div>
-            </button>
+            <button type="submit" class="btn btn-primary" id="signupBtn">Create Account</button>
         </form>
 
-        <div class="user-id-display" id="userIdDisplay">
-            <div class="user-id-label">Your User ID (save this!)</div>
-            <div class="user-id-value" id="userIdValue"></div>
-        </div>
-
-        <div class="auth-footer">
-            Already have an account? <a href="login.html">Sign in</a>
+        <div class="footer-links">
+            Already have an account? <a href="login.html">Log in</a>
         </div>
     </div>
 
+    <script src="supabase-service.js"></script>
     <script src="signup.js"></script>
 </body>
 </html>

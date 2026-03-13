@@ -2,12 +2,12 @@ class ChatWindow {
     constructor() {
         this.messagesContainer = document.getElementById('messagesContainer');
         this.chatInput = document.getElementById('chatInput');
-        this.sendButton = document.getElementById('sendButton');
-        this.voiceButton = document.getElementById('voiceButton');
-        this.attachButton = document.getElementById('attachButton');
+        this.sendButton = document.getElementById('sendBtn');
+        this.voiceButton = document.getElementById('voiceBtn');
+        this.attachButton = document.getElementById('attachBtn');
         this.attachmentsContainer = document.getElementById('attachmentsContainer');
-        this.settingsButton = document.getElementById('settingsButton');
-        this.newChatButton = document.getElementById('newChatButton');
+        this.settingsButton = document.getElementById('settingsBtn');
+        this.newChatButton = document.getElementById('newChatBtn');
         this.statusDot = document.getElementById('statusDot');
         this.statusText = document.getElementById('statusText');
         this.voiceIndicator = document.getElementById('voiceIndicator');
@@ -71,6 +71,7 @@ class ChatWindow {
 
     async init() {
         this.setupEventListeners();
+        this.setupLiteModeListeners();
         this.setupIPCListeners();
         this.setupInputHandlers();
         this.setupKeyboardShortcuts();
@@ -89,6 +90,12 @@ class ChatWindow {
             this.setMode(lastMode);
         }
 
+        if (this.settings.layout === 'lite') {
+            document.getElementById('chatApp')?.classList.add('lite-mode');
+        } else {
+            document.getElementById('chatApp')?.classList.remove('lite-mode');
+        }
+
         this.loadSessions();
         this.checkOfflineStatus();
         this.setupOnlineOfflineListeners();
@@ -98,6 +105,32 @@ class ChatWindow {
             // CRITICAL: Pass true for keepMode to ensure restored mode is preserved
             this.startNewConversation(false, true);
         }
+    }
+
+    setupLiteModeListeners() {
+        document.getElementById('liteMessagesToggle')?.addEventListener('click', () => {
+            const container = this.messagesContainer;
+            const btn = document.getElementById('liteMessagesToggle');
+            const isVisible = container.classList.toggle('visible');
+            btn.innerHTML = isVisible ? '<i class="fas fa-chevron-down"></i>' : '<i class="fas fa-chevron-up"></i>';
+            if (isVisible) this.scrollToBottom();
+        });
+
+        document.getElementById('liteHistoryBtn')?.addEventListener('click', () => this.showSessionsModal());
+        document.getElementById('liteWorkflowBtn')?.addEventListener('click', () => {
+             if (window.chatAPI) window.chatAPI.showWindow('workflow');
+        });
+        document.getElementById('liteNewChatBtn')?.addEventListener('click', () => {
+            this.saveCurrentSession();
+            this.startNewConversation(true, true);
+        });
+        document.getElementById('liteSettingsBtn')?.addEventListener('click', () => this.openSettings());
+
+        document.getElementById('liteOpacityBtn')?.addEventListener('click', () => {
+            const app = document.getElementById('chatApp');
+            const currentOpacity = app.style.opacity || "1";
+            app.style.opacity = currentOpacity === "1" ? "0.6" : "1";
+        });
     }
 
 
@@ -389,7 +422,7 @@ class ChatWindow {
                 }
             }
 
-            // Alt+Z to stop 
+            // Alt+Z to stop
             if (e.altKey && e.key.toLowerCase() === 'z') {
                 e.preventDefault();
                 if (window.chatAPI) {
@@ -480,7 +513,7 @@ class ChatWindow {
                     this.applyTheme(settings.theme);
                     this.toggleBorderStreak(settings.borderStreakEnabled);
 
-                    // Note: window visibility and wake word settings are handled by main process, 
+                    // Note: window visibility and wake word settings are handled by main process,
                     // but visual feedback logic in chat window should be aware of current state.
                 });
             }
@@ -520,7 +553,7 @@ class ChatWindow {
             // AI responses - ALWAYS show them regardless of task state
             window.chatAPI.onAIResponse((event, data) => {
                 console.log('[ChatWindow] AI Response received:', data);
-                
+
                 // Force-clear ALL thinking indicators
                 this.forceStopThinking();
 

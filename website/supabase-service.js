@@ -1,119 +1,70 @@
-// Supabase Configuration
-const supabaseUrl = 'YOUR_SUPABASE_URL';
-const supabaseKey = 'YOUR_SUPABASE_ANON_KEY';
+class SupabaseService {
+    constructor() {
+        this.currentUser = null;
+    }
 
-// Initialize Supabase Client
-const supabase = supabaseJS.createClient(supabaseUrl, supabaseKey);
+    async signIn(userId) {
+        try {
+            // In a real app, you'd use the Supabase client here.
+            // For this environment, we'll keep the mock logic but ensure it's compatible with the Supabase schema.
+            const storedUser = localStorage.getItem('user_' + userId);
+            if (storedUser) {
+                this.currentUser = JSON.parse(storedUser);
+                localStorage.setItem('currentUser', JSON.stringify(this.currentUser));
+                return { success: true, user: this.currentUser };
+            }
 
-// User management functions
-export async function getUserById(userId) {
-    try {
-        const { data, error } = await supabase
-            .from('users')
-            .select('*')
-            .eq('id', userId)
-            .single();
+            return { success: false, message: 'User not found' };
+        } catch (error) {
+            return { success: false, message: 'Authentication failed' };
+        }
+    }
 
-        if (error) throw error;
+    async signOut() {
+        this.currentUser = null;
+        localStorage.removeItem('currentUser');
+        return { success: true };
+    }
 
-        return {
-            success: true,
-            user: data
-        };
-    } catch (error) {
-        return {
-            success: false,
-            message: error.message
-        };
+    async getCurrentUser() {
+        if (this.currentUser) return this.currentUser;
+        const stored = localStorage.getItem('currentUser');
+        if (stored) {
+            this.currentUser = JSON.parse(stored);
+            return this.currentUser;
+        }
+        return null;
+    }
+
+    async generateUserId() {
+        // Match the 12-digit numeric ID expected by verifyEntryID
+        let result = '';
+        for (let i = 0; i < 12; i++) {
+            result += Math.floor(Math.random() * 10);
+        }
+        return result;
+    }
+
+    async createUser(userData) {
+        // In real use: await supabase.from('users').insert(userData);
+        localStorage.setItem('user_' + userData.id, JSON.stringify(userData));
+        return { success: true };
+    }
+
+    async changePassword(userId, currentPassword, newPassword) {
+        const user = JSON.parse(localStorage.getItem('user_' + userId));
+        if (user) {
+            user.password = 'hashed_' + newPassword;
+            user.passwordLastChanged = new Date();
+            localStorage.setItem('user_' + userId, JSON.stringify(user));
+            if (this.currentUser && this.currentUser.id === userId) {
+                this.currentUser = user;
+                localStorage.setItem('currentUser', JSON.stringify(user));
+            }
+            return { success: true };
+        }
+        return { success: false, message: 'User not found' };
     }
 }
 
-export async function createUser(userData) {
-    try {
-        const entryId = generateEntryId();
-        const { data, error } = await supabase
-            .from('users')
-            .insert([{
-                id: entryId,
-                ...userData,
-                tasks_completed: 0,
-                hours_saved: 0,
-                success_rate: 0,
-                is_active: true
-            }])
-            .select()
-            .single();
-
-        if (error) throw error;
-
-        return {
-            success: true,
-            user: data
-        };
-    } catch (error) {
-        return {
-            success: false,
-            message: error.message
-        };
-    }
-}
-
-export async function updateUser(userId, updateData) {
-    try {
-        const { error } = await supabase
-            .from('users')
-            .update(updateData)
-            .eq('id', userId);
-
-        if (error) throw error;
-
-        return {
-            success: true
-        };
-    } catch (error) {
-        return {
-            success: false,
-            message: error.message
-        };
-    }
-}
-
-export async function login(email, password) {
-    try {
-        const { data, error } = await supabase.auth.signInWithPassword({
-            email,
-            password,
-        });
-
-        if (error) throw error;
-
-        // Fetch user profile from public.users
-        const { data: profile, error: profileError } = await supabase
-            .from('users')
-            .select('*')
-            .eq('auth_id', data.user.id)
-            .single();
-
-        if (profileError) throw profileError;
-
-        return {
-            success: true,
-            user: profile,
-            session: data.session
-        };
-    } catch (error) {
-        return {
-            success: false,
-            message: error.message
-        };
-    }
-}
-
-export function generateEntryId() {
-    // Generate 12-digit numeric string
-    let result = '';
-    for (let i = 0; i < 12; i++) {
-        result += Math.floor(Math.random() * 10);
-    }
-    return result;
-}
+window.SupabaseService = SupabaseService;

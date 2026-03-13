@@ -25,7 +25,6 @@
             --user-text: #ffffff;
             --ai-bubble: #ffffff;
             --ai-text: #1a1a1a;
-            --sidebar-bg: #ffffff;
             --input-bg: #f0f2f5;
         }
 
@@ -40,7 +39,6 @@
             --user-text: #000000;
             --ai-bubble: #242526;
             --ai-text: #e4e6eb;
-            --sidebar-bg: #1c1e21;
             --input-bg: #3a3b3c;
         }
 
@@ -59,22 +57,6 @@
             overflow: hidden;
             border: 1px solid var(--border);
             position: relative;
-        }
-
-        /* Sidebar - sessions & history */
-        .sidebar {
-            width: 260px;
-            background: var(--sidebar-bg);
-            border-right: 1px solid var(--border);
-            display: flex;
-            flex-direction: column;
-            transition: transform 0.3s ease, width 0.3s ease;
-            z-index: 100;
-        }
-
-        .sidebar.hidden {
-            width: 0;
-            transform: translateX(-100%);
         }
 
         /* Main Chat Area */
@@ -101,14 +83,6 @@
             align-items: center;
             gap: 12px;
             -webkit-app-region: no-drag;
-        }
-
-        .toggle-sidebar-btn {
-            background: transparent;
-            border: none;
-            color: var(--text-secondary);
-            cursor: pointer;
-            font-size: 18px;
         }
 
         .mode-switcher {
@@ -302,11 +276,11 @@
 
         /* Lite Mode Overrides */
         .chat-app.lite-mode {
-            background: transparent;
-            border: none;
+            background: transparent !important;
+            border: none !important;
+            box-shadow: none !important;
         }
 
-        .lite-mode .sidebar,
         .lite-mode .chat-header {
             display: none;
         }
@@ -314,27 +288,85 @@
         .lite-mode .main-chat {
             background: transparent;
             justify-content: flex-end;
+            padding-bottom: 20px;
         }
 
         .lite-mode .messages-container {
-            max-height: 400px;
+            position: absolute;
+            bottom: 100px;
+            left: 20px;
+            right: 20px;
+            max-height: 60vh;
             background: var(--bg-primary);
-            margin: 20px;
-            border-radius: 12px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
-            display: none; /* Toggle visible */
+            border-radius: 16px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+            border: 1px solid var(--border);
+            display: none;
+            z-index: 100;
+            opacity: 0;
+            transform: translateY(20px);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
         .lite-mode .messages-container.visible {
             display: flex;
+            opacity: 1;
+            transform: translateY(0);
         }
 
         .lite-mode .input-area {
-            padding: 10px 20px;
+            padding: 0 20px;
+            background: transparent;
         }
 
         .lite-mode .input-wrapper {
-            box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+            background: var(--bg-primary);
+            box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+            border: 1px solid var(--border);
+            border-radius: 30px;
+            padding: 10px 20px;
+        }
+
+        .lite-mode .status-bar {
+            display: none;
+        }
+
+        /* Lite mode specific buttons */
+        .lite-controls {
+            display: none;
+            gap: 8px;
+            margin-bottom: 12px;
+            justify-content: center;
+        }
+
+        .lite-mode .lite-controls {
+            display: flex;
+        }
+
+        .lite-control-btn {
+            background: var(--bg-primary);
+            border: 1px solid var(--border);
+            color: var(--text-primary);
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            transition: all 0.2s;
+        }
+
+        .lite-control-btn:hover {
+            transform: translateY(-2px);
+            background: var(--bg-secondary);
+        }
+
+        .lite-control-btn.active {
+            background: var(--accent);
+            color: var(--bg-primary);
+            border-color: var(--accent);
         }
 
         /* Welcome screen */
@@ -368,20 +400,10 @@
 
 <body>
     <div class="chat-app" id="chatApp">
-        <aside class="sidebar" id="sidebar">
-            <div style="padding: 20px; font-weight: 700; border-bottom: 1px solid var(--border);">History</div>
-            <div id="sessionList" style="flex: 1; overflow-y: auto;"></div>
-            <div style="padding: 16px; border-top: 1px solid var(--border);">
-                <button class="icon-btn" id="newChatBtn" style="width: 100%; border-radius: 8px; background: var(--bg-secondary); gap: 8px;">
-                    <i class="fas fa-plus"></i> New Chat
-                </button>
-            </div>
-        </aside>
-
         <main class="main-chat">
             <header class="chat-header">
                 <div class="header-left">
-                    <button class="toggle-sidebar-btn" id="toggleSidebar"><i class="fas fa-bars"></i></button>
+                    <button class="icon-btn" id="newChatBtn"><i class="fas fa-plus"></i></button>
                     <div class="mode-switcher">
                         <button class="mode-btn active" id="modeAct">ACT</button>
                         <button class="mode-btn" id="modeAsk">ASK</button>
@@ -401,12 +423,37 @@
                 </div>
             </div>
 
+            <div id="commandSuggestions" class="command-suggestions" style="display: none;"></div>
+
             <div class="input-area">
+                <div class="lite-controls">
+                    <button class="lite-control-btn" id="liteHistoryBtn" title="History"><i class="fas fa-history"></i></button>
+                    <button class="lite-control-btn" id="liteWorkflowBtn" title="Workflows"><i class="fas fa-project-diagram"></i></button>
+                    <button class="lite-control-btn" id="liteNewChatBtn" title="New Chat"><i class="fas fa-plus"></i></button>
+                    <button class="lite-control-btn" id="liteOpacityBtn" title="Toggle Opacity"><i class="fas fa-adjust"></i></button>
+                    <button class="lite-control-btn" id="liteSettingsBtn" title="Settings"><i class="fas fa-cog"></i></button>
+                    <button class="lite-control-btn" id="liteMessagesToggle" title="Show/Hide Messages"><i class="fas fa-chevron-up"></i></button>
+                </div>
+                <div id="attachmentsContainer" class="attachments-container"></div>
                 <div class="input-wrapper">
+                    <div id="inputBackdrop" class="input-backdrop"></div>
                     <button class="icon-btn" id="attachBtn"><i class="fas fa-paperclip"></i></button>
                     <textarea class="chat-input" id="chatInput" placeholder="Describe a task..." rows="1"></textarea>
+                    <div id="voiceIndicator" class="voice-indicator"></div>
                     <button class="icon-btn" id="voiceBtn"><i class="fas fa-microphone"></i></button>
                     <button class="icon-btn send-btn" id="sendBtn" disabled><i class="fas fa-arrow-up"></i></button>
+                </div>
+                <div class="status-bar" id="statusBar">
+                    <div class="status-content" id="statusContent">
+                        <div class="status-dot" id="statusDot"></div>
+                        <span id="statusText">Ready</span>
+                    </div>
+                    <div class="rate-limit-container" id="rateLimitContainer" style="display: none;">
+                        <div class="rate-limit-progress-bg">
+                            <div id="rateLimitProgress" class="rate-limit-progress"></div>
+                        </div>
+                        <span id="rateLimitText">0/0</span>
+                    </div>
                 </div>
             </div>
         </main>
