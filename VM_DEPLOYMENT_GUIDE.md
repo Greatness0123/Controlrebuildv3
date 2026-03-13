@@ -2,6 +2,39 @@
 
 This guide explains how to deploy the virtual machine infrastructure for Control Web, similar to how Coasty AI handles browser-based VM control.
 
+## Deployment on Render (Free Tier)
+
+Render is great for hosting Docker containers.
+
+1.  **Repository**: Push the `control_web/vm` directory to a new GitHub repository.
+2.  **Create Service**: On Render Dashboard, click `New` -> `Web Service`.
+3.  **Connect Repo**: Select your repository.
+4.  **Environment**: Select `Docker`.
+5.  **Instance Type**: `Free`.
+6.  **Advanced**: Add Environment Variable:
+    - `RESOLUTION`: `1280x800x24`
+7.  **Deploy**: Render will build the Dockerfile and start the noVNC proxy.
+
+## Deployment on Railway
+
+Railway offers a powerful Docker environment with $5 monthly credit.
+
+1.  **New Project**: Click `New Project` -> `Deploy from GitHub repo`.
+2.  **Connect Repo**: Select your `control_web/vm` repository.
+3.  **Variable**: Go to `Variables` tab and add `RESOLUTION`.
+4.  **Networking**: Railway automatically detects port 6080. Generate a domain in the `Settings` tab.
+
+## Connecting to Control Web
+
+Once your VM is running and you have a public URL (e.g., `https://control-vm.up.railway.app`):
+
+1.  **Supabase Setup**: Go to your Supabase dashboard.
+2.  **Insert VM**: Add a new row to the `virtual_machines` table:
+    - `id`: Unique identifier (e.g., `vm-primary`)
+    - `user_id`: Your User ID from Control Web.
+    - `vnc_url`: Your public URL followed by `/vnc.html?autoconnect=true`
+3.  **Dashboard**: Refresh Control Web. Your new VM will appear in the sidebar and you can control it directly.
+
 ## Overview
 Control Web uses Docker-based VMs to provide each user with a clean, isolated environment. These VMs are accessed via VNC/noVNC over a secure tunnel.
 

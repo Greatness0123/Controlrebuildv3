@@ -6,20 +6,38 @@ class SettingsModal {
             theme: 'light',
             layout: 'classic',
             modelProvider: 'gemini',
-            // ... (rest of defaults)
+            voiceActivation: false,
+            voiceResponse: false,
+            autoSendAfterWakeWord: false,
+            windowVisibility: true,
+            openAtLogin: false,
+            floatingButtonVisible: true,
+            pinEnabled: false,
+            borderStreakEnabled: true,
+            edgeGlowEnabled: true,
+            ttsVoice: 'en-US-AriaNeural',
+            ttsRate: 1.0,
+            ttsVolume: 1.0,
+            hotkeys: {
+                toggleChat: 'Ctrl+Space',
+                stopAction: 'Alt+Z'
+            }
         };
 
         this.init();
     }
 
     async init() {
-        this.setupEventListeners();
-        this.setupIPCListeners();
         this.setupTabs();
         this.setupProviderCards();
         this.setupLayoutCards();
+        this.setupEventListeners();
+        this.setupIPCListeners();
+
         await this.loadUserStatus();
         await this.loadSettings();
+        await this.loadTTSVoices();
+
         this.updateUI();
         this.initializeLucideIcons();
     }
@@ -38,6 +56,7 @@ class SettingsModal {
         sidebarItems.forEach(item => {
             item.addEventListener('click', () => {
                 const tabId = item.getAttribute('data-tab');
+                if (!tabId) return;
 
                 // Update sidebar
                 sidebarItems.forEach(i => i.classList.remove('active'));
@@ -60,7 +79,7 @@ class SettingsModal {
     }
 
     setupProviderCards() {
-        const cards = document.querySelectorAll('.provider-card');
+        const cards = document.querySelectorAll('.provider-card[data-provider]');
         const configs = document.querySelectorAll('.provider-config');
 
         cards.forEach(card => {
@@ -125,41 +144,143 @@ class SettingsModal {
             this.saveSettings();
         });
 
-        // Toggles
-        const toggles = [
-            'borderStreakToggle', 'voiceResponseToggle', 'voiceToggle',
-            'autoSendToggle', 'pinToggle', 'proceedWithoutConfirmationToggle',
-            'windowVisibilityToggle', 'autoStartToggle', 'floatingButtonToggle'
+        // Toggles mapping
+        const toggleMap = {
+            'borderStreakToggle': 'borderStreakEnabled',
+            'voiceResponseToggle': 'voiceResponse',
+            'voiceToggle': 'voiceActivation',
+            'autoSendToggle': 'autoSendAfterWakeWord',
+            'pinToggle': 'pinEnabled',
+            'proceedWithoutConfirmationToggle': 'proceedWithoutConfirmation',
+            'windowVisibilityToggle': 'windowVisibility',
+            'autoStartToggle': 'openAtLogin',
+            'floatingButtonToggle': 'floatingButtonVisible'
+        };
+
+        Object.keys(toggleMap).forEach(id => {
+            const el = document.getElementById(id);
+            if (el) {
+                el.addEventListener('change', (e) => {
+                    const key = toggleMap[id];
+                    this.settings[key] = e.target.checked;
+
+                    if (id === 'autoStartToggle' && window.settingsAPI) {
+                        window.settingsAPI.setAutoStart(e.target.checked);
+                    }
+
+                    if (id === 'floatingButtonToggle' && window.settingsAPI) {
+                        window.settingsAPI.updateFloatingButton(e.target.checked);
+                    }
+
+                    if (id === 'pinToggle' && window.settingsAPI) {
+                        window.settingsAPI.enableSecurityPin(e.target.checked);
+                    }
+
+                    this.saveSettings();
+                });
+            }
+        });
+
+        // Provider Inputs
+        const providerInputs = [
+            'geminiApiKey', 'geminiModel', 'openaiApiKey', 'openaiModel', 'openaiBaseUrl',
+            'anthropicApiKey', 'anthropicModel', 'openrouterApiKey', 'openrouterModel',
+            'ollamaUrl', 'ollamaModel'
         ];
 
-        toggles.forEach(id => {
+        providerInputs.forEach(id => {
             document.getElementById(id)?.addEventListener('change', (e) => {
-                // Map ID to settings key
-                let key = id.replace('Toggle', '');
-                // Handle special cases
-                if (id === 'autoStartToggle') key = 'openAtLogin';
-                if (id === 'floatingButtonToggle') key = 'floatingButtonVisible';
-
-                this.settings[key] = e.target.checked;
-
-                if (id === 'autoStartToggle' && window.settingsAPI) {
-                    window.settingsAPI.setAutoStart(e.target.checked);
-                }
-
-                if (id === 'floatingButtonToggle' && window.settingsAPI) {
-                    window.settingsAPI.updateFloatingButton(e.target.checked);
-                }
-
+                this.settings[id] = e.target.value;
                 this.saveSettings();
             });
         });
 
-        // Close/Exit
+        // Voice Settings
+        document.getElementById('ttsVoiceSelect')?.addEventListener('change', (e) => {
+            this.settings.ttsVoice = e.target.value;
+            this.saveSettings();
+        });
+
+        document.getElementById('ttsRateSlider')?.addEventListener('input', (e) => {
+            const val = parseFloat(e.target.value);
+            this.settings.ttsRate = val;
+            document.getElementById('ttsRateValue').textContent = val.toFixed(1);
+        });
+
+        document.getElementById('ttsRateSlider')?.addEventListener('change', () => {
+            this.saveSettings();
+        });
+
+        document.getElementById('testVoiceBtn')?.addEventListener('click', async () => {
+            if (window.settingsAPI) {
+                await window.settingsAPI.testVoice(this.settings.ttsVoice, this.settings.ttsRate, this.settings.ttsVolume);
+            }
+        });
+
+        // Action Buttons
+        document.getElementById('logoutButton')?.addEventListener('click', async () => {
+            if (confirm('Are you sure you want to log out?')) {
+                if (window.settingsAPI) await window.settingsAPI.logout();
+            }
+        });
+
+        document.getElementById('deleteAllDataBtn')?.addEventListener('click', async () => {
+            if (confirm('DANGER: This will delete ALL your data, settings, and workflows. This cannot be undone. Proceed?')) {
+                if (window.settingsAPI) {
+                    const res = await window.settingsAPI.deleteAllData();
+                    if (res.success) {
+                        this.showToast('All data wiped successfully', 'success');
+                        setTimeout(() => window.settingsAPI.restartApp(), 1500);
+                    }
+                }
+            }
+        });
+
+        document.getElementById('quitButton')?.addEventListener('click', () => {
+            if (window.settingsAPI) window.settingsAPI.quitApp();
+        });
+
         document.getElementById('closeButton')?.addEventListener('click', () => {
             if (window.settingsAPI) window.settingsAPI.closeSettings();
         });
 
-        // ... (remaining event listeners for inputs, PIN, hotkeys, etc. - simplified for brevity but functional)
+        document.getElementById('changePinButton')?.addEventListener('click', () => {
+            this.showPinModal('change');
+        });
+
+        // Hotkeys
+        document.getElementById('editToggleChatBtn')?.addEventListener('click', () => this.recordHotkey('toggleChat'));
+        document.getElementById('editStopActionBtn')?.addEventListener('click', () => this.recordHotkey('stopAction'));
+        document.getElementById('resetHotkeysBtn')?.addEventListener('click', () => {
+            this.settings.hotkeys = { toggleChat: 'Ctrl+Space', stopAction: 'Alt+Z' };
+            this.updateHotkeysUI();
+            this.saveSettings();
+        });
+
+        // PIN Modal
+        document.getElementById('pinCancelButton')?.addEventListener('click', () => {
+            document.getElementById('pinModal').style.display = 'none';
+        });
+
+        document.getElementById('pinConfirmButton')?.addEventListener('click', () => {
+            this.handlePinConfirm();
+        });
+    }
+
+    setupIPCListeners() {
+        if (window.settingsAPI) {
+            window.settingsAPI.onSettingsUpdated((event, settings) => {
+                console.log('Settings updated from main:', settings);
+                this.settings = { ...this.settings, ...settings };
+                this.updateUI();
+            });
+
+            window.settingsAPI.onUserChanged((event, user) => {
+                console.log('User changed from main:', user);
+                this.currentUser = user;
+                this.updateUserInfo();
+            });
+        }
     }
 
     async loadSettings() {
@@ -176,29 +297,70 @@ class SettingsModal {
         }
     }
 
+    async loadUserStatus() {
+        if (window.settingsAPI) {
+            const res = await window.settingsAPI.getCurrentUser();
+            if (res && res.success) {
+                this.currentUser = res;
+                this.isAuthenticated = true;
+            }
+        }
+    }
+
+    async loadTTSVoices() {
+        if (window.settingsAPI) {
+            const res = await window.settingsAPI.getTTSVoices();
+            if (res.success && res.voices) {
+                const select = document.getElementById('ttsVoiceSelect');
+                if (select) {
+                    select.innerHTML = res.voices.map(v =>
+                        `<option value="${v.id}" ${v.id === this.settings.ttsVoice ? 'selected' : ''}>${v.name}</option>`
+                    ).join('');
+                }
+            }
+        }
+    }
+
     updateUI() {
         // Update Toggles
-        const toggles = [
-            'borderStreakToggle', 'voiceResponseToggle', 'voiceToggle',
-            'autoSendToggle', 'pinToggle', 'proceedWithoutConfirmationToggle',
-            'windowVisibilityToggle', 'autoStartToggle', 'floatingButtonToggle'
-        ];
+        const toggleMap = {
+            'borderStreakToggle': 'borderStreakEnabled',
+            'voiceResponseToggle': 'voiceResponse',
+            'voiceToggle': 'voiceActivation',
+            'autoSendToggle': 'autoSendAfterWakeWord',
+            'pinToggle': 'pinEnabled',
+            'proceedWithoutConfirmationToggle': 'proceedWithoutConfirmation',
+            'windowVisibilityToggle': 'windowVisibility',
+            'autoStartToggle': 'openAtLogin',
+            'floatingButtonToggle': 'floatingButtonVisible'
+        };
 
-        toggles.forEach(id => {
+        Object.keys(toggleMap).forEach(id => {
             const el = document.getElementById(id);
             if (el) {
-                let key = id.replace('Toggle', '');
-                if (id === 'autoStartToggle') key = 'openAtLogin';
-                if (id === 'floatingButtonToggle') key = 'floatingButtonVisible';
-                el.checked = !!this.settings[key];
+                el.checked = !!this.settings[toggleMap[id]];
             }
+        });
+
+        // Update Provider Inputs
+        const providerInputs = [
+            'geminiApiKey', 'geminiModel', 'openaiApiKey', 'openaiModel', 'openaiBaseUrl',
+            'anthropicApiKey', 'anthropicModel', 'openrouterApiKey', 'openrouterModel',
+            'ollamaUrl', 'ollamaModel'
+        ];
+
+        providerInputs.forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.value = this.settings[id] || '';
         });
 
         // Update Provider Cards
         const provider = this.settings.modelProvider || 'gemini';
+        document.querySelectorAll('.provider-card').forEach(c => c.classList.remove('active'));
         const card = document.querySelector(`.provider-card[data-provider="${provider}"]`);
         if (card) {
             card.classList.add('active');
+            document.querySelectorAll('.provider-config').forEach(conf => conf.classList.remove('active'));
             const config = document.getElementById(`${provider}Config`);
             if (config) config.classList.add('active');
         }
@@ -211,8 +373,15 @@ class SettingsModal {
             layoutCard.classList.add('active');
         }
 
+        // Voice Slider
+        if (document.getElementById('ttsRateSlider')) {
+            document.getElementById('ttsRateSlider').value = this.settings.ttsRate || 1.0;
+            document.getElementById('ttsRateValue').textContent = (this.settings.ttsRate || 1.0).toFixed(1);
+        }
+
         this.updateTheme();
         this.updateUserInfo();
+        this.updateHotkeysUI();
     }
 
     updateTheme() {
@@ -221,22 +390,8 @@ class SettingsModal {
         } else {
             document.body.classList.remove('dark-mode');
         }
-    }
-
-    async loadUserStatus() {
-        if (window.settingsAPI && window.settingsAPI.getUserInfo) {
-            const res = await window.settingsAPI.getUserInfo();
-            if (res && res.success) {
-                this.currentUser = res;
-                this.isAuthenticated = true;
-            }
-        } else if (window.chatAPI && window.chatAPI.getUserInfo) {
-            const res = await window.chatAPI.getUserInfo();
-            if (res && res.success) {
-                this.currentUser = res;
-                this.isAuthenticated = true;
-            }
-        }
+        const themeSelect = document.getElementById('themeSelect');
+        if (themeSelect) themeSelect.value = this.settings.theme;
     }
 
     updateUserInfo() {
@@ -251,6 +406,122 @@ class SettingsModal {
 
             const planBadge = document.querySelector('.plan-badge');
             if (planBadge) planBadge.textContent = (this.currentUser.plan || 'Free Plan').toUpperCase();
+
+            // Usage Limits
+            const actUsed = this.currentUser.actUsed || 0;
+            const actLimit = this.currentUser.actLimit || 0;
+            const askUsed = this.currentUser.askUsed || 0;
+            const askLimit = this.currentUser.askLimit || 0;
+
+            if (document.getElementById('actLimitText')) {
+                document.getElementById('actLimitText').textContent = `${actUsed} / ${actLimit}`;
+            }
+            if (document.getElementById('askLimitText')) {
+                document.getElementById('askLimitText').textContent = `${askUsed} / ${askLimit}`;
+            }
+
+            // Stats
+            if (document.getElementById('statTasks')) document.getElementById('statTasks').textContent = actUsed + askUsed;
+            if (document.getElementById('statHours')) document.getElementById('statHours').textContent = Math.floor((actUsed + askUsed) * 0.1);
+        }
+    }
+
+    updateHotkeysUI() {
+        if (document.getElementById('toggleChatHotkeyDisplay')) {
+            document.getElementById('toggleChatHotkeyDisplay').textContent = this.settings.hotkeys.toggleChat;
+        }
+        if (document.getElementById('stopActionHotkeyDisplay')) {
+            document.getElementById('stopActionHotkeyDisplay').textContent = this.settings.hotkeys.stopAction;
+        }
+    }
+
+    recordHotkey(type) {
+        const btn = type === 'toggleChat' ? document.getElementById('editToggleChatBtn') : document.getElementById('editStopActionBtn');
+        const originalText = btn.textContent;
+        btn.textContent = 'Press keys...';
+        btn.classList.add('btn-primary');
+
+        const keys = new Set();
+        const onKeyDown = (e) => {
+            e.preventDefault();
+            if (e.key === 'Escape') {
+                finish();
+                return;
+            }
+
+            const combo = [];
+            if (e.ctrlKey) combo.push('Ctrl');
+            if (e.altKey) combo.push('Alt');
+            if (e.shiftKey) combo.push('Shift');
+            if (e.metaKey) combo.push('Command');
+
+            if (!['Control', 'Alt', 'Shift', 'Meta'].includes(e.key)) {
+                combo.push(e.key.length === 1 ? e.key.toUpperCase() : e.key);
+                this.settings.hotkeys[type] = combo.join('+');
+                finish();
+            }
+        };
+
+        const finish = () => {
+            window.removeEventListener('keydown', onKeyDown);
+            btn.classList.remove('btn-primary');
+            this.updateHotkeysUI();
+            this.saveSettings();
+        };
+
+        window.addEventListener('keydown', onKeyDown);
+    }
+
+    showPinModal(mode) {
+        const modal = document.getElementById('pinModal');
+        const title = document.getElementById('pinTitle');
+        const desc = document.getElementById('pinDescription');
+        const input = document.getElementById('pinInput');
+
+        this.pinMode = mode;
+        input.value = '';
+        modal.style.display = 'flex';
+        input.focus();
+
+        if (mode === 'change') {
+            title.textContent = 'Change Security PIN';
+            desc.textContent = 'Enter your current 4-digit PIN first';
+            this.pinStep = 1;
+        } else {
+            title.textContent = 'Set Security PIN';
+            desc.textContent = 'Enter a 4-digit code';
+            this.pinStep = 1;
+        }
+    }
+
+    async handlePinConfirm() {
+        const input = document.getElementById('pinInput');
+        const pin = input.value;
+        if (pin.length !== 4) return;
+
+        if (this.pinMode === 'change') {
+            if (this.pinStep === 1) {
+                this.currentPin = pin;
+                this.pinStep = 2;
+                input.value = '';
+                document.getElementById('pinTitle').textContent = 'New PIN';
+                document.getElementById('pinDescription').textContent = 'Enter your new 4-digit PIN';
+            } else {
+                const res = await window.settingsAPI.changePin(this.currentPin, pin);
+                if (res.success) {
+                    this.showToast('PIN changed successfully', 'success');
+                    document.getElementById('pinModal').style.display = 'none';
+                } else {
+                    this.showToast(res.message || 'Failed to change PIN', 'error');
+                    this.showPinModal('change');
+                }
+            }
+        } else {
+            const res = await window.settingsAPI.setSecurityPin(pin);
+            if (res.success) {
+                this.showToast('PIN set successfully', 'success');
+                document.getElementById('pinModal').style.display = 'none';
+            }
         }
     }
 
@@ -262,8 +533,6 @@ class SettingsModal {
             setTimeout(() => toast.classList.remove('show'), 3000);
         }
     }
-
-    // ... (rest of the methods: PIN management, hotkey recording, etc.)
 }
 
 document.addEventListener('DOMContentLoaded', () => {
