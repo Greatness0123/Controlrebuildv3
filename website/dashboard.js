@@ -66,7 +66,7 @@ class Dashboard {
             document.getElementById('profileInitials').textContent = initials;
             document.getElementById('profileName').textContent = name;
             document.getElementById('profileEmail').textContent = this.currentUser.email || '';
-            document.getElementById('userId').textContent = this.currentUser.id;
+            document.getElementById('userId').textContent = this.currentUser.app_id || 'Not Linked';
 
             // Update stats
             const stats = document.querySelectorAll('.stat-value');
@@ -96,7 +96,7 @@ class Dashboard {
         const text = document.getElementById(elementId).textContent;
 
         navigator.clipboard.writeText(text).then(() => {
-            this.showToast('User ID copied to clipboard!', 'success');
+            this.showToast('ID copied to clipboard!', 'success');
         }).catch(() => {
             // Fallback for older browsers
             const textArea = document.createElement('textarea');
@@ -105,7 +105,7 @@ class Dashboard {
             textArea.select();
             document.execCommand('copy');
             document.body.removeChild(textArea);
-            this.showToast('User ID copied to clipboard!', 'success');
+            this.showToast('ID copied to clipboard!', 'success');
         });
     }
 
