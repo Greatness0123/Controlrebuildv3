@@ -1,104 +1,14 @@
-// Import Firebase service
-import { getUserById, updateUser, generateUserId } from './firebase-service.js';
-
-// Firebase Service - Real implementation using Firebase
-class FirebaseService {
-    constructor() {
-        this.isInitialized = true;
-        this.currentUser = null;
-    }
-
-    async signIn(userId) {
-        try {
-            const result = await getUserById(userId);
-            if (result.success) {
-                this.currentUser = result.user;
-                localStorage.setItem('currentUser', JSON.stringify(this.currentUser));
-                return { success: true, user: this.currentUser };
-            }
-            return { success: false, message: result.message || 'User not found' };
-        } catch (error) {
-            console.error('Sign in error:', error);
-            return { success: false, message: 'Authentication failed' };
-        }
-    }
-
-    async signOut() {
-        this.currentUser = null;
-        localStorage.removeItem('currentUser');
-        return { success: true };
-    }
-
-    async getCurrentUser() {
-        if (this.currentUser) {
-            return this.currentUser;
-        }
-        
-        // Check localStorage for cached user
-        const stored = localStorage.getItem('currentUser');
-        if (stored) {
-            try {
-                const userData = JSON.parse(stored);
-                // Verify user still exists in database
-                const result = await getUserById(userData.id);
-                if (result.success) {
-                    this.currentUser = result.user;
-                    return this.currentUser;
-                } else {
-                    // User no longer exists, clear cache
-                    localStorage.removeItem('currentUser');
-                    return null;
-                }
-            } catch (error) {
-                console.error('Error parsing stored user data:', error);
-                localStorage.removeItem('currentUser');
-                return null;
-            }
-        }
-        
-        return null;
-    }
-
-    async changePassword(userId, currentPassword, newPassword) {
-        try {
-            // In a real app, we'd verify the current password hash
-            // For now, we'll just update the password
-            const result = await updateUser(userId, {
-                password: 'hashed_' + newPassword, // In production, use proper hashing
-                passwordLastChanged: new Date()
-            });
-
-            if (result.success) {
-                // Update cached user data
-                if (this.currentUser && this.currentUser.id === userId) {
-                    this.currentUser.passwordLastChanged = new Date();
-                    localStorage.setItem('currentUser', JSON.stringify(this.currentUser));
-                }
-            }
-
-            return result;
-        } catch (error) {
-            console.error('Password change error:', error);
-            return { success: false, message: 'Failed to change password' };
-        }
-    }
-
-    async generateUserId() {
-        return generateUserId();
-    }
-}
-
 class Dashboard {
     constructor() {
-        this.firebase = new FirebaseService();
+        this.db = new SupabaseService();
         this.currentUser = null;
         this.init();
     }
 
     async init() {
         // Check authentication
-        this.currentUser = await this.firebase.getCurrentUser();
-        
+        this.currentUser = await this.db.getCurrentUser();
+
         if (!this.currentUser) {
             // Redirect to login if not authenticated
             window.location.href = 'login.html';
@@ -145,32 +55,46 @@ class Dashboard {
     updateUI() {
         if (!this.currentUser) return;
 
-        // Update profile information
-        document.getElementById('profileInitials').textContent = 
-            this.currentUser.name.split(' ').map(n => n[0]).join('').toUpperCase();
-        
-        document.getElementById('profileName').textContent = this.currentUser.name;
-        document.getElementById('profileEmail').textContent = this.currentUser.email;
-        document.getElementById('userId').textContent = this.currentUser.id;
+        try {
+            // Update profile information
+            const name = this.currentUser.name || 'User';
+            const names = name.trim().split(/\s+/);
+            const initials = names.length > 1
+                ? (names[0][0] + names[names.length - 1][0]).toUpperCase()
+                : names[0][0].toUpperCase();
 
-        // Update stats
-        document.querySelector('.stat:nth-child(1) .stat-value').textContent = 
-            this.currentUser.tasksCompleted;
-        document.querySelector('.stat:nth-child(2) .stat-value').textContent = 
-            this.currentUser.hoursSaved;
-        document.querySelector('.stat:nth-child(3) .stat-value').textContent = 
-            this.currentUser.successRate + '%';
+            document.getElementById('profileInitials').textContent = initials;
+            document.getElementById('profileName').textContent = name;
+            document.getElementById('profileEmail').textContent = this.currentUser.email || '';
+            document.getElementById('userId').textContent = this.currentUser.id;
 
-        // Update password info
-        const lastChanged = new Date(this.currentUser.passwordLastChanged);
-        const monthsAgo = Math.floor((new Date() - lastChanged) / (1000 * 60 * 60 * 24 * 30));
-        document.getElementById('passwordInfo').textContent = 
-            `Last changed ${monthsAgo} month${monthsAgo !== 1 ? 's' : ''} ago`;
+            // Update stats
+            const stats = document.querySelectorAll('.stat-value');
+            if (stats.length >= 3) {
+                stats[0].textContent = this.currentUser.tasksCompleted || 0;
+                stats[1].textContent = this.currentUser.hoursSaved || 0;
+                stats[2].textContent = (this.currentUser.successRate || 0) + '%';
+            }
+
+            // Update password info
+            const lastChanged = this.currentUser.passwordLastChanged ? new Date(this.currentUser.passwordLastChanged) : new Date();
+            const monthsAgo = Math.floor((new Date() - lastChanged) / (1000 * 60 * 60 * 24 * 30));
+            document.getElementById('passwordInfo').textContent =
+                `Last changed ${monthsAgo} month${monthsAgo !== 1 ? 's' : ''} ago`;
+
+            // Update plan
+            const planBadge = document.querySelector('.plan-badge');
+            if (planBadge && this.currentUser.plan) {
+                planBadge.textContent = this.currentUser.plan;
+            }
+        } catch (error) {
+            console.error('Error updating UI:', error);
+        }
     }
 
     copyToClipboard(elementId) {
         const text = document.getElementById(elementId).textContent;
-        
+
         navigator.clipboard.writeText(text).then(() => {
             this.showToast('User ID copied to clipboard!', 'success');
         }).catch(() => {
@@ -211,7 +135,7 @@ class Dashboard {
         }
 
         try {
-            const result = await this.firebase.changePassword(
+            const result = await this.db.changePassword(
                 this.currentUser.id,
                 currentPassword,
                 newPassword
@@ -232,7 +156,7 @@ class Dashboard {
 
     async logout() {
         try {
-            await this.firebase.signOut();
+            await this.db.signOut();
             this.showToast('Logged out successfully', 'success');
             setTimeout(() => {
                 window.location.href = 'login.html';
@@ -245,6 +169,7 @@ class Dashboard {
 
     showToast(message, type = 'success') {
         const toast = document.getElementById('toast');
+        if (!toast) return;
         toast.textContent = message;
         toast.className = `toast ${type}`;
         toast.classList.add('show');
@@ -261,5 +186,4 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 // Export for use in other files
-window.FirebaseService = FirebaseService;
 window.Dashboard = Dashboard;

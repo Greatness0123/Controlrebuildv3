@@ -3,7 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Login - Control</title>
+    <title>Control - Login</title>
+    <link rel="stylesheet" href="styles.css">
     <style>
         * {
             margin: 0;
@@ -19,25 +20,26 @@
             display: flex;
             align-items: center;
             justify-content: center;
+            padding: 1rem;
         }
 
-        .auth-container {
-            background: rgba(15, 15, 25, 0.8);
+        .login-card {
+            background: rgba(15, 15, 25, 0.6);
             backdrop-filter: blur(20px);
             border-radius: 1rem;
             padding: 3rem;
             width: 100%;
-            max-width: 400px;
+            max-width: 450px;
             border: 1px solid rgba(255, 255, 255, 0.1);
-            box-shadow: 0 25px 50px rgba(0, 0, 0, 0.3);
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+        }
+
+        .login-header {
+            text-align: center;
+            margin-bottom: 2.5rem;
         }
 
         .logo {
-            text-align: center;
-            margin-bottom: 2rem;
-        }
-
-        .logo h1 {
             font-size: 2rem;
             font-weight: 700;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
@@ -45,15 +47,12 @@
             -webkit-text-fill-color: transparent;
             background-clip: text;
             margin-bottom: 0.5rem;
+            display: inline-block;
         }
 
-        .logo p {
+        .subtitle {
             color: rgba(255, 255, 255, 0.6);
-            font-size: 0.9rem;
-        }
-
-        .auth-form {
-            margin-bottom: 2rem;
+            font-size: 1rem;
         }
 
         .form-group {
@@ -65,44 +64,41 @@
             margin-bottom: 0.5rem;
             font-weight: 500;
             color: rgba(255, 255, 255, 0.8);
-            font-size: 0.9rem;
         }
 
         .form-input {
             width: 100%;
-            padding: 0.75rem 1rem;
+            padding: 0.875rem 1rem;
             background: rgba(255, 255, 255, 0.05);
             border: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: 0.5rem;
+            border-radius: 0.75rem;
             color: white;
             font-size: 1rem;
             outline: none;
             transition: all 0.2s ease;
+            font-family: inherit;
         }
 
         .form-input:focus {
             border-color: #667eea;
             background: rgba(255, 255, 255, 0.08);
+            box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.1);
         }
 
         .form-input::placeholder {
-            color: rgba(255, 255, 255, 0.4);
+            color: rgba(255, 255, 255, 0.3);
         }
 
         .btn {
             width: 100%;
-            padding: 0.75rem 1rem;
-            border-radius: 0.5rem;
+            padding: 0.875rem;
+            border-radius: 0.75rem;
             border: none;
             font-size: 1rem;
             font-weight: 600;
             cursor: pointer;
             transition: all 0.2s ease;
-            text-decoration: none;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            gap: 0.5rem;
+            margin-top: 1rem;
         }
 
         .btn-primary {
@@ -112,40 +108,63 @@
 
         .btn-primary:hover {
             transform: translateY(-1px);
-            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+            box-shadow: 0 8px 20px rgba(102, 126, 234, 0.4);
         }
 
-        .btn-primary:disabled {
-            opacity: 0.5;
+        .btn-primary:active {
+            transform: translateY(0);
+        }
+
+        .btn-primary.loading {
+            opacity: 0.7;
             cursor: not-allowed;
-            transform: none;
+            position: relative;
+            color: transparent;
         }
 
-        .auth-footer {
+        .btn-primary.loading::after {
+            content: "";
+            position: absolute;
+            width: 20px;
+            height: 20px;
+            top: 50%;
+            left: 50%;
+            margin: -10px 0 0 -10px;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-top-color: white;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .footer-links {
+            margin-top: 2rem;
             text-align: center;
-            color: rgba(255, 255, 255, 0.6);
             font-size: 0.9rem;
+            color: rgba(255, 255, 255, 0.6);
         }
 
-        .auth-footer a {
+        .footer-links a {
             color: #667eea;
             text-decoration: none;
             font-weight: 500;
-            transition: color 0.2s ease;
         }
 
-        .auth-footer a:hover {
-            color: #764ba2;
+        .footer-links a:hover {
+            text-decoration: underline;
         }
 
         .error-message {
             background: rgba(239, 68, 68, 0.1);
-            border: 1px solid rgba(239, 68, 68, 0.3);
-            border-radius: 0.5rem;
-            padding: 0.75rem;
-            font-size: 0.9rem;
+            border: 1px solid rgba(239, 68, 68, 0.2);
             color: #f87171;
+            padding: 0.75rem 1rem;
+            border-radius: 0.75rem;
             margin-bottom: 1.5rem;
+            font-size: 0.9rem;
             display: none;
         }
 
@@ -153,75 +172,43 @@
             display: block;
         }
 
-        .loading-spinner {
-            display: none;
-            width: 20px;
-            height: 20px;
-            border: 2px solid rgba(255, 255, 255, 0.3);
-            border-top: 2px solid white;
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
-        }
-
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-
-        .btn.loading .btn-text {
-            display: none;
-        }
-
-        .btn.loading .loading-spinner {
-            display: inline-block;
+        /* User ID mask style */
+        .user-id-input {
+            letter-spacing: 0.1em;
+            font-family: monospace;
         }
     </style>
 </head>
 <body>
-    <div class="auth-container">
-        <div class="logo">
-            <h1>Control</h1>
-            <p>Sign in to your account</p>
+    <div class="login-card">
+        <div class="login-header">
+            <div class="logo">Control</div>
+            <p class="subtitle">Secure Remote Access</p>
         </div>
 
-        <div class="error-message" id="errorMessage"></div>
+        <div class="error-message" id="errorMessage">
+            Invalid User ID or password.
+        </div>
 
-        <form class="auth-form" id="loginForm">
+        <form id="loginForm">
             <div class="form-group">
-                <label class="form-label" for="email">Email</label>
-                <input
-                    type="email"
-                    id="email"
-                    class="form-input"
-                    placeholder="Enter your email"
-                    required
-                >
+                <label class="form-label" for="userId">User ID</label>
+                <input type="text" id="userId" class="form-input user-id-input" placeholder="XXXX-XXXX-XXXX-XXXX" maxlength="24" required>
             </div>
 
             <div class="form-group">
                 <label class="form-label" for="password">Password</label>
-                <input 
-                    type="password" 
-                    id="password" 
-                    class="form-input" 
-                    placeholder="Enter your password"
-                    required
-                >
+                <input type="password" id="password" class="form-input" placeholder="••••••••" required>
             </div>
 
-            <button type="submit" class="btn btn-primary" id="loginBtn">
-                <span class="btn-text">Sign In</span>
-                <div class="loading-spinner"></div>
-            </button>
+            <button type="submit" class="btn btn-primary" id="loginBtn">Log In</button>
         </form>
 
-        <div class="auth-footer">
+        <div class="footer-links">
             Don't have an account? <a href="signup.html">Sign up</a>
         </div>
     </div>
 
-    <!-- Use unpkg UMD build to avoid jsdelivr DNS/source-map issues -->
-    <script src="https://unpkg.com/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
     <script src="supabase-service.js"></script>
     <script src="login.js"></script>
 </body>

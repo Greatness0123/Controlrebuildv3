@@ -1,7 +1,6 @@
 class SignupPage {
     constructor() {
-        // For the website we use Supabase for account creation.
-        this.supabase = new SupabaseService();
+        this.db = new SupabaseService();
         this.selectedPlan = 'Free';
         this.setupEventListeners();
     }
@@ -47,18 +46,18 @@ class SignupPage {
 
     updatePasswordStrength(password) {
         const strengthBar = document.getElementById('passwordStrengthBar');
-        
+
         if (password.length === 0) {
             strengthBar.className = 'password-strength-bar';
             return;
         }
 
         let strength = 0;
-        
+
         // Length check
         if (password.length >= 8) strength++;
         if (password.length >= 12) strength++;
-        
+
         // Character variety checks
         if (/[a-z]/.test(password)) strength++;
         if (/[A-Z]/.test(password)) strength++;
@@ -78,7 +77,7 @@ class SignupPage {
     validatePasswords() {
         const password = document.getElementById('password').value;
         const confirmPassword = document.getElementById('confirmPassword').value;
-        
+
         if (confirmPassword && password !== confirmPassword) {
             document.getElementById('confirmPassword').style.borderColor = '#ef4444';
             return false;
@@ -120,40 +119,30 @@ class SignupPage {
         this.hideMessages();
 
         try {
-            // 1) Create Supabase Auth user
-            const authRes = await this.supabase.signUpWithEmailPassword(email, password);
-            if (!authRes.success) {
-                throw new Error(authRes.message || 'Failed to create auth user');
-            }
+            // Generate unique User ID
+            const userId = await this.db.generateUserId();
 
-            // NOTE: If email confirmations are enabled, Supabase may not create a session immediately.
-            // For this website flow, disable email confirmations in Supabase Auth settings OR
-            // have the user sign in after confirming email.
-            const authUserId = authRes?.data?.user?.id;
-            if (!authUserId) {
-                throw new Error('Auth user created but no user id returned');
-            }
-
-            // 2) Create profile row in public.users (protected by RLS: auth.uid() = auth_id)
-            const entryId = await this.supabase.generateUserId();
+            // Create user account
             const userData = {
-                id: entryId,
-                auth_id: authUserId,
+                id: userId,
                 name: `${firstName} ${lastName}`,
                 email: email,
-                plan: this.selectedPlan.toLowerCase(),
-                member_since: new Date().toISOString()
+                plan: this.selectedPlan + ' Plan',
+                memberSince: new Date().toLocaleDateString('en-US', { month: 'short', year: 'numeric' }),
+                tasksCompleted: 0,
+                hoursSaved: 0,
+                successRate: 0,
+                password: 'hashed_' + password, // In real app, this would be properly hashed
+                passwordLastChanged: new Date()
             };
 
-            const profileRes = await this.supabase.createUser(userData);
-            if (!profileRes.success) {
-                throw new Error(profileRes.message || 'Failed to create user profile');
-            }
+            // Store user
+            await this.db.createUser(userData);
 
             // Show success message with User ID
-            this.showSuccessMessage(`Account created successfully! Your User ID is: ${entryId}`);
-            this.displayUserId(entryId);
-            
+            this.showSuccessMessage(`Account created successfully! Your User ID is: ${userId}`);
+            this.displayUserId(userId);
+
             // Reset form
             document.getElementById('signupForm').reset();
             document.getElementById('passwordStrengthBar').className = 'password-strength-bar';
@@ -174,7 +163,7 @@ class SignupPage {
     displayUserId(userId) {
         const userIdDisplay = document.getElementById('userIdDisplay');
         const userIdValue = document.getElementById('userIdValue');
-        
+
         userIdValue.textContent = userId;
         userIdDisplay.classList.add('show');
     }
@@ -193,7 +182,7 @@ class SignupPage {
     showError(message) {
         const errorMessage = document.getElementById('errorMessage');
         const successMessage = document.getElementById('successMessage');
-        
+
         errorMessage.textContent = message;
         errorMessage.classList.add('show');
         successMessage.classList.remove('show');
@@ -202,7 +191,7 @@ class SignupPage {
     showSuccessMessage(message) {
         const errorMessage = document.getElementById('errorMessage');
         const successMessage = document.getElementById('successMessage');
-        
+
         successMessage.textContent = message;
         successMessage.classList.add('show');
         errorMessage.classList.remove('show');

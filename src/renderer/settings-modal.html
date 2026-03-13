@@ -489,6 +489,10 @@
                 <div class="sidebar-icon"><i data-lucide="shield"></i></div>
                 <div class="sidebar-label">Security</div>
             </div>
+            <div class="sidebar-item" data-tab="remote">
+                <div class="sidebar-icon"><i data-lucide="monitor"></i></div>
+                <div class="sidebar-label">Remote Access</div>
+            </div>
             <div class="sidebar-item" data-tab="shortcuts">
                 <div class="sidebar-icon"><i data-lucide="keyboard"></i></div>
                 <div class="sidebar-label">Shortcuts</div>
@@ -792,6 +796,49 @@
                     </div>
                     <div style="margin-top: 20px; display: flex; justify-content: flex-end;">
                         <button class="btn btn-secondary" id="resetHotkeysBtn">Reset to Defaults</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Remote Access Tab -->
+            <div class="tab-content" id="remote">
+                <div class="section-title">Remote Control (View and Control)</div>
+                <p class="setting-desc" style="margin-bottom: 20px;">Control this computer from the Control Web app.</p>
+
+                <div class="setting-card">
+                    <div class="setting-row">
+                        <div class="setting-info">
+                            <div class="setting-name">Enable Remote Access</div>
+                            <div class="setting-desc">Allows secure connection from the web dashboard</div>
+                        </div>
+                        <label class="switch">
+                            <input type="checkbox" id="remoteAccessToggle">
+                            <span class="slider"></span>
+                        </label>
+                    </div>
+
+                    <div id="remotePairingSection" style="display: none; margin-top: 20px; padding-top: 20px; border-top: 1px solid var(--item-border);">
+                        <div class="form-group">
+                            <label class="form-label">Active Pairing Code</label>
+                            <div style="display: flex; gap: 12px; align-items: center;">
+                                <div id="pairingCodeDisplay" style="flex: 1; background: var(--bg-tertiary); padding: 12px; border-radius: 8px; font-family: 'JetBrains Mono', monospace; font-size: 20px; letter-spacing: 2px; text-align: center; border: 1px dashed var(--border-color);">
+                                    ---- ----
+                                </div>
+                                <button class="btn btn-primary" id="generatePairingBtn">Generate</button>
+                            </div>
+                            <p class="setting-desc" style="margin-top: 8px;">Code expires in 10 minutes. Enter this code in the Web App to pair.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="section-title">Connection Status</div>
+                <div class="setting-card">
+                    <div class="setting-row">
+                        <div class="setting-info">
+                            <div class="setting-name">Status</div>
+                            <div id="remoteStatusText" class="setting-desc">Disconnected</div>
+                        </div>
+                        <div id="remoteStatusDot" style="width: 12px; height: 12px; border-radius: 50%; background: var(--text-secondary);"></div>
                     </div>
                 </div>
             </div>

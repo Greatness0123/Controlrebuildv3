@@ -56,7 +56,13 @@ module.exports = {
                 email: data.email,
                 plan: data.plan,
                 tasksCompleted: data.tasks_completed,
-                // ... map other fields
+                hoursSaved: data.hours_saved,
+                successRate: data.success_rate,
+                picovoiceKey: data.picovoice_key,
+                aiSettings: data.ai_settings,
+                appSettings: data.app_settings,
+                actCount: data.act_count,
+                askCount: data.ask_count
             };
 
             this.cacheUser(userData);
@@ -108,5 +114,106 @@ module.exports = {
             }
         } catch (e) {}
         return null;
+    },
+
+    async updateUserSettings(userId, settings) {
+        try {
+            if (!supabase) return { success: false };
+
+            const { error } = await supabase
+                .from('users')
+                .update({
+                    ai_settings: settings.aiSettings,
+                    app_settings: settings.appSettings
+                })
+                .eq('id', userId);
+
+            if (error) throw error;
+            return { success: true };
+        } catch (error) {
+            console.error('Error updating user settings:', error);
+            return { success: false, message: error.message };
+        }
+    },
+
+    async updateUser(userId, data) {
+        try {
+            if (!supabase) return { success: false };
+
+            const updateData = {};
+            if (data.name) updateData.name = data.name;
+            if (data.picovoiceKey) updateData.picovoice_key = data.picovoiceKey;
+            if (data.tasksCompleted) updateData.tasks_completed = data.tasksCompleted;
+            if (data.remote_pairing_code) updateData.remote_pairing_code = data.remote_pairing_code;
+            if (data.remote_pairing_expires) updateData.remote_pairing_expires = data.remote_pairing_expires;
+            if (data.remote_access_enabled !== undefined) updateData.remote_access_enabled = data.remote_access_enabled;
+
+            const { error } = await supabase
+                .from('users')
+                .update(updateData)
+                .eq('id', userId);
+
+            if (error) throw error;
+            return { success: true };
+        } catch (error) {
+            console.error('Error updating user:', error);
+            return { success: false, message: error.message };
+        }
+    },
+
+    async getGeminiKey(plan) {
+        const keys = this.getKeys();
+        if (keys && keys.gemini_keys) {
+            return keys.gemini_keys[0];
+        }
+        return null;
+    },
+
+    async checkRateLimit(userId, mode) {
+        return { allowed: true };
+    },
+
+    async incrementTaskCount(userId, mode) {
+        try {
+            if (!supabase) return;
+            const column = mode === 'act' ? 'act_count' : 'ask_count';
+            const { data: user } = await supabase.from('users').select(column).eq('id', userId).single();
+            if (user) {
+                const newVal = (user[column] || 0) + 1;
+                await supabase.from('users').update({ [column]: newVal }).eq('id', userId);
+            }
+        } catch (e) {
+            console.error('Error incrementing task count:', e);
+        }
+    },
+
+    async updateTokenUsage(userId, mode, usage) {
+        try {
+            if (!supabase || !usage) return;
+            const { totalTokenCount } = usage;
+            const { data: user } = await supabase.from('users').select('token_usage').eq('id', userId).single();
+            const currentUsage = user?.token_usage || {};
+            currentUsage[mode] = (currentUsage[mode] || 0) + (totalTokenCount || 0);
+            await supabase.from('users').update({ token_usage: currentUsage }).eq('id', userId);
+        } catch (e) {
+            console.error('Error updating token usage:', e);
+        }
+    },
+
+    rotateGeminiKey() {
+        console.log('Gemini key rotation requested');
+    },
+
+    rotateOpenRouterKey() {
+        console.log('OpenRouter key rotation requested');
+    },
+
+    clearCachedUser() {
+        try {
+            const cacheFile = getCacheFile();
+            if (fs.existsSync(cacheFile)) {
+                fs.unlinkSync(cacheFile);
+            }
+        } catch (e) {}
     }
 };

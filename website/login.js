@@ -1,14 +1,15 @@
+// Import Firebase service (assuming it's shared)
+// In a real app, this would be imported from a shared file
+
 class LoginPage {
     constructor() {
-        // For the website we authenticate via Supabase.
-        // SupabaseService is provided by supabase-service.js
-        this.supabase = new SupabaseService();
+        this.db = new SupabaseService();
         this.setupEventListeners();
     }
 
     setupEventListeners() {
         const loginForm = document.getElementById('loginForm');
-        const emailInput = document.getElementById('email');
+        const userIdInput = document.getElementById('userId');
         const passwordInput = document.getElementById('password');
 
         loginForm.addEventListener('submit', async (e) => {
@@ -16,19 +17,44 @@ class LoginPage {
             await this.login();
         });
 
-        // Auto-focus email field
-        emailInput?.focus();
+        // Auto-focus user ID field
+        userIdInput.focus();
+
+        // Format user ID as user types
+        userIdInput.addEventListener('input', (e) => {
+            this.formatUserId(e.target);
+        });
+    }
+
+    formatUserId(input) {
+        // Remove all non-alphanumeric characters
+        let value = input.value.replace(/[^A-Za-z0-9]/g, '').toUpperCase();
+
+        // Auto-format as XXXX-XXXX-XXXX-XXXX-XXXX (24 chars with 4 hyphens)
+        let formatted = '';
+        for (let i = 0; i < value.length && i < 20; i++) {
+            if (i > 0 && i % 4 === 0) formatted += '-';
+            formatted += value[i];
+        }
+
+        input.value = formatted;
     }
 
     async login() {
-        const email = document.getElementById('email').value.trim();
+        const userId = document.getElementById('userId').value.trim();
         const password = document.getElementById('password').value;
         const errorMessage = document.getElementById('errorMessage');
         const loginBtn = document.getElementById('loginBtn');
 
         // Validation
-        if (!email || !password) {
-            this.showError('Please enter both email and password');
+        if (!userId || !password) {
+            this.showError('Please enter both User ID and password');
+            return;
+        }
+
+        // 20 chars + 4 hyphens = 24 chars
+        if (userId.length !== 24) {
+            this.showError('Invalid User ID format');
             return;
         }
 
@@ -36,13 +62,15 @@ class LoginPage {
         this.hideError();
 
         try {
-            const result = await this.supabase.loginWithEmailPassword(email, password);
+            // In a real app, we'd verify the password
+            // For demo, we'll just authenticate by User ID
+            const result = await this.db.signIn(userId);
 
             if (result.success) {
                 // Redirect to dashboard
                 window.location.href = 'index.html';
             } else {
-                this.showError(result.message || 'Invalid email or password');
+                this.showError(result.message || 'Invalid User ID or password');
             }
         } catch (error) {
             console.error('Login error:', error);

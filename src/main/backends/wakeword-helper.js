@@ -139,7 +139,7 @@ class WakewordHelper {
     const platform = process.platform;
     let platformSuffix = "windows";
     let osName = "Windows";
-    
+
     if (platform === "darwin") {
       platformSuffix = "mac";
       osName = "macOS";
@@ -288,19 +288,19 @@ class WakewordHelper {
       } else {
         this.log('Access key not found in process.env, checking secondary sources...');
 
-        // 1. Try Firebase local cache
+        // 1. Try Supabase local cache
         try {
-          const firebaseService = require('../firebase-service');
-          const cachedUser = firebaseService.checkCachedUser();
+          const supabaseService = require('../supabase-service');
+          const cachedUser = supabaseService.checkCachedUser();
           if (cachedUser) {
             currentKey = cachedUser.picovoiceKey || cachedUser.porcupine_access_key;
             if (currentKey) {
-              this.log(`Recovered key from Firebase user cache (starts with: ${currentKey.substring(0, 5)}...)`);
+              this.log(`Recovered key from Supabase user cache (starts with: ${currentKey.substring(0, 5)}...)`);
               process.env.PORCUPINE_ACCESS_KEY = currentKey;
             }
           }
         } catch (e) {
-          this.log(`Firebase cache check failed: ${e.message}`, 'warn');
+          this.log(`Supabase cache check failed: ${e.message}`, 'warn');
         }
 
         // 2. Try SettingsManager (global)
