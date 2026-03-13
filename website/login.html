@@ -188,12 +188,12 @@
 
         <form class="auth-form" id="loginForm">
             <div class="form-group">
-                <label class="form-label" for="userId">User ID</label>
-                <input 
-                    type="text" 
-                    id="userId" 
-                    class="form-input" 
-                    placeholder="Enter your User ID"
+                <label class="form-label" for="email">Email</label>
+                <input
+                    type="email"
+                    id="email"
+                    class="form-input"
+                    placeholder="Enter your email"
                     required
                 >
             </div>
@@ -220,6 +220,8 @@
         </div>
     </div>
 
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="supabase-service.js"></script>
     <script src="login.js"></script>
 </body>
 </html>

@@ -1,14 +1,21 @@
-// Supabase Configuration
-const supabaseUrl = 'YOUR_SUPABASE_URL';
-const supabaseKey = 'YOUR_SUPABASE_ANON_KEY';
+// Simple browser-side Supabase helper. Expects supabase-js v2 CDN to be loaded
+// which exposes `window.supabase`.
 
-// Initialize Supabase Client
-const supabase = supabaseJS.createClient(supabaseUrl, supabaseKey);
+// Supabase Configuration (replace with your real project values)
+const supabaseUrl = window.SUPABASE_URL || 'https://gdvitudsmqktiutyyndv.supabase.co';
+const supabaseKey = window.SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imdkdml0dWRzbXFrdGl1dHl5bmR2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMzNDIxNjAsImV4cCI6MjA4ODkxODE2MH0.uxN2Obtx2EeErFK8sNMW15xpOMf8FSToiozX0vT_f1Q';
+
+// Initialize Supabase Client using global `supabase` from CDN
+const supabaseClient = window.supabase
+    ? window.supabase.createClient(supabaseUrl, supabaseKey)
+    : null;
 
 // User management functions
-export async function getUserById(userId) {
+async function getUserById(userId) {
     try {
-        const { data, error } = await supabase
+        if (!supabaseClient) throw new Error('Supabase client not initialized');
+
+        const { data, error } = await supabaseClient
             .from('users')
             .select('*')
             .eq('id', userId)
@@ -28,21 +35,21 @@ export async function getUserById(userId) {
     }
 }
 
-export async function createUser(userData) {
+async function createUser(userData) {
     try {
-        const entryId = generateEntryId();
-        const { data, error } = await supabase
+        if (!supabaseClient) throw new Error('Supabase client not initialized');
+
+        // NOTE: Under RLS, creating a profile row should happen AFTER an authenticated signup,
+        // so auth_id can be set and the INSERT policy can validate ownership.
+        const { data, error } = await supabaseClient
             .from('users')
             .insert([{
-                id: entryId,
                 ...userData,
                 tasks_completed: 0,
                 hours_saved: 0,
                 success_rate: 0,
                 is_active: true
-            }])
-            .select()
-            .single();
+            }]);
 
         if (error) throw error;
 
@@ -58,9 +65,11 @@ export async function createUser(userData) {
     }
 }
 
-export async function updateUser(userId, updateData) {
+async function updateUser(userId, updateData) {
     try {
-        const { error } = await supabase
+        if (!supabaseClient) throw new Error('Supabase client not initialized');
+
+        const { error } = await supabaseClient
             .from('users')
             .update(updateData)
             .eq('id', userId);
@@ -78,9 +87,11 @@ export async function updateUser(userId, updateData) {
     }
 }
 
-export async function login(email, password) {
+async function loginWithEmailPassword(email, password) {
     try {
-        const { data, error } = await supabase.auth.signInWithPassword({
+        if (!supabaseClient) throw new Error('Supabase client not initialized');
+
+        const { data, error } = await supabaseClient.auth.signInWithPassword({
             email,
             password,
         });
@@ -88,7 +99,7 @@ export async function login(email, password) {
         if (error) throw error;
 
         // Fetch user profile from public.users
-        const { data: profile, error: profileError } = await supabase
+        const { data: profile, error: profileError } = await supabaseClient
             .from('users')
             .select('*')
             .eq('auth_id', data.user.id)
@@ -109,7 +120,7 @@ export async function login(email, password) {
     }
 }
 
-export function generateEntryId() {
+function generateEntryId() {
     // Generate 12-digit numeric string
     let result = '';
     for (let i = 0; i < 12; i++) {
@@ -117,3 +128,37 @@ export function generateEntryId() {
     }
     return result;
 }
+
+// Expose a small service class on window for login.js/signup.js
+window.SupabaseService = class SupabaseService {
+    async signUpWithEmailPassword(email, password) {
+        try {
+            if (!supabaseClient) throw new Error('Supabase client not initialized');
+            const { data, error } = await supabaseClient.auth.signUp({ email, password });
+            if (error) throw error;
+            return { success: true, data };
+        } catch (e) {
+            return { success: false, message: e.message };
+        }
+    }
+
+    async loginWithEmailPassword(email, password) {
+        return await loginWithEmailPassword(email, password);
+    }
+
+    async getUserById(userId) {
+        return await getUserById(userId);
+    }
+
+    async createUser(userData) {
+        return await createUser(userData);
+    }
+
+    async updateUser(userId, updateData) {
+        return await updateUser(userId, updateData);
+    }
+
+    async generateUserId() {
+        return generateEntryId();
+    }
+};
