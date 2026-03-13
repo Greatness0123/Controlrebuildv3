@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from 'react';
-import { supabase } from '@/lib/supabase';
+import { getSupabaseClient } from '@/lib/supabase';
 
 export default function RemoteDesktop({ computerId, type }: { computerId: string, type: 'vm' | 'local' }) {
     const videoRef = useRef<HTMLVideoElement>(null);
@@ -11,6 +11,13 @@ export default function RemoteDesktop({ computerId, type }: { computerId: string
     useEffect(() => {
         const setupConnection = async () => {
             try {
+                const supabase = getSupabaseClient();
+                if (!supabase) {
+                    setStatus('Supabase not configured');
+                    setError('Set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY to enable realtime remote control.');
+                    return;
+                }
+
                 // In a real implementation, we would initialize WebRTC here
                 // For now, we simulate the connection status
                 setStatus('Authenticated. Waiting for stream...');
@@ -35,6 +42,8 @@ export default function RemoteDesktop({ computerId, type }: { computerId: string
     }, [computerId]);
 
     const handleMouseMove = (e: React.MouseEvent) => {
+        const supabase = getSupabaseClient();
+        if (!supabase) return;
         if (status !== 'Streaming' || !videoRef.current) return;
 
         const rect = videoRef.current.getBoundingClientRect();
@@ -51,6 +60,8 @@ export default function RemoteDesktop({ computerId, type }: { computerId: string
     };
 
     const handleClick = (e: React.MouseEvent) => {
+        const supabase = getSupabaseClient();
+        if (!supabase) return;
         supabase.from('remote_signaling').insert({
             user_id: 'current-user-id',
             source: 'web',

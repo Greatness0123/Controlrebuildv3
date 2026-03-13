@@ -2114,10 +2114,8 @@ class ChatWindow {
             console.error('Error parsing markdown with marked:', e);
         }
 
-        // Fallback simple parser
-        return safeText.replace(/\n/g, '<br>');
         // Fallback simple parser with HTML escaping to prevent raw rendering
-        return this.escapeHtml(text).replace(/\n/g, '<br>');
+        return this.escapeHtml(safeText).replace(/\n/g, '<br>');
     }
 
     scrollToBottom() {
@@ -2139,21 +2137,20 @@ class ChatWindow {
         }
 
         this.statusText.textContent = text;
-            this.statusDot.className = 'status-dot';
-            switch (type) {
-                case 'ready': this.statusDot.style.background = '#10b981'; break;
-                case 'working': this.statusDot.style.background = '#f59e0b'; break;
-                case 'error': this.statusDot.style.background = '#ef4444'; break;
-                case 'listening': this.statusDot.style.background = '#3b82f6'; break;
-                default: this.statusDot.style.background = '#10b981';
-            }
+        this.statusDot.className = 'status-dot';
+        switch (type) {
+            case 'ready': this.statusDot.style.background = '#10b981'; break;
+            case 'working': this.statusDot.style.background = '#f59e0b'; break;
+            case 'error': this.statusDot.style.background = '#ef4444'; break;
+            case 'listening': this.statusDot.style.background = '#3b82f6'; break;
+            default: this.statusDot.style.background = '#10b981';
+        }
 
-            // Auto-revert to rate limit if not in a persistent state
-            if (type !== 'working' && type !== 'listening' && type !== 'error') {
-                this.statusRevertTimeout = setTimeout(() => {
-                    this.updateStatus('Ready', 'ready');
-                }, 3000); // Revert after 3 seconds
-            }
+        // Auto-revert to rate limit if not in a persistent state
+        if (type !== 'working' && type !== 'listening' && type !== 'error') {
+            this.statusRevertTimeout = setTimeout(() => {
+                this.updateStatus('Ready', 'ready');
+            }, 3000); // Revert after 3 seconds
         }
     }
 

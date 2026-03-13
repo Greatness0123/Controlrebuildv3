@@ -1,6 +1,24 @@
-import { createClient } from '@supabase/supabase-js';
+import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+let _client: SupabaseClient | null = null;
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+function getEnv(name: string): string | undefined {
+  const val = process.env[name];
+  return val && val.length > 0 ? val : undefined;
+}
+
+export function getSupabaseClient(): SupabaseClient | null {
+  if (_client) return _client;
+
+  const url = getEnv('NEXT_PUBLIC_SUPABASE_URL');
+  const anonKey = getEnv('NEXT_PUBLIC_SUPABASE_ANON_KEY');
+
+  if (!url || !anonKey) {
+    // Don't throw during build; allow pages to render with degraded functionality.
+    // UI components should show a "not configured" state when null is returned.
+    return null;
+  }
+
+  _client = createClient(url, anonKey);
+  return _client;
+}
