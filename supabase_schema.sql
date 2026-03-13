@@ -19,6 +19,9 @@ CREATE TABLE IF NOT EXISTS public.users (
     token_usage JSONB DEFAULT '{}'::jsonb,
     daily_token_usage JSONB DEFAULT '{}'::jsonb,
     picovoice_key TEXT,
+    remote_access_enabled BOOLEAN DEFAULT false,
+    remote_pairing_code TEXT,
+    remote_pairing_expires TIMESTAMP WITH TIME ZONE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );

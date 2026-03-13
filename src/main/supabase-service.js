@@ -170,7 +170,39 @@ module.exports = {
     },
 
     async checkRateLimit(userId, mode) {
-        return { allowed: true };
+        try {
+            if (!supabase) return { allowed: true };
+
+            const { data: user, error } = await supabase
+                .from('users')
+                .select('plan, act_count, ask_count')
+                .eq('id', userId)
+                .single();
+
+            if (error || !user) return { allowed: true };
+
+            const limits = {
+                'Free': { act: 10, ask: 50 },
+                'Pro': { act: 500, ask: 2000 },
+                'Master': { act: 5000, ask: 10000 }
+            };
+
+            const planLimits = limits[user.plan] || limits['Free'];
+            const currentCount = mode === 'act' ? user.act_count : user.ask_count;
+            const limit = mode === 'act' ? planLimits.act : planLimits.ask;
+
+            if (currentCount >= limit) {
+                return {
+                    allowed: false,
+                    error: `Monthly ${mode.toUpperCase()} limit reached for your ${user.plan} plan. Upgrade for more access.`
+                };
+            }
+
+            return { allowed: true };
+        } catch (e) {
+            console.error('Rate limit check error:', e);
+            return { allowed: true };
+        }
     },
 
     async incrementTaskCount(userId, mode) {

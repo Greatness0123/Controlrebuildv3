@@ -374,6 +374,15 @@ class ActBackend {
             const encodedQuery = encodeURIComponent(params.query);
             const searchUrl = `https://www.google.com/search?q=${encodedQuery}`;
 
+            // Try SearchManager (API-based) first
+            const searchResults = await searchManager.search(params.query);
+            if (searchResults && searchResults.length > 0) {
+                result.success = true;
+                result.message = `Search results for "${params.query}":\n` +
+                                 searchResults.map((r, i) => `${i+1}. ${r.title} (${r.link})\n${r.snippet}`).join('\n\n');
+                return result;
+            }
+
             // Fallback to Agentic Browser if native tools (gemini) are unavailable
             if (this.currentProvider !== 'gemini') {
                 console.log(`[ACT JS] Web search fallback to agentic browser for: ${params.query}`);

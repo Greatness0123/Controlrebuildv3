@@ -5,9 +5,14 @@ export default function LandingPage() {
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-8 text-center">
       <header className="mb-16">
-        <h1 className="text-6xl font-extrabold tracking-tight mb-4">CONTROL WEB</h1>
-        <p className="text-xl text-gray-600 dark:text-gray-400 max-w-2xl">
-          Unified remote access and AI computer use for your local systems and virtual machines.
+        <div className="inline-block px-4 py-1.5 mb-6 text-sm font-semibold tracking-wider uppercase bg-gray-100 dark:bg-gray-800 rounded-full">
+          Cloud & Local Integration
+        </div>
+        <h1 className="text-7xl font-extrabold tracking-tighter mb-6 bg-clip-text text-transparent bg-gradient-to-b from-black to-gray-500 dark:from-white dark:to-gray-400">
+          CONTROL WEB
+        </h1>
+        <p className="text-xl text-gray-600 dark:text-gray-400 max-w-2xl mx-auto">
+          The ultimate command center for your computing resources. Access local systems and virtual machines with AI-powered assistance.
         </p>
       </header>
 
@@ -39,7 +44,7 @@ export default function LandingPage() {
       </div>
 
       <footer className="mt-24 text-gray-500 text-sm">
-        &copy; {new Date().getFullYear()} Coasty AI. Professional Computer Use.
+        &copy; {new Date().getFullYear()} Control AI. Professional Computer Use.
       </footer>
     </div>
   );

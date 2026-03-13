@@ -1,34 +1,35 @@
 # Understanding Docker: A Guide for Control Users
 
-## What is Docker?
-Docker is a platform that allows you to package an application and all its dependencies into a single, standardized unit called a **container**. Think of it like a shipping container: no matter what is inside, it can be loaded onto any ship, train, or truck without needing special handling.
+Docker is a platform that allows you to package an application and all its dependencies into a standardized unit called a **container**. Think of it as a "shipping container" for software.
 
-## Why are we using it for Control?
-For the **Control Web** feature, we need to provide each user with their own isolated computer environment (Virtual Machine). Using Docker allows us to:
-1.  **Isolation**: Each user's virtual computer is completely separate from others.
-2.  **Consistency**: The environment is identical for every user, preventing "it works on my machine" bugs.
-3.  **Speed**: Docker containers start in seconds, much faster than traditional Virtual Machines.
-4.  **Efficiency**: We can run many virtual desktops on a single server without the heavy overhead of traditional virtualization.
+## Why are we using Docker for Control?
+
+In the context of **Control Web**, Docker is used to create "Virtual Machines" (VMs). Instead of needing a full heavy virtual machine like VMware or VirtualBox, Docker allows us to spin up a lightweight Linux desktop in seconds that you can control from your browser.
 
 ## Key Concepts
 
 ### 1. Images
-An image is a "blueprint" or a read-only template. For Control, our image contains a Linux operating system (like Ubuntu), a desktop environment, and the Control backend.
+An image is a read-only template with instructions for creating a Docker container. For Control, we have a "Desktop Image" that contains Ubuntu, a desktop environment (XFCE), and the necessary drivers to allow the AI to move the mouse and type.
 
 ### 2. Containers
-A container is a running instance of an image. If the Image is a blueprint for a house, the Container is the actual house you live in. When you "Create a new computer" in Control Web, we start a new container from our image.
+A container is a runnable instance of an image. When you click "Create VM" in Control Web, we start a new container from our image. It is isolated from other users, meaning your files and activities are private.
 
 ### 3. Dockerfile
-A simple text file with instructions on how to build a Docker image. It specifies which OS to use, which packages to install, and what commands to run.
+A Dockerfile is a text document that contains all the commands a user could call on the command line to assemble an image. You can see ours in `control_web/vm/Dockerfile`.
 
 ### 4. Volumes
-Since containers are "ephemeral" (meaning they are reset when deleted), we use **Volumes** to store your files. This ensures your data persists even if the virtual machine is rebooted or updated.
+Since containers are "ephemeral" (they disappear when deleted), we use **Volumes** to save your files. This is how your virtual computer "remembers" your data even after you turn it off.
 
-## How to manage Control VMs with Docker
-If you are hosting your own VM provider for Control:
-1.  **Build the image**: `docker build -t control-desktop .`
-2.  **Start a user VM**: `docker run -p 6080:6080 control-desktop`
-3.  **Access it**: You can then see and control this machine via noVNC in your browser at port 6080.
+## How it works in Control Web
 
-## Summary
-Docker makes "Control Web" possible by providing lightweight, secure, and disposable virtual computers that follow the exact same architecture as your local Control Desktop app.
+1. **Isolation**: Every user gets their own container.
+2. **Access**: We use a technology called **noVNC** which turns the container's desktop into a website. Control Web embeds this website so you can see the screen.
+3. **AI Control**: The Control AI Agent talks to the container via a secure bridge to perform tasks like searching the web or organizing files.
+
+## Summary of Commands (For Reference)
+
+If you have Docker installed and want to run a Control VM locally:
+- `docker build -t control-vm .` (Builds the image)
+- `docker run -p 6080:6080 control-vm` (Starts the VM, accessible at http://localhost:6080)
+
+Docker makes the "Web" part of Control possible by providing consistent, isolated, and scalable virtual computers on demand.

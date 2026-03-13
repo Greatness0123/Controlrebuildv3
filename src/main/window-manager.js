@@ -268,6 +268,34 @@ class WindowManager {
     }
 
 
+    async createLiteWindow() {
+        console.log('[WindowManager] Creating lite window...');
+        const liteWindow = new BrowserWindow({
+            width: 400,
+            height: 600,
+            x: screen.getPrimaryDisplay().workAreaSize.width - 420,
+            y: screen.getPrimaryDisplay().workAreaSize.height - 620,
+            frame: false,
+            transparent: true,
+            alwaysOnTop: true,
+            skipTaskbar: true,
+            resizable: true,
+            movable: true,
+            show: false,
+            webPreferences: {
+                nodeIntegration: false,
+                contextIsolation: true,
+                preload: path.join(__dirname, '../preload/lite-preload.js'),
+                webSecurity: !isDev
+            }
+        });
+        liteWindow.setAlwaysOnTop(true, 'screen-saver');
+        await liteWindow.loadFile(path.join(__dirname, '../renderer/lite-window.html'));
+        this.windows.set('lite', liteWindow);
+        this.applyCurrentVisibility(liteWindow);
+        this.setupDraggableWindow(liteWindow);
+    }
+
     async createEntryWindow() {
         console.log('[WindowManager] Creating entry window...');
         const { width, height } = screen.getPrimaryDisplay().workAreaSize;
@@ -279,7 +307,7 @@ class WindowManager {
             y: (height - 600) / 2,
             frame: false,
             transparent: false,
-            alwaysOnTop: false,
+            alwaysOnTop: true,
             skipTaskbar: false,
             resizable: true,
             movable: true,
@@ -367,6 +395,7 @@ class WindowManager {
             console.log(`[WindowManager] Window ${windowType} not found or destroyed, recreating...`);
             if (windowType === 'entry') await this.createEntryWindow();
             else if (windowType === 'chat') await this.createChatWindow();
+            else if (windowType === 'lite') await this.createLiteWindow();
             else if (windowType === 'settings') await this.createSettingsWindow();
             else if (windowType === 'workflow') await this.createWorkflowWindow();
             else if (windowType === 'main') await this.createMainWindow();
@@ -418,14 +447,20 @@ class WindowManager {
     }
 
     async toggleChat() {
-        console.log(`[WindowManager] toggleChat: Current chatVisible=${this.chatVisible}`);
+        const layout = global.appSettings?.layout || 'classic';
+        const target = layout === 'lite' ? 'lite' : 'chat';
+        const other = layout === 'lite' ? 'chat' : 'lite';
+
+        console.log(`[WindowManager] toggleChat: layout=${layout}, target=${target}, current chatVisible=${this.chatVisible}`);
+
         if (this.chatVisible) {
-            console.log('[WindowManager] toggleChat: Hiding chat');
-            this.hideWindow('chat');
+            console.log(`[WindowManager] toggleChat: Hiding ${target}`);
+            this.hideWindow(target);
             return { visible: false };
         } else {
-            console.log('[WindowManager] toggleChat: Showing chat');
-            await this.showWindow('chat');
+            console.log(`[WindowManager] toggleChat: Showing ${target}`);
+            this.hideWindow(other); // Ensure other layout is hidden
+            await this.showWindow(target);
             return { visible: true };
         }
     }

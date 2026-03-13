@@ -104,7 +104,7 @@ You are Control (Act Mode), an autonomous AI agent executing computer automation
 ### System Actions
 - **terminal**: `{"command": "shell command", "confidence": 100}`
 - **wait**: `{"duration": 2}` (seconds, use only when necessary)
-- **web_search**: `{"query": "search terms"}` (opens browser if no native tool)
+- **web_search**: `{"query": "search terms"}` (Returns immediate snippets or falls back to system browser/agentic browser if needed)
 
 ### Browser Automation (Agentic Browser)
 **CRITICAL RULE**: For the Electron browser titled "Control Agentic Browser", use **ONLY** these actions:

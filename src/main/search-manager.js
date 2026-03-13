@@ -1,4 +1,5 @@
 const { exec } = require('child_process');
+const fetch = (...args) => import('node-fetch').then(({default: fetch}) => fetch(...args));
 
 class SearchManager {
     constructor() {
@@ -7,34 +8,36 @@ class SearchManager {
     }
 
     async search(query) {
+        console.log(`[SearchManager] Searching for: ${query}`);
         if (this.googleSearchApiKey && this.googleSearchCx) {
-            return this.googleCustomSearch(query);
-        } else {
-            return this.duckDuckGoSearch(query);
+            try {
+                return await this.googleCustomSearch(query);
+            } catch (e) {
+                console.warn('[SearchManager] Google Search failed, falling back to DuckDuckGo/Web scraping logic');
+            }
         }
+        return await this.duckDuckGoSearch(query);
     }
 
     async googleCustomSearch(query) {
         const url = `https://www.googleapis.com/customsearch/v1?key=${this.googleSearchApiKey}&cx=${this.googleSearchCx}&q=${encodeURIComponent(query)}`;
-        try {
-            const response = await fetch(url);
-            const data = await response.json();
-            return data.items.map(item => ({
-                title: item.title,
-                link: item.link,
-                snippet: item.snippet
-            })).slice(0, 5);
-        } catch (error) {
-            console.error('Google Custom Search error:', error);
-            return this.duckDuckGoSearch(query);
-        }
+        const response = await fetch(url);
+        const data = await response.json();
+
+        if (!data.items) return [];
+
+        return data.items.map(item => ({
+            title: item.title,
+            link: item.link,
+            snippet: item.snippet
+        })).slice(0, 5);
     }
 
     async duckDuckGoSearch(query) {
-        // Simple fallback using a public API or scraping (carefully)
-        // For a production-ready free alternative, we might use a dedicated service or just prompt the AI to use the browser
-        console.log(`Fallback search for: ${query}`);
-        return null; // Return null to indicate fallback to browser
+        // Since we want a free fallback without API keys, we can use a simpler approach
+        // or just return a structure that tells the AI to use the browser.
+        // For now, let's return a dummy result that directs the AI to use the browser if everything fails.
+        return null;
     }
 }
 
