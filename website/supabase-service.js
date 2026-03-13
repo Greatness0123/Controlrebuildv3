@@ -1,199 +1,134 @@
-class SupabaseService {
-    constructor() {
-        this.currentUser = null;
-// Simple browser-side Supabase helper. Expects supabase-js v2 CDN to be loaded
-// which exposes `window.supabase`.
+// Browser-side Supabase helper used by the `website/` pages.
+// Requires the Supabase JS v2 UMD bundle to be loaded first (it exposes `window.supabase`).
+//
+// IMPORTANT:
+// - Using the anon key in a frontend is OK.
+// - NEVER use the Supabase service_role key in the browser.
 
-// Supabase Configuration (replace with your real project values)
-const supabaseUrl = window.SUPABASE_URL || 'https://gdvitudsmqktiutyyndv.supabase.co';
-const supabaseKey = window.SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imdkdml0dWRzbXFrdGl1dHl5bmR2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMzNDIxNjAsImV4cCI6MjA4ODkxODE2MH0.uxN2Obtx2EeErFK8sNMW15xpOMf8FSToiozX0vT_f1Q';
+// Supabase Configuration
+// You can optionally set these before loading this script:
+//   window.SUPABASE_URL = '...'
+//   window.SUPABASE_ANON_KEY = '...'
+const SUPABASE_URL =
+  window.SUPABASE_URL || 'https://gdvitudsmqktiutyyndv.supabase.co';
+const SUPABASE_ANON_KEY =
+  window.SUPABASE_ANON_KEY ||
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imdkdml0dWRzbXFrdGl1dHl5bmR2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMzNDIxNjAsImV4cCI6MjA4ODkxODE2MH0.uxN2Obtx2EeErFK8sNMW15xpOMf8FSToiozX0vT_f1Q';
 
-// Initialize Supabase Client using global `supabase` from CDN
-const supabaseClient = window.supabase
-    ? window.supabase.createClient(supabaseUrl, supabaseKey)
-    : null;
-
-// User management functions
-async function getUserById(userId) {
-    try {
-        if (!supabaseClient) throw new Error('Supabase client not initialized');
-
-        const { data, error } = await supabaseClient
-            .from('users')
-            .select('*')
-            .eq('id', userId)
-            .single();
-
-        if (error) throw error;
-
-        return {
-            success: true,
-            user: data
-        };
-    } catch (error) {
-        return {
-            success: false,
-            message: error.message
-        };
-    }
-
-    async signIn(userId) {
-        try {
-            // In a real app, you'd use the Supabase client here.
-            // For this environment, we'll keep the mock logic but ensure it's compatible with the Supabase schema.
-            const storedUser = localStorage.getItem('user_' + userId);
-            if (storedUser) {
-                this.currentUser = JSON.parse(storedUser);
-                localStorage.setItem('currentUser', JSON.stringify(this.currentUser));
-                return { success: true, user: this.currentUser };
-            }
-
-            return { success: false, message: 'User not found' };
-        } catch (error) {
-            return { success: false, message: 'Authentication failed' };
-        }
-    }
-async function createUser(userData) {
-    try {
-        if (!supabaseClient) throw new Error('Supabase client not initialized');
-
-        // NOTE: Under RLS, creating a profile row should happen AFTER an authenticated signup,
-        // so auth_id can be set and the INSERT policy can validate ownership.
-        const { data, error } = await supabaseClient
-            .from('users')
-            .insert([{
-                ...userData,
-                tasks_completed: 0,
-                hours_saved: 0,
-                success_rate: 0,
-                is_active: true
-            }]);
-
-        if (error) throw error;
-
-        return {
-            success: true,
-            user: data
-        };
-    } catch (error) {
-        return {
-            success: false,
-            message: error.message
-        };
-    }
+function createSupabaseClient() {
+  if (!window.supabase || typeof window.supabase.createClient !== 'function') {
+    throw new Error(
+      'Supabase JS SDK not loaded. Ensure the supabase-js CDN script loads before supabase-service.js'
+    );
+  }
+  return window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 }
 
-async function updateUser(userId, updateData) {
-    try {
-        if (!supabaseClient) throw new Error('Supabase client not initialized');
-
-        const { error } = await supabaseClient
-            .from('users')
-            .update(updateData)
-            .eq('id', userId);
-
-    async signOut() {
-        this.currentUser = null;
-        localStorage.removeItem('currentUser');
-        return { success: true };
-    }
-
-    async getCurrentUser() {
-        if (this.currentUser) return this.currentUser;
-        const stored = localStorage.getItem('currentUser');
-        if (stored) {
-            this.currentUser = JSON.parse(stored);
-            return this.currentUser;
-        }
-        return null;
-    }
-}
-
-async function loginWithEmailPassword(email, password) {
-    try {
-        if (!supabaseClient) throw new Error('Supabase client not initialized');
-
-        const { data, error } = await supabaseClient.auth.signInWithPassword({
-            email,
-            password,
-        });
-
-        if (error) throw error;
-
-        // Fetch user profile from public.users
-        const { data: profile, error: profileError } = await supabaseClient
-            .from('users')
-            .select('*')
-            .eq('auth_id', data.user.id)
-            .single();
-
-    async generateUserId() {
-        // Match the 12-digit numeric ID expected by verifyEntryID
-        let result = '';
-        for (let i = 0; i < 12; i++) {
-            result += Math.floor(Math.random() * 10);
-        }
-        return result;
-    }
-
-    async createUser(userData) {
-        // In real use: await supabase.from('users').insert(userData);
-        localStorage.setItem('user_' + userData.id, JSON.stringify(userData));
-        return { success: true };
-    }
-
-    async changePassword(userId, currentPassword, newPassword) {
-        const user = JSON.parse(localStorage.getItem('user_' + userId));
-        if (user) {
-            user.password = 'hashed_' + newPassword;
-            user.passwordLastChanged = new Date();
-            localStorage.setItem('user_' + userId, JSON.stringify(user));
-            if (this.currentUser && this.currentUser.id === userId) {
-                this.currentUser = user;
-                localStorage.setItem('currentUser', JSON.stringify(user));
-            }
-            return { success: true };
-        }
-        return { success: false, message: 'User not found' };
 function generateEntryId() {
-    // Generate 12-digit numeric string
-    let result = '';
-    for (let i = 0; i < 12; i++) {
-        result += Math.floor(Math.random() * 10);
-    }
+  // 12-digit numeric entry ID used by the desktop app for login
+  let result = '';
+  for (let i = 0; i < 12; i++) result += Math.floor(Math.random() * 10);
+  return result;
 }
 
-window.SupabaseService = SupabaseService;
-// Expose a small service class on window for login.js/signup.js
 window.SupabaseService = class SupabaseService {
-    async signUpWithEmailPassword(email, password) {
-        try {
-            if (!supabaseClient) throw new Error('Supabase client not initialized');
-            const { data, error } = await supabaseClient.auth.signUp({ email, password });
-            if (error) throw error;
-            return { success: true, data };
-        } catch (e) {
-            return { success: false, message: e.message };
-        }
-    }
+  constructor() {
+    this.client = createSupabaseClient();
+  }
 
-    async loginWithEmailPassword(email, password) {
-        return await loginWithEmailPassword(email, password);
-    }
+  generateUserId() {
+    return generateEntryId();
+  }
 
-    async getUserById(userId) {
-        return await getUserById(userId);
+  async signUpWithEmailPassword(email, password) {
+    try {
+      const { data, error } = await this.client.auth.signUp({ email, password });
+      if (error) throw error;
+      return { success: true, data };
+    } catch (e) {
+      return { success: false, message: e?.message || String(e) };
     }
+  }
 
-    async createUser(userData) {
-        return await createUser(userData);
-    }
+  async loginWithEmailPassword(email, password) {
+    try {
+      const { data, error } = await this.client.auth.signInWithPassword({
+        email,
+        password,
+      });
+      if (error) throw error;
 
-    async updateUser(userId, updateData) {
-        return await updateUser(userId, updateData);
-    }
+      // Fetch profile from public.users by auth_id
+      const { data: profile, error: profileError } = await this.client
+        .from('users')
+        .select('*')
+        .eq('auth_id', data.user.id)
+        .single();
+      if (profileError) throw profileError;
 
-    async generateUserId() {
-        return generateEntryId();
+      return { success: true, user: profile, session: data.session };
+    } catch (e) {
+      return { success: false, message: e?.message || String(e) };
     }
+  }
+
+  async getUserById(userId) {
+    try {
+      const { data, error } = await this.client
+        .from('users')
+        .select('*')
+        .eq('id', userId)
+        .single();
+      if (error) throw error;
+      return { success: true, user: data };
+    } catch (e) {
+      return { success: false, message: e?.message || String(e) };
+    }
+  }
+
+  async createUser(userData) {
+    try {
+      const { data, error } = await this.client
+        .from('users')
+        .insert([
+          {
+            ...userData,
+            tasks_completed: 0,
+            hours_saved: 0,
+            success_rate: 0,
+            is_active: true,
+          },
+        ])
+        .select()
+        .single();
+      if (error) throw error;
+      return { success: true, user: data };
+    } catch (e) {
+      return { success: false, message: e?.message || String(e) };
+    }
+  }
+
+  async updateUser(userId, updateData) {
+    try {
+      const { error } = await this.client
+        .from('users')
+        .update(updateData)
+        .eq('id', userId);
+      if (error) throw error;
+      return { success: true };
+    } catch (e) {
+      return { success: false, message: e?.message || String(e) };
+    }
+  }
+
+  async signOut() {
+    try {
+      const { error } = await this.client.auth.signOut();
+      if (error) throw error;
+      return { success: true };
+    } catch (e) {
+      return { success: false, message: e?.message || String(e) };
+    }
+  }
 };
+
