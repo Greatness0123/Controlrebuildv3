@@ -383,7 +383,8 @@
         </div>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <!-- Use unpkg UMD build to avoid jsdelivr DNS/source-map issues -->
+    <script src="https://unpkg.com/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
     <script src="supabase-service.js"></script>
     <script src="signup.js"></script>
 </body>
