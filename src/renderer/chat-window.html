@@ -257,6 +257,7 @@
             align-items: center;
             justify-content: center;
             transition: all 0.2s;
+            -webkit-app-region: no-drag;
         }
 
         .icon-btn:hover {
@@ -289,6 +290,43 @@
             background: transparent;
             justify-content: flex-end;
             padding-bottom: 20px;
+        }
+
+        /* Task Counter Misplacement Fix */
+        .status-bar {
+            padding: 8px 16px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            font-size: 11px;
+            color: var(--text-secondary);
+            border-top: 1px solid var(--border);
+            background: var(--bg-primary);
+        }
+
+        .rate-limit-container {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            background: var(--bg-secondary);
+            padding: 4px 10px;
+            border-radius: 12px;
+            border: 1px solid var(--border);
+        }
+
+        .rate-limit-progress-bg {
+            width: 60px;
+            height: 4px;
+            background: var(--border);
+            border-radius: 2px;
+            overflow: hidden;
+        }
+
+        .rate-limit-progress {
+            height: 100%;
+            background: var(--accent);
+            width: 0%;
+            transition: width 0.3s;
         }
 
         .lite-mode .messages-container {
@@ -378,6 +416,12 @@
             justify-content: center;
             text-align: center;
             padding: 40px;
+            transition: opacity 0.3s;
+        }
+
+        .welcome-screen.welcome-hidden {
+            display: none;
+            opacity: 0;
         }
 
         .welcome-logo {
@@ -403,22 +447,31 @@
         <main class="main-chat">
             <header class="chat-header">
                 <div class="header-left">
-                    <button class="icon-btn" id="newChatBtn"><i class="fas fa-plus"></i></button>
+                    <button class="icon-btn" id="historyButton" title="History"><i class="fas fa-history"></i></button>
+                    <button class="icon-btn" id="newChatBtn" title="New Chat"><i class="fas fa-plus"></i></button>
                     <div class="mode-switcher">
                         <button class="mode-btn active" id="modeAct">ACT</button>
                         <button class="mode-btn" id="modeAsk">ASK</button>
                     </div>
                 </div>
-                <div class="header-right" style="display: flex; gap: 8px;">
-                    <button class="icon-btn" id="workflowBtn"><i class="fas fa-project-diagram"></i></button>
-                    <button class="icon-btn" id="settingsBtn"><i class="fas fa-cog"></i></button>
+                <div class="header-right" style="display: flex; gap: 12px; align-items: center; -webkit-app-region: no-drag;">
+                    <div class="rate-limit-container" id="rateLimitContainer" style="display: none; height: 24px; font-size: 10px; -webkit-app-region: no-drag;">
+                        <div class="rate-limit-progress-bg" style="width: 40px; -webkit-app-region: no-drag;">
+                            <div id="rateLimitProgress" class="rate-limit-progress"></div>
+                        </div>
+                        <span id="rateLimitText" style="min-width: 24px;">0/0</span>
+                    </div>
+                    <div style="display: flex; gap: 4px;">
+                        <button class="icon-btn" id="workflowButton" title="Workflows"><i class="fas fa-project-diagram"></i></button>
+                        <button class="icon-btn" id="settingsBtn" title="Settings"><i class="fas fa-cog"></i></button>
+                    </div>
                 </div>
             </header>
 
             <div class="messages-container" id="messagesContainer">
                 <div class="welcome-screen" id="welcomeScreen">
                     <img src="./assets/icons/icon-removebg-preview.png" class="welcome-logo">
-                    <h1 class="welcome-title">Control</h1>
+                    <h1 class="welcome-title" id="welcomeGreeting">Control</h1>
                     <p style="color: var(--text-secondary);">How can I assist you today?</p>
                 </div>
             </div>
@@ -443,16 +496,10 @@
                     <button class="icon-btn" id="voiceBtn"><i class="fas fa-microphone"></i></button>
                     <button class="icon-btn send-btn" id="sendBtn" disabled><i class="fas fa-arrow-up"></i></button>
                 </div>
-                <div class="status-bar" id="statusBar">
+                <div class="status-bar" id="statusBar" style="border: none; background: transparent; padding: 4px 20px;">
                     <div class="status-content" id="statusContent">
                         <div class="status-dot" id="statusDot"></div>
                         <span id="statusText">Ready</span>
-                    </div>
-                    <div class="rate-limit-container" id="rateLimitContainer" style="display: none;">
-                        <div class="rate-limit-progress-bg">
-                            <div id="rateLimitProgress" class="rate-limit-progress"></div>
-                        </div>
-                        <span id="rateLimitText">0/0</span>
                     </div>
                 </div>
             </div>

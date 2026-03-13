@@ -9,7 +9,7 @@ class LoginPage {
 
     setupEventListeners() {
         const loginForm = document.getElementById('loginForm');
-        const userIdInput = document.getElementById('userId');
+        const emailInput = document.getElementById('email');
         const passwordInput = document.getElementById('password');
 
         loginForm.addEventListener('submit', async (e) => {
@@ -17,44 +17,19 @@ class LoginPage {
             await this.login();
         });
 
-        // Auto-focus user ID field
-        userIdInput.focus();
-
-        // Format user ID as user types
-        userIdInput.addEventListener('input', (e) => {
-            this.formatUserId(e.target);
-        });
-    }
-
-    formatUserId(input) {
-        // Remove all non-alphanumeric characters
-        let value = input.value.replace(/[^A-Za-z0-9]/g, '').toUpperCase();
-
-        // Auto-format as XXXX-XXXX-XXXX-XXXX-XXXX (24 chars with 4 hyphens)
-        let formatted = '';
-        for (let i = 0; i < value.length && i < 20; i++) {
-            if (i > 0 && i % 4 === 0) formatted += '-';
-            formatted += value[i];
-        }
-
-        input.value = formatted;
+        // Auto-focus email field
+        emailInput.focus();
     }
 
     async login() {
-        const userId = document.getElementById('userId').value.trim();
+        const email = document.getElementById('email').value.trim();
         const password = document.getElementById('password').value;
         const errorMessage = document.getElementById('errorMessage');
         const loginBtn = document.getElementById('loginBtn');
 
         // Validation
-        if (!userId || !password) {
-            this.showError('Please enter both User ID and password');
-            return;
-        }
-
-        // 20 chars + 4 hyphens = 24 chars
-        if (userId.length !== 24) {
-            this.showError('Invalid User ID format');
+        if (!email || !password) {
+            this.showError('Please enter both email and password');
             return;
         }
 
@@ -62,15 +37,13 @@ class LoginPage {
         this.hideError();
 
         try {
-            // In a real app, we'd verify the password
-            // For demo, we'll just authenticate by User ID
-            const result = await this.db.signIn(userId);
+            const result = await this.db.signIn(email, password);
 
             if (result.success) {
                 // Redirect to dashboard
                 window.location.href = 'index.html';
             } else {
-                this.showError(result.message || 'Invalid User ID or password');
+                this.showError(result.message || 'Invalid email or password');
             }
         } catch (error) {
             console.error('Login error:', error);
