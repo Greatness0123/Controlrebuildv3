@@ -41,16 +41,26 @@ class HotkeyManager {
     }
 
     registerShortcut(accelerator, id, handler) {
-        const success = globalShortcut.register(accelerator, handler);
-
-        if (success) {
-            this.shortcuts.set(id, { accelerator, handler });
-            console.log(`Registered hotkey: ${accelerator} for ${id}`);
-        } else {
-            console.error(`Failed to register hotkey: ${accelerator} for ${id}`);
+        if (!accelerator || accelerator.trim().endsWith('+')) {
+            console.warn(`Skipping invalid hotkey: ${accelerator}`);
+            return false;
         }
 
-        return success;
+        try {
+            const success = globalShortcut.register(accelerator, handler);
+
+            if (success) {
+                this.shortcuts.set(id, { accelerator, handler });
+                console.log(`Registered hotkey: ${accelerator} for ${id}`);
+            } else {
+                console.error(`Failed to register hotkey: ${accelerator} for ${id}`);
+            }
+
+            return success;
+        } catch (e) {
+            console.error(`Error registering hotkey ${accelerator}:`, e);
+            return false;
+        }
     }
 
     unregisterShortcut(id) {

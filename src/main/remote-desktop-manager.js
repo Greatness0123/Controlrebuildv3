@@ -60,12 +60,55 @@ class RemoteDesktopManager {
     }
 
     startSignalingListener(userId) {
-        // In a real implementation, this would use Supabase Realtime
-        // to listen for 'signaling' records from the web client.
-        console.log(`[Remote] Listening for signaling messages for user: ${userId}`);
+        if (!supabase.supabase) return;
+
+        console.log(`[Remote] Starting signaling listener for user: ${userId}`);
+
+        this.channel = supabase.supabase
+            .channel(`remote_signaling:${userId}`)
+            .on('postgres_changes', {
+                event: 'INSERT',
+                schema: 'public',
+                table: 'remote_signaling',
+                filter: `target=eq.desktop AND user_id=eq.${userId}`
+            }, payload => {
+                this.handleSignalingMessage(payload.new);
+            })
+            .subscribe();
+    }
+
+    async handleSignalingMessage(message) {
+        const { payload } = message;
+        console.log(`[Remote] Received signaling message: ${payload.type}`);
+
+        const { mouse, keyboard, Button, Point, Key } = require("@computer-use/nut-js");
+        const { screen } = require("electron");
+
+        try {
+            switch (payload.type) {
+                case 'mouse_move':
+                    const primary = screen.getPrimaryDisplay();
+                    const x = Math.round((payload.x / 1000) * primary.bounds.width);
+                    const y = Math.round((payload.y / 1000) * primary.bounds.height);
+                    await mouse.setPosition(new Point(x, y));
+                    break;
+                case 'click':
+                    await mouse.leftClick();
+                    break;
+                case 'key_press':
+                    if (payload.key) await keyboard.type(payload.key);
+                    break;
+            }
+        } catch (e) {
+            console.error('[Remote] Error executing remote action:', e);
+        }
     }
 
     stopSignalingListener() {
+        if (this.channel) {
+            this.channel.unsubscribe();
+            this.channel = null;
+        }
         console.log('[Remote] Stopped signaling listener');
     }
 }

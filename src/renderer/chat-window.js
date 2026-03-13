@@ -90,10 +90,10 @@ class ChatWindow {
             this.setMode(lastMode);
         }
 
-        if (this.settings.layout === 'lite') {
-            document.getElementById('chatApp')?.classList.add('lite-mode');
-        } else {
-            document.getElementById('chatApp')?.classList.remove('lite-mode');
+        if (this.settings.layout === 'lite' && window.chatAPI && window.chatAPI.showWindow) {
+            window.chatAPI.showWindow('lite');
+            window.chatAPI.hideChat();
+            return;
         }
 
         this.loadSessions();
@@ -503,6 +503,14 @@ class ChatWindow {
             if (window.chatAPI.onSettingsUpdated) {
                 window.chatAPI.onSettingsUpdated((event, settings) => {
                     console.log('[ChatWindow] Settings updated:', settings);
+
+                    // Handle instant layout switching
+                    if (settings.layout === 'lite' && this.settings.layout !== 'lite') {
+                        if (window.chatAPI.showWindow) window.chatAPI.showWindow('lite');
+                        if (window.chatAPI.hideChat) window.chatAPI.hideChat();
+                        return;
+                    }
+
                     this.settings = settings;
                     this.autoSendEnabled = settings.autoSendAfterWakeWord || false;
 
@@ -515,9 +523,6 @@ class ChatWindow {
                     this.updateRateLimitDisplay();
                     this.applyTheme(settings.theme);
                     this.toggleBorderStreak(settings.borderStreakEnabled);
-
-                    // Note: window visibility and wake word settings are handled by main process,
-                    // but visual feedback logic in chat window should be aware of current state.
                 });
             }
 

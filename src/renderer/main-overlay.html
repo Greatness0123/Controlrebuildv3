@@ -122,8 +122,6 @@
             }
         }
 
-        /* Removed glow-effect - we only want edge glow */
-
         /* Status indicator */
         .status-indicator {
             position: fixed;
@@ -264,28 +262,6 @@
             }
         }
 
-        @keyframes shimmer-rotate {
-            0% {
-                background-position: 0% 50%;
-            }
-
-            25% {
-                background-position: 100% 0%;
-            }
-
-            50% {
-                background-position: 100% 100%;
-            }
-
-            75% {
-                background-position: 0% 100%;
-            }
-
-            100% {
-                background-position: 0% 50%;
-            }
-        }
-
         /* Control working indicator - Purple pulsing glass morphed pill */
         .control-working {
             position: fixed;
@@ -347,6 +323,39 @@
             0%, 100% { opacity: 0.5; transform: scale(0.8); }
             50% { opacity: 1; transform: scale(1.2); }
         }
+
+        /* Border Streak Effect */
+        .border-streak {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            pointer-events: none;
+            z-index: 9995;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .border-streak.active {
+            opacity: 1;
+        }
+
+        .streak-line {
+            position: absolute;
+            background: linear-gradient(90deg, transparent, rgba(139, 92, 246, 0.8), transparent);
+            box-shadow: 0 0 15px rgba(139, 92, 246, 0.6);
+        }
+
+        .streak-top { top: 0; left: -100px; width: 100px; height: 2px; animation: move-right 3s linear infinite; }
+        .streak-right { top: -100px; right: 0; width: 2px; height: 100px; animation: move-down 3s linear 0.75s infinite; }
+        .streak-bottom { bottom: 0; right: -100px; width: 100px; height: 2px; animation: move-left 3s linear 1.5s infinite; }
+        .streak-left { bottom: -100px; left: 0; width: 2px; height: 100px; animation: move-up 3s linear 2.25s infinite; }
+
+        @keyframes move-right { from { left: -100px; } to { left: 100%; } }
+        @keyframes move-down { from { top: -100px; } to { top: 100%; } }
+        @keyframes move-left { from { right: -100px; } to { right: 100%; } }
+        @keyframes move-up { from { bottom: -100px; } to { bottom: 100%; } }
 
         /* PIN modal styling for overlay */
         .pin-modal {
@@ -550,12 +559,6 @@
         <div class="action-text" id="actionStatusText">Starting action...</div>
     </div>
 
-    <!-- Control Working Indicator -->
-    <!-- <div class="control-working" id="controlWorking">
-        <div class="working-dot"></div>
-        <span>Control is Working</span>
-    </div> -->
-
     <!-- Notification Indicator -->
     <div class="notification-indicator" id="notificationIndicator"></div>
 
@@ -565,15 +568,23 @@
     <!-- Edge Glow Effect -->
     <div class="edge-glow" id="edgeGlow"></div>
 
+    <!-- Border Streak Effect -->
+    <div class="border-streak" id="borderStreak">
+        <div class="streak-line streak-top"></div>
+        <div class="streak-line streak-right"></div>
+        <div class="streak-line streak-bottom"></div>
+        <div class="streak-line streak-left"></div>
+    </div>
+
     <script>
         // MainOverlay class
         class MainOverlay {
             constructor() {
                 this.floatingButton = document.getElementById('floatingButton');
                 this.statusIndicator = document.getElementById('statusIndicator');
-                this.controlWorking = document.getElementById('controlWorking');
                 this.notificationIndicator = document.getElementById('notificationIndicator');
                 this.edgeGlow = document.getElementById('edgeGlow');
+                this.borderStreak = document.getElementById('borderStreak');
                 this.flashOverlay = document.getElementById('flashOverlay');
                 this.visualEffects = document.getElementById('visualEffects');
 
@@ -701,20 +712,16 @@
                         this.chatVisible = true;
                         this.updateFloatingButtonState();
                     });
-                    
-                    // Conditional show/hide - respects user toggle setting
+
                     window.electronAPI.onShowFloatingButtonIfEnabled(async () => {
-                        console.log('[Overlay] onShowFloatingButtonIfEnabled received');
                         this.chatVisible = false;
                         this.updateFloatingButtonState();
                     });
-                    // Always hide when asked to hide-if-enabled (prevents race where a show event might make it visible)
                     window.electronAPI.onHideFloatingButtonIfEnabled(async () => {
-                        console.log('[Overlay] onHideFloatingButtonIfEnabled received - hiding');
                         this.chatVisible = true;
                         this.updateFloatingButtonState();
                     });
-                    
+
                     window.electronAPI.onVisualEffect((event, data) => this.showVisualEffect(data && data.type));
 
                     window.electronAPI.onInteractionModeChanged((event, data) => {
@@ -728,23 +735,22 @@
                     });
 
                     window.electronAPI.onRequestPinAndToggle(() => {
-                        console.log('[Overlay] Received request-pin-and-toggle - showing PIN modal');
                         this.showPinModal();
                     });
 
                     window.electronAPI.onFloatingButtonToggle((event, visible) => {
-                        console.log('[Overlay] Floating button toggle:', visible);
                         this.updateFloatingButtonState();
                     });
 
-                    // React to global settings updates so we can immediately enforce toggles
                     window.electronAPI.onSettingsUpdated?.((event, settings) => {
-                        console.log('[Overlay] Settings updated:', settings);
                         if (settings.chatVisible !== undefined) {
                             this.chatVisible = settings.chatVisible;
                         }
                         if (settings.edgeGlowEnabled === false) {
                             this.hideEdgeGlow();
+                        }
+                        if (settings.borderStreakEnabled === false) {
+                            this.hideBorderStreak();
                         }
                         if (settings.theme) {
                             this.applyTheme(settings.theme);
@@ -752,17 +758,21 @@
                         this.updateFloatingButtonState();
                     });
 
-                    // Action status listeners
                     window.electronAPI.onActionStart(async (event, data) => {
-                        console.log('[Overlay] action-start received:', data);
                         this.isGlowIntended = true;
-                        // Only show if not already showing from task-start AND edge glow is enabled
                         if (!this.edgeGlow.classList.contains('active')) {
                             this.showActionStatus(data || 'Executing action');
-                            if (await this.isEdgeGlowEnabled()) {
-                                if (!this.isGlowIntended) return;
+                            const [glowEnabled, streakEnabled] = await Promise.all([
+                                this.isEdgeGlowEnabled(),
+                                this.isBorderStreakEnabled()
+                            ]);
+
+                            if (glowEnabled && this.isGlowIntended) {
                                 this.showFlashOverlay();
                                 this.showEdgeGlow();
+                            }
+                            if (streakEnabled && this.isGlowIntended) {
+                                this.showBorderStreak();
                             }
                         }
                     });
@@ -775,62 +785,60 @@
                     });
 
                     window.electronAPI.onActionComplete((event, data) => {
-                        console.log('[Overlay] action-complete received:', data);
                         this.updateActionStatus((data && data.description) || 'Action complete', !!(data && data.success));
-                        // If an action failed, hide the edge glow immediately and mark failure visually
                         if (data && data.success === false) {
-                            console.log('[Overlay] action failed - hiding edge glow');
                             this.hideEdgeGlow();
+                            this.hideBorderStreak();
                         }
                     });
 
                     window.electronAPI.onTaskStart(async (event, data) => {
-                        console.log('[Overlay] task-start received:', data);
                         this.isGlowIntended = true;
                         this.showActionStatus((data && data.task) || 'Starting task');
-                        this.showControlWorking();
-                        if (await this.isEdgeGlowEnabled()) {
-                            if (!this.isGlowIntended) return;
+                        const [glowEnabled, streakEnabled] = await Promise.all([
+                            this.isEdgeGlowEnabled(),
+                            this.isBorderStreakEnabled()
+                        ]);
+
+                        if (glowEnabled && this.isGlowIntended) {
                             this.showFlashOverlay();
                             this.showEdgeGlow();
+                        }
+                        if (streakEnabled && this.isGlowIntended) {
+                            this.showBorderStreak();
                         }
                     });
 
                     window.electronAPI.onTaskComplete((event, data) => {
-                        console.log('[Overlay] task-complete received:', data);
                         this.updateActionStatus((data && data.task) || 'Task complete', !!(data && data.success));
-                        this.hideControlWorking();
                         this.hideEdgeGlow();
+                        this.hideBorderStreak();
                     });
 
                     window.electronAPI.onTaskStopped((event, data) => {
-                        console.log('[Overlay] task-stopped received:', data);
-                        // Hide the pill immediately when task is stopped
                         this.hideActionStatus();
-                        this.hideControlWorking();
                         this.hideEdgeGlow();
+                        this.hideBorderStreak();
                     });
 
-                    // Ensure edge glow doesn't appear (or is hidden) on AI responses when the setting is disabled
                     window.electronAPI.onAIResponse?.(async (event, data) => {
-                        console.log('[Overlay] ai-response received:', data);
                         try {
-                            const enabled = await this.isEdgeGlowEnabled();
-                            if (!enabled) {
-                                console.log('[Overlay] Edge glow disabled - hiding any glow/flash on ai-response');
+                            const glowEnabled = await this.isEdgeGlowEnabled();
+                            if (!glowEnabled) {
                                 this.hideEdgeGlow();
                                 this.flashOverlay.classList.remove('active');
                             }
-                        } catch (e) {
-                            console.error('[Overlay] Error while handling ai-response:', e);
-                        }
+                            const streakEnabled = await this.isBorderStreakEnabled();
+                            if (!streakEnabled) {
+                                this.hideBorderStreak();
+                            }
+                        } catch (e) {}
                     });
                 }
             }
 
             async openChat() {
                 try {
-                    console.log('[Overlay] openChat() called, calling toggleChat');
                     if (window.electronAPI && window.electronAPI.toggleChat) {
                         await window.electronAPI.toggleChat();
                     }
@@ -840,20 +848,13 @@
             }
 
             showPinModal() {
-                console.log('[Overlay] showPinModal() called');
                 const pm = document.getElementById('overlayPinModal');
                 const pinInput = document.getElementById('overlayPinInput');
-                const pinContent = pm?.querySelector('.pin-content');
 
-                if (window.electronAPI && window.electronAPI.overlayHover) {
-                    window.electronAPI.overlayHover(true);
-                }
-                if (window.electronAPI && window.electronAPI.focusOverlay) {
-                    window.electronAPI.focusOverlay();
-                }
+                if (window.electronAPI && window.electronAPI.overlayHover) window.electronAPI.overlayHover(true);
+                if (window.electronAPI && window.electronAPI.focusOverlay) window.electronAPI.focusOverlay();
 
                 document.body.classList.remove('non-interactive');
-
                 pm.style.display = 'flex';
                 pm.classList.remove('hidden');
                 pm.classList.add('show');
@@ -861,19 +862,12 @@
                 pinInput.value = '';
 
                 setTimeout(() => {
-                    try {
-                        pinInput.focus();
-                        pinInput.select();
-                        console.log('[Overlay] PIN input focused');
-                    } catch (e) {
-                        console.error('[Overlay] Failed to focus PIN input:', e);
-                    }
+                    try { pinInput.focus(); pinInput.select(); } catch (e) {}
                 }, 100);
 
                 let isSubmitting = false;
 
                 const cleanup = () => {
-                    console.log('[Overlay] Cleaning up PIN modal');
                     isSubmitting = true;
                     pm.style.display = 'none';
                     pm.classList.remove('show');
@@ -886,12 +880,8 @@
                     pinInput.removeEventListener('input', autoHandler);
                     pinInput.removeEventListener('keypress', keyHandler);
 
-                    if (window.electronAPI && window.electronAPI.overlayHover) {
-                        window.electronAPI.overlayHover(false);
-                    }
-                    try {
-                        pinInput.blur();
-                    } catch (e) { }
+                    if (window.electronAPI && window.electronAPI.overlayHover) window.electronAPI.overlayHover(false);
+                    try { pinInput.blur(); } catch (e) { }
                     document.body.classList.add('non-interactive');
                 };
 
@@ -899,87 +889,42 @@
                     if (isSubmitting) return;
                     isSubmitting = true;
                     const pin = pinInput.value.trim();
-                    console.log('[Overlay] PIN verification attempt');
 
                     try {
                         const res = await window.electronAPI.verifyPin(pin);
-                        console.log('[Overlay] PIN verification result:', res);
-
                         if (res && (res.valid === true || res.valid === 'true')) {
-                            console.log('[Overlay] PIN verified successfully');
-                            document.getElementById('statusIndicator').textContent = 'Welcome!';
-                            document.getElementById('statusIndicator').classList.add('show', 'success');
-
+                            this.showStatus('Welcome!', 'success');
                             cleanup();
-
-                            await new Promise(r => setTimeout(r, 500));
-                            document.getElementById('statusIndicator').classList.remove('show', 'success');
-
-                            if (window.electronAPI && window.electronAPI.unlockApp) {
-                                console.log('[Overlay] Unlocking app');
-                                await window.electronAPI.unlockApp(pin);
-                            }
-
-                            console.log('[Overlay] Opening chat after PIN verification');
-                            if (window.electronAPI && window.electronAPI.toggleChat) {
-                                await window.electronAPI.toggleChat();
-                            }
+                            if (window.electronAPI && window.electronAPI.unlockApp) await window.electronAPI.unlockApp(pin);
+                            if (window.electronAPI && window.electronAPI.toggleChat) await window.electronAPI.toggleChat();
                         } else {
                             isSubmitting = false;
-                            const msg = (res && res.message) ? res.message : 'Incorrect PIN';
-                            console.log('[Overlay] PIN verification failed:', msg);
-                            document.getElementById('statusIndicator').textContent = msg;
-                            document.getElementById('statusIndicator').classList.add('show', 'error');
-                            setTimeout(() => document.getElementById('statusIndicator').classList.remove('show', 'error'), 2500);
+                            this.showStatus(res?.message || 'Incorrect PIN', 'error');
                             pinInput.value = '';
                             setTimeout(() => { try { pinInput.focus(); } catch (e) { } }, 100);
                         }
                     } catch (e) {
                         isSubmitting = false;
-                        console.error('[Overlay] PIN verification error:', e);
-                        document.getElementById('statusIndicator').textContent = 'PIN verification failed';
-                        document.getElementById('statusIndicator').classList.add('show', 'error');
-                        setTimeout(() => document.getElementById('statusIndicator').classList.remove('show', 'error'), 2500);
+                        this.showStatus('PIN verification failed', 'error');
                         pinInput.value = '';
                         setTimeout(() => { try { pinInput.focus(); } catch (e) { } }, 100);
                     }
                 };
 
-                const cancelHandler = () => {
-                    console.log('[Overlay] PIN entry cancelled');
-                    cleanup();
-                };
-
-                const backdropHandler = (e) => {
-                    if (e.target.id === 'overlayPinModal') {
-                        console.log('[Overlay] Clicked outside modal, closing');
-                        cleanup();
-                    }
-                };
-
+                const cancelHandler = () => cleanup();
+                const backdropHandler = (e) => { if (e.target.id === 'overlayPinModal') cleanup(); };
                 const autoHandler = (e) => {
                     const v = e.target.value.replace(/[^0-9]/g, '');
                     e.target.value = v;
-                    if (v.length === 4 && !isSubmitting) {
-                        console.log('[Overlay] Auto-submitting PIN (4 digits entered)');
-                        confirmHandler();
-                    }
+                    if (v.length === 4 && !isSubmitting) confirmHandler();
                 };
-
-                const keyHandler = (e) => {
-                    if (e.key === 'Enter' && !isSubmitting) {
-                        console.log('[Overlay] Enter key pressed, submitting PIN');
-                        confirmHandler();
-                    }
-                };
+                const keyHandler = (e) => { if (e.key === 'Enter' && !isSubmitting) confirmHandler(); };
 
                 pinInput.addEventListener('input', autoHandler);
                 pinInput.addEventListener('keypress', keyHandler);
                 document.getElementById('overlayPinConfirm').addEventListener('click', confirmHandler);
                 document.getElementById('overlayPinCancel').addEventListener('click', cancelHandler);
                 pm.addEventListener('click', backdropHandler, { capture: false });
-
-                console.log('[Overlay] PIN modal setup complete, waiting for input');
             }
 
             setupDragHandling() {
@@ -999,13 +944,10 @@
                     if (this.isDragging) {
                         let newX = e.clientX - offsetX;
                         let newY = e.clientY - offsetY;
-
                         const windowWidth = window.innerWidth;
                         const windowHeight = window.innerHeight;
-
                         newX = Math.max(0, Math.min(newX, windowWidth - buttonSize));
                         newY = Math.max(0, Math.min(newY, windowHeight - buttonSize));
-
                         this.floatingButton.style.left = newX + 'px';
                         this.floatingButton.style.top = newY + 'px';
                         this.floatingButton.style.right = 'auto';
@@ -1019,50 +961,6 @@
                         this.floatingButton.style.cursor = 'grab';
                         this.snapToEdge();
                     }
-                });
-
-                this.floatingButton.addEventListener('touchstart', (e) => {
-                    if (window.electronAPI && window.electronAPI.overlayHover) {
-                        window.electronAPI.overlayHover(true);
-                    }
-                    this.isDragging = true;
-                    e.preventDefault();
-                });
-
-                document.addEventListener('touchmove', (e) => {
-                    if (this.isDragging) {
-                        const t = e.touches[0];
-                        let newX = t.clientX - offsetX;
-                        let newY = t.clientY - offsetY;
-                        const windowWidth = window.innerWidth;
-                        const windowHeight = window.innerHeight;
-                        newX = Math.max(0, Math.min(newX, windowWidth - buttonSize));
-                        newY = Math.max(0, Math.min(newY, windowHeight - buttonSize));
-                        this.floatingButton.style.left = newX + 'px';
-                        this.floatingButton.style.top = newY + 'px';
-                        this.floatingButton.style.right = 'auto';
-                        this.floatingButton.style.bottom = 'auto';
-                    }
-                });
-
-                document.addEventListener('touchend', (e) => {
-                    if (this.isDragging) {
-                        this.isDragging = false;
-                        this.snapToEdge();
-                        if (window.electronAPI && window.electronAPI.overlayHover) {
-                            window.electronAPI.overlayHover(false);
-                        }
-                    }
-                });
-
-                let lastTap = 0;
-                this.floatingButton.addEventListener('touchend', (e) => {
-                    const now = Date.now();
-                    if (now - lastTap < 300) {
-                        e.preventDefault();
-                        this.openChat();
-                    }
-                    lastTap = now;
                 });
             }
 
@@ -1082,165 +980,101 @@
                 if (minDist === distToLeft) {
                     this.floatingButton.style.left = '0';
                     this.floatingButton.style.top = (rect.top) + 'px';
-                    this.floatingButton.style.right = 'auto';
-                    this.floatingButton.style.bottom = 'auto';
                 } else if (minDist === distToRight) {
                     this.floatingButton.style.right = '0';
-                    this.floatingButton.style.top = (rect.top) + 'px';
                     this.floatingButton.style.left = 'auto';
-                    this.floatingButton.style.bottom = 'auto';
                 } else if (minDist === distToTop) {
                     this.floatingButton.style.top = '0';
-                    this.floatingButton.style.left = (rect.left) + 'px';
-                    this.floatingButton.style.right = 'auto';
-                    this.floatingButton.style.bottom = 'auto';
                 } else {
                     this.floatingButton.style.bottom = '0';
-                    this.floatingButton.style.left = (rect.left) + 'px';
-                    this.floatingButton.style.right = 'auto';
                     this.floatingButton.style.top = 'auto';
                 }
             }
 
             async showFloatingButton() {
-                // Enforce user preference: do not show if disabled
-                if (!await this.isFloatingButtonEnabled()) {
-                    console.log('[Overlay] Floating button disabled in settings; not showing');
-                    return;
-                }
-                console.log('[Overlay] SHOW floating button');
+                if (!await this.isFloatingButtonEnabled()) return;
                 this.floatingButton.classList.remove('hidden');
                 this.floatingButton.style.visibility = 'visible';
                 this.floatingButton.style.pointerEvents = 'auto';
             }
 
             hideFloatingButton() {
-                console.log('[Overlay] HIDE floating button');
                 this.floatingButton.classList.add('hidden');
                 this.floatingButton.style.visibility = 'hidden';
                 this.floatingButton.style.pointerEvents = 'none';
             }
 
             async showVisualEffect(effectType) {
-                console.log('[Overlay] showVisualEffect called with effectType:', effectType);
                 switch (effectType) {
                     case 'task-active':
                         this.isGlowIntended = true;
-                        this.showControlWorking();
-                        if (await this.isEdgeGlowEnabled()) {
-                            if (!this.isGlowIntended) return; // Check again after async
+                        const [glowEnabled, streakEnabled] = await Promise.all([
+                            this.isEdgeGlowEnabled(),
+                            this.isBorderStreakEnabled()
+                        ]);
+                        if (glowEnabled && this.isGlowIntended) {
                             this.showFlashOverlay();
                             this.showEdgeGlow();
+                        }
+                        if (streakEnabled && this.isGlowIntended) {
+                            this.showBorderStreak();
                         }
                         break;
                     case 'task-inactive':
                         this.isGlowIntended = false;
-                        this.hideControlWorking();
                         this.hideEdgeGlow();
+                        this.hideBorderStreak();
                         break;
                 }
             }
 
-            showRippleEffect() {
-                const ripple = document.createElement('div');
-                ripple.className = 'ripple-effect';
-                this.visualEffects.appendChild(ripple);
-                setTimeout(() => ripple.remove(), 2000);
-            }
-
-            showGlowEffect() {
-                // Only show edge glow, no full screen glow
-                this.showEdgeGlow();
-            }
-
-            hideGlowEffect() {
-                // Only hide edge glow
-                this.hideEdgeGlow();
-            }
-
-            showControlWorking() {
-                if (this.controlWorking) this.controlWorking.classList.add('show');
-            }
-
-            hideControlWorking() {
-                if (this.controlWorking) this.controlWorking.classList.remove('show');
-            }
-
-            playNotificationSound() {
-                this.notificationIndicator.classList.add('ping');
-                setTimeout(() => this.notificationIndicator.classList.remove('ping'), 1000);
-            }
-
             async showFlashOverlay() {
-                if (!this.isGlowIntended) return;
-                if (!await this.isEdgeGlowEnabled()) {
-                    this.flashOverlay.classList.remove('active');
-                    return;
-                }
-                if (!this.isGlowIntended) return;
-
+                if (!this.isGlowIntended || !await this.isEdgeGlowEnabled()) return;
                 this.flashOverlay.classList.add('active');
-                setTimeout(() => {
-                    this.flashOverlay.classList.remove('active');
-                }, 1000);
+                setTimeout(() => this.flashOverlay.classList.remove('active'), 1000);
             }
 
             async showEdgeGlow() {
-                if (!this.isGlowIntended) return;
-                if (!await this.isEdgeGlowEnabled()) {
-                    this.hideEdgeGlow();
-                    return;
-                }
-                if (!this.isGlowIntended) return;
-
-                console.log('[Overlay] Showing edge glow');
+                if (!this.isGlowIntended || !await this.isEdgeGlowEnabled()) return;
                 this.edgeGlow.classList.remove('immediate-hide');
                 this.edgeGlow.classList.add('active');
             }
 
             hideEdgeGlow() {
-                console.log('[Overlay] Hiding edge glow');
                 this.isGlowIntended = false;
                 this.edgeGlow.classList.remove('active');
-
-                // Also hide flash overlay just in case
                 this.flashOverlay.classList.remove('active');
-
                 this.edgeGlow.classList.add('immediate-hide');
-                // Remove immediate-hide after a short delay to allow future glows
-                setTimeout(() => {
-                    if (this.edgeGlow) this.edgeGlow.classList.remove('immediate-hide');
-                }, 200);
+                setTimeout(() => { if (this.edgeGlow) this.edgeGlow.classList.remove('immediate-hide'); }, 200);
+            }
+
+            showBorderStreak() {
+                if (this.borderStreak) this.borderStreak.classList.add('active');
+            }
+
+            hideBorderStreak() {
+                if (this.borderStreak) this.borderStreak.classList.remove('active');
+            }
+
+            async isBorderStreakEnabled() {
+                try {
+                    const settings = await window.settingsAPI.getSettings();
+                    return settings.borderStreakEnabled !== false;
+                } catch (e) { return true; }
             }
 
             async isEdgeGlowEnabled() {
                 try {
-                    if (window.settingsAPI && window.settingsAPI.getSettings) {
-                        const settings = await window.settingsAPI.getSettings();
-                        console.log('[Overlay] Checking edgeGlowEnabled setting:', settings.edgeGlowEnabled);
-                        // Default to true if not set
-                        return settings.edgeGlowEnabled !== false;
-                    }
-                    return true;
-                } catch (e) {
-                    console.error('[Overlay] Error checking edgeGlowEnabled:', e);
-                    return true;
-                }
+                    const settings = await window.settingsAPI.getSettings();
+                    return settings.edgeGlowEnabled !== false;
+                } catch (e) { return true; }
             }
 
             async isFloatingButtonEnabled() {
                 try {
-                    if (window.settingsAPI && window.settingsAPI.getSettings) {
-                        const settings = await window.settingsAPI.getSettings();
-                        console.log('[Overlay] Checking floatingButtonVisible setting:', settings.floatingButtonVisible);
-                        // Default to true if not set
-                        return settings.floatingButtonVisible !== false;
-                    }
-                    return true;
-                } catch (e) {
-                    console.error('[Overlay] Error checking floatingButtonVisible:', e);
-                    return true;
-                }
+                    const settings = await window.settingsAPI.getSettings();
+                    return settings.floatingButtonVisible !== false;
+                } catch (e) { return true; }
             }
 
             showStatus(message, type = 'info') {
@@ -1252,9 +1086,7 @@
             showActionStatus(description) {
                 const pill = document.getElementById('actionStatusPill');
                 const statusIcon = pill.querySelector('.status-icon');
-                const statusText = document.getElementById('actionStatusText');
-
-                statusText.textContent = description;
+                document.getElementById('actionStatusText').textContent = description;
                 statusIcon.className = 'status-icon running';
                 statusIcon.innerHTML = '<div class="spinner"></div>';
                 pill.classList.add('show');
@@ -1263,33 +1095,18 @@
             updateActionStatus(description, success) {
                 const pill = document.getElementById('actionStatusPill');
                 const statusIcon = pill.querySelector('.status-icon');
-                const statusText = document.getElementById('actionStatusText');
-
-                statusText.textContent = description;
+                document.getElementById('actionStatusText').textContent = description;
                 statusIcon.className = `status-icon ${success ? 'success' : 'error'}`;
-                // Clear any existing content and set only once
-                statusIcon.innerHTML = '';
-                if (success) {
-                    statusIcon.innerHTML = '✓';
-                } else {
-                    statusIcon.innerHTML = '✕';
-                }
-
-                setTimeout(() => {
-                    pill.classList.remove('show');
-                }, 3000);
+                statusIcon.innerHTML = success ? '✓' : '✕';
+                setTimeout(() => pill.classList.remove('show'), 3000);
             }
 
             hideActionStatus() {
-                const pill = document.getElementById('actionStatusPill');
-                pill.classList.remove('show');
+                document.getElementById('actionStatusPill').classList.remove('show');
             }
-
         }
 
-        document.addEventListener('DOMContentLoaded', () => {
-            new MainOverlay();
-        });
+        document.addEventListener('DOMContentLoaded', () => { new MainOverlay(); });
     </script>
 </body>
 

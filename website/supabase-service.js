@@ -1,56 +1,91 @@
 class SupabaseService {
     constructor() {
-        this.currentUser = null;
+        // These will be replaced by the user during setup or injected
+        this.supabaseUrl = window.SUPABASE_URL || '';
+        this.supabaseKey = window.SUPABASE_ANON_KEY || '';
+
+        if (typeof supabase !== 'undefined') {
+            this.client = supabase.createClient(this.supabaseUrl, this.supabaseKey);
+        } else {
+            console.error('Supabase SDK not loaded');
+        }
     }
 
     async signIn(email, password) {
-        try {
-            // Find user by email in local storage
-            const users = this.getAllUsers();
-            const user = users.find(u => u.email === email);
+        if (!this.client) return { success: false, message: 'Supabase not initialized' };
 
-            if (user) {
-                // Simplified password check for demo
-                this.currentUser = user;
-                localStorage.setItem('currentUser', JSON.stringify(this.currentUser));
-                return { success: true, user: this.currentUser };
-            }
+        const { data, error } = await this.client.auth.signInWithPassword({
+            email: email,
+            password: password,
+        });
 
-            return { success: false, message: 'Invalid email or password' };
-        } catch (error) {
-            return { success: false, message: 'Authentication failed' };
-        }
+        if (error) return { success: false, message: error.message };
+
+        // Fetch additional user profile data from public.users table
+        const { data: profile } = await this.client
+            .from('users')
+            .select('*')
+            .eq('id', data.user.id)
+            .single();
+
+        return { success: true, user: { ...data.user, ...profile } };
     }
 
-    getAllUsers() {
-        const users = [];
-        for (let i = 0; i < localStorage.length; i++) {
-            const key = localStorage.key(i);
-            if (key.startsWith('user_')) {
-                users.push(JSON.parse(localStorage.getItem(key)));
+    async signUp(email, password, name) {
+        if (!this.client) return { success: false, message: 'Supabase not initialized' };
+
+        const { data, error } = await this.client.auth.signUp({
+            email: email,
+            password: password,
+            options: {
+                data: { full_name: name }
             }
-        }
-        return users;
+        });
+
+        if (error) return { success: false, message: error.message };
+
+        // Generate a 12-digit App ID for desktop linking
+        const appId = await this.generateAppId();
+
+        // Create profile in public.users table
+        const { error: profileError } = await this.client
+            .from('users')
+            .insert({
+                id: data.user.id,
+                email: email,
+                name: name,
+                app_id: appId,
+                plan: 'Free',
+                created_at: new Date()
+            });
+
+        if (profileError) console.error('Error creating profile:', profileError);
+
+        return { success: true, user: data.user };
     }
 
     async signOut() {
-        this.currentUser = null;
-        localStorage.removeItem('currentUser');
-        return { success: true };
+        if (!this.client) return { success: false };
+        const { error } = await this.client.auth.signOut();
+        return { success: !error };
     }
 
     async getCurrentUser() {
-        if (this.currentUser) return this.currentUser;
-        const stored = localStorage.getItem('currentUser');
-        if (stored) {
-            this.currentUser = JSON.parse(stored);
-            return this.currentUser;
-        }
-        return null;
+        if (!this.client) return null;
+
+        const { data: { user } } = await this.client.auth.getUser();
+        if (!user) return null;
+
+        const { data: profile } = await this.client
+            .from('users')
+            .select('*')
+            .eq('id', user.id)
+            .single();
+
+        return { ...user, ...profile };
     }
 
-    async generateUserId() {
-        // Match the 12-digit numeric ID expected by verifyEntryID
+    async generateAppId() {
         let result = '';
         for (let i = 0; i < 12; i++) {
             result += Math.floor(Math.random() * 10);
@@ -58,25 +93,22 @@ class SupabaseService {
         return result;
     }
 
-    async createUser(userData) {
-        // In real use: await supabase.from('users').insert(userData);
-        localStorage.setItem('user_' + userData.id, JSON.stringify(userData));
-        return { success: true };
-    }
-
     async changePassword(userId, currentPassword, newPassword) {
-        const user = JSON.parse(localStorage.getItem('user_' + userId));
-        if (user) {
-            user.password = 'hashed_' + newPassword;
-            user.passwordLastChanged = new Date();
-            localStorage.setItem('user_' + userId, JSON.stringify(user));
-            if (this.currentUser && this.currentUser.id === userId) {
-                this.currentUser = user;
-                localStorage.setItem('currentUser', JSON.stringify(user));
-            }
-            return { success: true };
-        }
-        return { success: false, message: 'User not found' };
+        if (!this.client) return { success: false };
+
+        const { error } = await this.client.auth.updateUser({
+            password: newPassword
+        });
+
+        if (error) return { success: false, message: error.message };
+
+        // Update password last changed timestamp
+        await this.client
+            .from('users')
+            .update({ password_last_changed: new Date() })
+            .eq('id', userId);
+
+        return { success: true };
     }
 }
 

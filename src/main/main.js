@@ -326,10 +326,7 @@ class ComputerUseAgent {
 
             // Listen for AI streaming chunks
             this.backendManager.on('ai-stream', (data) => {
-                const chatWin = this.windowManager.getWindow('chat');
-                if (chatWin && !chatWin.isDestroyed()) {
-                    chatWin.webContents.send('ai-stream', data);
-                }
+                this.windowManager.broadcast('ai-stream', data);
             });
 
             // Setup EdgeTTS event listeners for audio state tracking
@@ -358,18 +355,9 @@ class ComputerUseAgent {
             // âœ… Listen for AI responses and check settings before speaking
             this.backendManager.on('ai-response', (data) => {
                 console.log('[Main] AI response received');
-                console.log('[Main] Response data:', JSON.stringify(data, null, 2));
-                console.log('[Main] voiceResponse setting:', this.appSettings.voiceResponse);
-                console.log('[Main] TTS enabled:', this.edgeTTS.isEnabled());
 
-                // Send to renderer for display
-                const chatWin = this.windowManager.getWindow('chat');
-                if (chatWin && !chatWin.isDestroyed()) {
-                    console.log('[Main] Sending AI response to chat window');
-                    chatWin.webContents.send('ai-response', data);
-                } else {
-                    console.log('[Main] Chat window not found or destroyed');
-                }
+                // Send to all relevant windows (chat, lite, etc.)
+                this.windowManager.broadcast('ai-response', data);
 
                 // Speak response only if BOTH conditions are met:
                 // 1. voiceResponse setting is enabled
@@ -391,13 +379,8 @@ class ComputerUseAgent {
 
             // Listen for ACT after-message events and treat them as front-facing messages (display + optional TTS)
             this.backendManager.on('after-message', (data) => {
-                console.log('[Main] After-message received from ACT:', JSON.stringify(data, null, 2));
-
-                // Send to chat window for display (if present)
-                const chatWin = this.windowManager.getWindow('chat');
-                if (chatWin && !chatWin.isDestroyed()) {
-                    chatWin.webContents.send('after-message', data);
-                }
+                console.log('[Main] After-message received from ACT');
+                this.windowManager.broadcast('after-message', data);
 
                 // Speak the after-message if voice response enabled and text present
                 if (this.appSettings.voiceResponse && data && data.text) {
@@ -1411,7 +1394,8 @@ class ComputerUseAgent {
         // Ensure security manager PIN status is reflected
         // We use the raw pinEnabled property to ensure the toggle state is preserved even before a PIN hash is set
         settings.pinEnabled = this.securityManager.pinEnabled;
-        // Include autoSendAfterWakeWord, lastMode, windowVisibility, and wakeWordToggleChat
+        // Include layout, autoSendAfterWakeWord, lastMode, windowVisibility, and wakeWordToggleChat
+        settings.layout = this.appSettings.layout || 'classic';
         settings.autoSendAfterWakeWord = this.appSettings.autoSendAfterWakeWord || false;
         settings.lastMode = this.appSettings.lastMode || 'act';
         settings.windowVisibility = this.appSettings.windowVisibility !== undefined ? this.appSettings.windowVisibility : true;
@@ -1630,6 +1614,9 @@ class ComputerUseAgent {
             if (settings.theme !== undefined) {
                 this.appSettings.theme = settings.theme;
             }
+            if (settings.layout !== undefined) {
+                this.appSettings.layout = settings.layout;
+            }
             if (settings.modelProvider !== undefined) {
                 this.appSettings.modelProvider = settings.modelProvider;
             }
@@ -1712,6 +1699,7 @@ class ComputerUseAgent {
                 borderStreakEnabled: this.appSettings.borderStreakEnabled,
                 workflowTriggersEnabled: this.appSettings.workflowTriggersEnabled,
                 theme: this.appSettings.theme,
+                layout: this.appSettings.layout,
                 modelProvider: this.appSettings.modelProvider,
                 openrouterModel: this.appSettings.openrouterModel,
                 openrouterCustomModel: this.appSettings.openrouterCustomModel,

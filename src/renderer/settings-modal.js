@@ -106,14 +106,14 @@ class SettingsModal {
         document.getElementById('remoteAccessToggle')?.addEventListener('change', async (e) => {
             const enabled = e.target.checked;
             document.getElementById('remotePairingSection').style.display = enabled ? 'block' : 'none';
-            if (window.chatAPI && window.chatAPI.toggleRemoteAccess) {
-                await window.chatAPI.toggleRemoteAccess(enabled);
+            if (window.settingsAPI && window.settingsAPI.toggleRemoteAccess) {
+                await window.settingsAPI.toggleRemoteAccess(enabled);
             }
         });
 
         document.getElementById('generatePairingBtn')?.addEventListener('click', async () => {
-            if (window.chatAPI && window.chatAPI.getRemotePairingCode) {
-                const code = await window.chatAPI.getRemotePairingCode();
+            if (window.settingsAPI && window.settingsAPI.getRemotePairingCode) {
+                const code = await window.settingsAPI.getRemotePairingCode();
                 document.getElementById('pairingCodeDisplay').textContent = code;
                 this.showToast('New pairing code generated', 'success');
             }
@@ -185,7 +185,7 @@ class SettingsModal {
         const providerInputs = [
             'geminiApiKey', 'geminiModel', 'openaiApiKey', 'openaiModel', 'openaiBaseUrl',
             'anthropicApiKey', 'anthropicModel', 'openrouterApiKey', 'openrouterModel',
-            'ollamaUrl', 'ollamaModel'
+            'ollamaUrl', 'ollamaModel', 'xaiApiKey', 'xaiModel'
         ];
 
         providerInputs.forEach(id => {
@@ -240,10 +240,6 @@ class SettingsModal {
             if (window.settingsAPI) window.settingsAPI.quitApp();
         });
 
-        document.getElementById('closeButton')?.addEventListener('click', () => {
-            if (window.settingsAPI) window.settingsAPI.closeSettings();
-        });
-
         document.getElementById('changePinButton')?.addEventListener('click', () => {
             this.showPinModal('change');
         });
@@ -264,6 +260,14 @@ class SettingsModal {
 
         document.getElementById('pinConfirmButton')?.addEventListener('click', () => {
             this.handlePinConfirm();
+        });
+
+        // Close on blur (click outside)
+        window.addEventListener('mousedown', (e) => {
+            const win = document.querySelector('.settings-window');
+            if (win && !win.contains(e.target)) {
+                 if (window.settingsAPI) window.settingsAPI.closeSettings();
+            }
         });
     }
 
@@ -313,9 +317,11 @@ class SettingsModal {
             if (res.success && res.voices) {
                 const select = document.getElementById('ttsVoiceSelect');
                 if (select) {
-                    select.innerHTML = res.voices.map(v =>
-                        `<option value="${v.id}" ${v.id === this.settings.ttsVoice ? 'selected' : ''}>${v.name}</option>`
-                    ).join('');
+                    select.innerHTML = res.voices.map(v => {
+                        const id = typeof v === 'string' ? v : v.id;
+                        const name = typeof v === 'string' ? v : v.name;
+                        return `<option value="${id}" ${id === this.settings.ttsVoice ? 'selected' : ''}>${name}</option>`;
+                    }).join('');
                 }
             }
         }
@@ -346,7 +352,7 @@ class SettingsModal {
         const providerInputs = [
             'geminiApiKey', 'geminiModel', 'openaiApiKey', 'openaiModel', 'openaiBaseUrl',
             'anthropicApiKey', 'anthropicModel', 'openrouterApiKey', 'openrouterModel',
-            'ollamaUrl', 'ollamaModel'
+            'ollamaUrl', 'ollamaModel', 'xaiApiKey', 'xaiModel'
         ];
 
         providerInputs.forEach(id => {

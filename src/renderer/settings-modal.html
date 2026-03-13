@@ -45,6 +45,23 @@
             --card-bg: #161616;
         }
 
+        body.dark-mode .provider-logo svg path:not([fill="#4285F4"]):not([fill="#10a37f"]):not([fill="#D97757"]) {
+            fill: #fff !important;
+        }
+
+        body.dark-mode .setting-name,
+        body.dark-mode .section-title,
+        body.dark-mode .content-header h1,
+        body.dark-mode .sidebar-label,
+        body.dark-mode .layout-name,
+        body.dark-mode .provider-name {
+            color: var(--text-primary) !important;
+        }
+
+        body.dark-mode .stat-group div:last-child {
+            color: var(--text-primary);
+        }
+
         html,
         body {
             width: 100%;
@@ -501,11 +518,6 @@
                 <div class="sidebar-icon"><i data-lucide="settings"></i></div>
                 <div class="sidebar-label">System</div>
             </div>
-            <div style="flex: 1;"></div>
-            <div class="sidebar-item" id="closeButton">
-                <div class="sidebar-icon"><i data-lucide="log-out"></i></div>
-                <div class="sidebar-label">Exit</div>
-            </div>
         </aside>
 
         <main class="main-content">
@@ -611,33 +623,39 @@
                 <div class="provider-grid">
                     <div class="provider-card" data-provider="gemini">
                         <div class="provider-logo">
-                            <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 2L14.85 9.15L22 12L14.85 14.85L12 22L9.15 14.85L2 12L9.15 9.15L12 2Z" fill="#4285F4"/></svg>
+                            <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12 2.25a.75.75 0 0 1 .714.518l1.493 4.478a.75.75 0 0 0 .47.47l4.478 1.493a.75.75 0 0 1 0 1.428l-4.478 1.493a.75.75 0 0 0-.47.47l-1.493 4.478a.75.75 0 0 1-1.428 0l-1.493-4.478a.75.75 0 0 0-.47-.47l-4.478-1.493a.75.75 0 0 1 0-1.428l4.478-1.493a.75.75 0 0 0 .47-.47l1.493-4.478a.75.75 0 0 1 .714-.518Z" fill="#4285F4"/></svg>
                         </div>
                         <div class="provider-name">Gemini</div>
                     </div>
                     <div class="provider-card" data-provider="openai">
                         <div class="provider-logo">
-                            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M22.2819 9.8211a5.9847 5.9847 0 0 0-.5153-4.9066 6.0462 6.0462 0 0 0-3.9471-3.1202 6.0143 6.0143 0 0 0-5.1105 1.0506 6.0143 6.0143 0 0 0-4.3216-1.0506 6.0462 6.0462 0 0 0-3.9471 3.1202 5.9847 5.9847 0 0 0-.5153 4.9066 6.0143 6.0143 0 0 0-1.0506 5.1105 6.0462 6.0462 0 0 0 3.1202 3.9471 6.0143 6.0143 0 0 0 5.1105-1.0506 6.0143 6.0143 0 0 0 4.3216 1.0506 6.0462 6.0462 0 0 0 3.9471-3.1202 5.9847 5.9847 0 0 0 .5153-4.9066 6.0143 6.0143 0 0 0 1.0506-5.1105 6.0462 6.0462 0 0 0-3.1202-3.9471zM11.9962 13.0632l-2.0292-1.1713v-2.3426l2.0292-1.1713 2.0292 1.1713v2.3426l-2.0292 1.1713zm0 0"/></svg>
+                            <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M22.28 9.82a5.98 5.98 0 0 0-.51-4.91 6.05 6.05 0 0 0-3.95-3.12 6.01 6.01 0 0 0-5.11 1.05 6.01 6.01 0 0 0-4.32-1.05 6.05 6.05 0 0 0-3.95 3.12 5.98 5.98 0 0 0-.51 4.91 6.01 6.01 0 0 0-1.05 5.11 6.05 6.05 0 0 0 3.12 3.95 6.01 6.01 0 0 0 5.11-1.05 6.01 6.01 0 0 0 4.32 1.05 6.05 6.05 0 0 0 3.95-3.12 5.98 5.98 0 0 0 .51-4.91 6.01 6.01 0 0 0 1.05-5.11 6.05 6.05 0 0 0-3.12-3.95Z" fill="#10a37f"/></svg>
                         </div>
                         <div class="provider-name">OpenAI</div>
                     </div>
                     <div class="provider-card" data-provider="anthropic">
                         <div class="provider-logo">
-                           <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2L1 21h22L12 2zm0 4l7 12H5l7-12z"/></svg>
+                           <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M15.548 3.425a.75.75 0 0 0-1.096 0L2.348 15.528a.75.75 0 0 0 .548 1.272h2.247a.75.75 0 0 0 .548-.225l1.62-1.62h9.434l1.62 1.62a.75.75 0 0 0 .548.225h2.247a.75.75 0 0 0 .548-1.272L15.548 3.425Z" fill="#D97757"/></svg>
                         </div>
                         <div class="provider-name">Anthropic</div>
                     </div>
                     <div class="provider-card" data-provider="openrouter">
                         <div class="provider-logo">
-                            <i data-lucide="shuffle"></i>
+                            <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12 2L4.5 20.29l.71.71L12 18l6.79 3 .71-.71L12 2z" fill="#000"/></svg>
                         </div>
                         <div class="provider-name">OpenRouter</div>
                     </div>
                     <div class="provider-card" data-provider="ollama">
                         <div class="provider-logo">
-                            <i data-lucide="terminal"></i>
+                            <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12 2L4 10l1.41 1.41L11 5.83V22h2V5.83l5.59 5.58L20 10 12 2z" fill="#000"/></svg>
                         </div>
                         <div class="provider-name">Ollama</div>
+                    </div>
+                    <div class="provider-card" data-provider="xai">
+                        <div class="provider-logo">
+                            <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M18.901 1.153h3.68l-8.04 9.19 9.457 12.504h-7.406l-5.8-7.584-6.638 7.584H.471l8.6-9.83L0 1.154h7.594l5.243 6.932 6.064-6.932zm-1.292 19.494h2.039L6.486 3.24H4.298l13.311 17.407z" fill="#000"/></svg>
+                        </div>
+                        <div class="provider-name">xAI</div>
                     </div>
                 </div>
 
@@ -674,7 +692,53 @@
                     </div>
                 </div>
 
-                <!-- Add other config panels as needed -->
+                <div id="anthropicConfig" class="provider-config">
+                    <div class="section-title">Anthropic Settings</div>
+                    <div class="form-group">
+                        <label class="form-label">API Key</label>
+                        <input type="password" id="anthropicApiKey" placeholder="sk-ant-...">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Model ID</label>
+                        <input type="text" id="anthropicModel" placeholder="claude-3-5-sonnet-latest">
+                    </div>
+                </div>
+
+                <div id="openrouterConfig" class="provider-config">
+                    <div class="section-title">OpenRouter Settings</div>
+                    <div class="form-group">
+                        <label class="form-label">API Key</label>
+                        <input type="password" id="openrouterApiKey" placeholder="sk-or-...">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Model ID</label>
+                        <input type="text" id="openrouterModel" placeholder="anthropic/claude-3.5-sonnet">
+                    </div>
+                </div>
+
+                <div id="ollamaConfig" class="provider-config">
+                    <div class="section-title">Ollama Settings (Local)</div>
+                    <div class="form-group">
+                        <label class="form-label">Ollama URL</label>
+                        <input type="text" id="ollamaUrl" placeholder="http://localhost:11434">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Model Name</label>
+                        <input type="text" id="ollamaModel" placeholder="llama3">
+                    </div>
+                </div>
+
+                <div id="xaiConfig" class="provider-config">
+                    <div class="section-title">xAI (Grok) Settings</div>
+                    <div class="form-group">
+                        <label class="form-label">API Key</label>
+                        <input type="password" id="xaiApiKey" placeholder="xai-...">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Model ID</label>
+                        <input type="text" id="xaiModel" placeholder="grok-beta">
+                    </div>
+                </div>
             </div>
 
             <!-- Voice Tab -->
