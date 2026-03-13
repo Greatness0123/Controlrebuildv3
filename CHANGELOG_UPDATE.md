@@ -1,41 +1,27 @@
-# Changelog: AI Agent & UI Overhaul
+# Changelog - Major Architectural Update
 
-This update introduces significant enhancements to the AI's agentic capabilities, planning logic, and user interface, inspired by advanced AI app builders like `dyad` and `libra`.
+## UI/UX Overhaul
+- **New Settings Interface**: Redesigned from scratch with a professional tab-based layout.
+- **AI Provider Cards**: Providers (Gemini, OpenAI, Anthropic, etc.) are now represented as cards with logos.
+- **Layout Selection**: Users can now choose between "Classic" and "Lite" (compact) chat interfaces.
+- **Message Styling**: AI and User messages now have distinct bubbles and professional fonts, mimicking the Coasty-ai aesthetic.
+- **Sidebar Integration**: The desktop app now features a togglable sidebar for conversation history.
 
-## Major Features
+## Technical Migration
+- **Supabase Integration**: Migrated the core database and authentication logic from Firebase to Supabase for improved scalability and real-time features.
+- **Native Search**: Implemented a `SearchManager` that uses Google Custom Search API with fallbacks to the agentic browser.
+- **Improved Coordinate Handling**: Optimized coordinate mapping in `ActBackend` for higher accuracy across different screen resolutions.
 
-### 1. Dynamic Planning (Blueprints)
-- **Agentic Planning**: The AI now maintains a persistent "Blueprint" of its plan.
-- **Adaptive Strategy**: After each action, the AI re-evaluates the screen state and updates its blueprint to adapt to changes or failures.
-- **Blueprint UI**: A new collapsible sidebar in the chat window displays the current blueprint, keeping the user informed of the AI's roadmap.
+## New Functionalities
+- **Control Web (Foundation)**: Initial directory structure and Next.js setup for the web-based version of Control.
+- **Virtual Machine Support**: Documentation and architecture for spawning free Docker-based VMs for agent execution.
+- **Secure Remote Access**: Design for pairing local systems with the Control Web dashboard via WebRTC and secure tunnels.
 
-### 2. Intelligent Library & Preference Management
-- **Persistent Tracking**: Introduced `userPreferences.json` and `installedLibraries.json` to store user choices and track AI-installed packages.
-- **App Preferences**: The AI can now remember and respect user preferences for default applications (e.g., using Spotify for music).
-- **Library Research**: Before installing new libraries, the AI performs research to ensure they are lightweight, maintained, and suitable for the task.
-- **Conflict Resolution**: The AI is now capable of suggesting viable alternatives when preferences conflict or apps are missing.
+## Performance & Optimization
+- **Memory Efficiency**: Reduced overhead by consolidating backend logic into native JS modules.
+- **Binary Size**: Maintained Electron app size under 200MB by optimizing resource bundling.
 
-### 3. Modernized Chat UI
-- **Glassmorphic Design**: A complete redesign of the chat interface with a modern, professional look.
-- **Thought Blocks**: AI reasoning is now displayed in distinct "Thought" blocks, separating internal logic from user-facing messages.
-- **Action Cards**: Actions are displayed as interactive cards with status indicators and toggleable detailed logs.
-- **Lucide Icons**: Integrated high-quality Lucide icons for a cleaner UI.
-
-### 4. Precision & Safety
-- **Coordinate Confidence**: The AI now provides a confidence percentage for all spatial actions (clicks, moves), which is logged for debugging and precision tracking.
-- **Human-in-the-Loop**: A new "Proceed Without Confirmation" setting allows users to control whether the AI can perform high-risk tasks automatically or must ask for permission.
-- **Research Popup**: The AI will now inform users if a requested package is too large or resource-intensive before proceeding.
-
-## Technical Changes
-- Created `src/main/storage-manager.js` for persistent JSON management.
-- Overhauled `src/main/backends/act-backend.js` with advanced prompting and dynamic loop logic.
-- Updated `src/main/backend-manager-fixed.js` and `src/preload/chat-preload.js` to support plan updates.
-- Refined `src/renderer/chat-window.html` and `chat-window.js` for the new UI components.
-- Added `proceedWithoutConfirmation` to `SettingsManager`.
-
-### 5. Enhanced Spatial Awareness & Coordinate Calibration
-- **Native Object Detection**: Integrated Gemini's native object detection syntax (`box2d`) for superior element identification.
-- **Centric Targeting**: The system now automatically calculates and targets the exact visual center of detected elements from bounding box data.
-- **Multi-Monitor Calibration**: Fixed a critical coordinate mapping bug by incorporating global display offsets (`x`, `y`) into the normalized scaling logic.
-- **Standardized Capture**: Both `Act` and `Ask` modes now consistently target the primary display for screen captures, ensuring perfectly aligned coordinate translations.
-- **Detailed Calibration Logs**: Added transparency to the coordinate conversion process with detailed console logs showing normalized boxes, logical center points, and final OS target coordinates.
+## Documentation
+- Added `DOCKER_GUIDE.md` for a comprehensive overview of containerization.
+- Added `SUPABASE_GUIDE.md` for database migration.
+- Added `VM_SETUP_GUIDE.md` and `REMOTE_DESKTOP_GUIDE.md` for new cloud features.
