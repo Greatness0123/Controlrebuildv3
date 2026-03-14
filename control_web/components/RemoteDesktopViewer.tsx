@@ -151,8 +151,19 @@ export default function RemoteDesktopViewer({ deviceId, className }: RemoteDeskt
       {/* Stream Container */}
       <div 
         ref={containerRef}
-        className="flex-1 relative cursor-crosshair overflow-hidden flex items-center justify-center bg-zinc-900/50"
-        onClick={(e) => handleMouseEvent(e, 'click')}
+        tabIndex={0}
+        className="flex-1 relative cursor-crosshair overflow-hidden flex items-center justify-center bg-zinc-900/50 outline-none"
+        onKeyDown={(e) => {
+          // Prevent browser shortcuts
+          if (e.ctrlKey || e.metaKey || e.key === 'Tab') {
+              // Allow some through if needed, but mostly capture
+          }
+          handleAction('key_press', { key: e.key });
+        }}
+        onClick={(e) => {
+          if (containerRef.current) containerRef.current.focus();
+          handleMouseEvent(e, 'click');
+        }}
         onMouseMove={(e) => {
             if (e.buttons === 1) handleMouseEvent(e, 'mouse_move');
         }}

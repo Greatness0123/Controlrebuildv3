@@ -191,10 +191,20 @@ class RemoteDesktopManager {
                     await mouse.setPosition(new Point(x, y));
                     break;
                 case 'click':
+                    if (action.x !== undefined && action.y !== undefined) {
+                        const cx = Math.round((action.x / 1000) * width);
+                        const cy = Math.round((action.y / 1000) * height);
+                        await mouse.setPosition(new Point(cx, cy));
+                    }
                     if (action.button === 'right') await mouse.rightClick();
                     else await mouse.leftClick();
                     break;
                 case 'double_click':
+                    if (action.x !== undefined && action.y !== undefined) {
+                        const dcx = Math.round((action.x / 1000) * width);
+                        const dcy = Math.round((action.y / 1000) * height);
+                        await mouse.setPosition(new Point(dcx, dcy));
+                    }
                     await mouse.doubleClick(Button.LEFT);
                     break;
                 case 'drag':
