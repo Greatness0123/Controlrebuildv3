@@ -137,6 +137,31 @@ class EntryWindow {
     }
 
     setupEventListeners() {
+        // Mode toggle
+        this.loginMode = 'id'; // 'id' or 'email'
+        const toggleBtn = document.getElementById('toggleLoginMode');
+        const idGroup = document.getElementById('idLoginGroup');
+        const emailGroup = document.getElementById('emailLoginGroup');
+        const toggleText = document.getElementById('toggleText');
+        const authSubtitle = document.getElementById('authSubtitle');
+
+        toggleBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            if (this.loginMode === 'id') {
+                this.loginMode = 'email';
+                idGroup.style.display = 'none';
+                emailGroup.style.display = 'block';
+                toggleText.textContent = 'Use ID instead?';
+                authSubtitle.textContent = 'Enter your Supabase credentials.';
+            } else {
+                this.loginMode = 'id';
+                idGroup.style.display = 'block';
+                emailGroup.style.display = 'none';
+                toggleText.textContent = 'Login with email?';
+                authSubtitle.textContent = 'Enter your unique ID to sync your profile.';
+            }
+        });
+
         // Connect button
         this.connectButton.addEventListener('click', () => {
             this.authenticate();
@@ -159,15 +184,23 @@ class EntryWindow {
             this.openDashboard();
         });
 
-        // Input validation
+        // Input validation for ID
         this.userIdInput.addEventListener('input', (e) => {
-            this.formatUserId(e.target);
+            if (this.loginMode === 'id') {
+                this.formatUserId(e.target);
+            }
         });
 
         this.userIdInput.addEventListener('keypress', (e) => {
             if (e.key === 'Enter') {
                 this.authenticate();
             }
+        });
+
+        // Keyboard support for email/password
+        const passwordInput = document.getElementById('passwordInput');
+        passwordInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') this.authenticate();
         });
 
         // Window controls
@@ -203,21 +236,8 @@ class EntryWindow {
     }
 
     async authenticate() {
-        let userId = this.userIdInput.value.trim();
-
         if (!navigator.onLine) {
             this.showError('You are offline. Please check your internet connection.');
-            return;
-        }
-
-        if (!userId) {
-            this.showError('Please enter your 12-digit User ID');
-            return;
-        }
-
-        // Validate length
-        if (userId.length !== 12) {
-            this.showError('User ID must be exactly 12 digits');
             return;
         }
 
@@ -225,24 +245,44 @@ class EntryWindow {
         this.hideMessages();
 
         try {
-            // Check if entryAPI is available
             if (!window.entryAPI) {
                 this.showError('Application interface not available');
                 this.showLoading(false);
                 return;
             }
 
-            console.log('Verifying User ID:', userId);
+            let result;
+            if (this.loginMode === 'id') {
+                const userId = this.userIdInput.value.trim();
+                if (!userId) {
+                    this.showError('Please enter your 12-digit User ID');
+                    this.showLoading(false);
+                    return;
+                }
+                if (userId.length !== 12) {
+                    this.showError('User ID must be exactly 12 digits');
+                    this.showLoading(false);
+                    return;
+                }
+                console.log('Verifying User ID:', userId);
+                result = await window.entryAPI.verifyEntryID(userId);
+            } else {
+                const email = document.getElementById('emailInput').value.trim();
+                const password = document.getElementById('passwordInput').value.trim();
+                if (!email || !password) {
+                    this.showError('Please enter both email and password');
+                    this.showLoading(false);
+                    return;
+                }
+                console.log('Logging in with email:', email);
+                result = await window.entryAPI.loginWithEmail(email, password);
+            }
 
-            // Call verifyEntryID through IPC
-            const result = await window.entryAPI.verifyEntryID(userId);
-
-            console.log('Verification result:', result);
-
+            console.log('Authentication result:', result);
             this.handleAuthenticationResult(result);
         } catch (error) {
             console.error('Authentication error:', error);
-            this.showError('Authentication failed. Please check your User ID and try again.');
+            this.showError('Authentication failed. Please check your credentials and try again.');
             this.showLoading(false);
         }
     }

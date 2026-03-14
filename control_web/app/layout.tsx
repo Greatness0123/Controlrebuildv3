@@ -1,9 +1,13 @@
 import './globals.css'
+import AuthProvider from '@/components/AuthProvider'
 import type { Metadata } from 'next'
 
 export const metadata: Metadata = {
-  title: 'Control Web - Remote Computer Use',
-  description: 'Manage and control your computers from anywhere',
+  title: 'Control Workspace — AI-powered Remote Access',
+  description: 'Your AI-powered workspace for remote computer control. Access local systems and virtual machines with AI assistance.',
+  icons: {
+    icon: '/favicon.ico',
+  },
 }
 
 export default function RootLayout({
@@ -12,8 +16,12 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="en">
-      <body>{children}</body>
+    <html lang="en" className="dark">
+      <body className="antialiased">
+        <AuthProvider>
+          {children}
+        </AuthProvider>
+      </body>
     </html>
   )
 }

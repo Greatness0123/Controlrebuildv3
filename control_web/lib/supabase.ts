@@ -1,24 +1,46 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+
 let _client: SupabaseClient | null = null;
 
-function getEnv(name: string): string | undefined {
-  const val = process.env[name];
-  return val && val.length > 0 ? val : undefined;
+export function getSupabaseClient(): SupabaseClient {
+  if (_client) return _client;
+  _client = createClient(supabaseUrl, supabaseAnonKey);
+  return _client;
 }
 
-export function getSupabaseClient(): SupabaseClient | null {
-  if (_client) return _client;
+export async function getSession() {
+  const client = getSupabaseClient();
+  const { data } = await client.auth.getSession();
+  return data.session;
+}
 
-  const url = getEnv('NEXT_PUBLIC_SUPABASE_URL');
-  const anonKey = getEnv('NEXT_PUBLIC_SUPABASE_ANON_KEY');
+export async function getAccessToken(): Promise<string | null> {
+  const session = await getSession();
+  return session?.access_token ?? null;
+}
 
-  if (!url || !anonKey) {
-    // Don't throw during build; allow pages to render with degraded functionality.
-    // UI components should show a "not configured" state when null is returned.
-    return null;
-  }
+export async function signIn(email: string, password: string) {
+  const client = getSupabaseClient();
+  const { data, error } = await client.auth.signInWithPassword({ email, password });
+  if (error) throw error;
+  return data;
+}
 
-  _client = createClient(url, anonKey);
-  return _client;
+export async function signUp(email: string, password: string, name: string) {
+  const client = getSupabaseClient();
+  const { data, error } = await client.auth.signUp({
+    email,
+    password,
+    options: { data: { name } },
+  });
+  if (error) throw error;
+  return data;
+}
+
+export async function signOut() {
+  const client = getSupabaseClient();
+  await client.auth.signOut();
 }

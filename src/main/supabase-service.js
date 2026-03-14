@@ -14,27 +14,39 @@ const getKeysCacheFile = () => {
 
 let supabase = null;
 
-// Initialize Supabase
-try {
-    const supabaseUrl = process.env.SUPABASE_URL;
-    const supabaseKey = process.env.SUPABASE_ANON_KEY;
+const initSupabase = () => {
+    if (supabase) return true;
+    try {
+        const supabaseUrl = process.env.SUPABASE_URL;
+        const supabaseKey = process.env.SUPABASE_ANON_KEY;
 
-    if (supabaseUrl && supabaseKey) {
-        supabase = createClient(supabaseUrl, supabaseKey);
-        console.log('✓ Supabase Client initialized');
-    } else {
-        console.warn('! Supabase environment variables missing');
+        if (supabaseUrl && supabaseKey) {
+            supabase = createClient(supabaseUrl, supabaseKey, {
+                auth: {
+                    persistSession: false,
+                    autoRefreshToken: false,
+                    detectSessionInUrl: false
+                }
+            });
+            console.log('✓ Supabase Client initialized (stateless mode)');
+            return true;
+        }
+    } catch (error) {
+        console.error('✗ Failed to initialize Supabase:', error.message);
     }
-} catch (error) {
-    console.error('✗ Failed to initialize Supabase:', error.message);
-}
+    return false;
+};
+
+// Initial attempt
+initSupabase();
 
 module.exports = {
     supabase,
+    initSupabase,
 
     async verifyEntryID(entryId) {
         try {
-            if (!supabase) return { success: false, message: 'Supabase not initialized' };
+            if (!initSupabase()) return { success: false, message: 'Supabase not initialized' };
 
             const { data, error } = await supabase
                 .from('users')
@@ -68,6 +80,50 @@ module.exports = {
             this.cacheUser(userData);
             return { success: true, user: userData };
 
+        } catch (error) {
+            return { success: false, message: error.message };
+        }
+    },
+
+    async login(email, password) {
+        try {
+            if (!initSupabase()) return { success: false, message: 'Supabase not initialized' };
+
+            const { data, error } = await supabase.auth.signInWithPassword({
+                email,
+                password
+            });
+
+            if (error) throw error;
+
+            // Fetch the 12-digit ID from users table using the auth_id
+            const { data: userData, error: userError } = await supabase
+                .from('users')
+                .select('*')
+                .eq('auth_id', data.user.id)
+                .single();
+
+            if (userError || !userData) {
+                return { success: false, message: 'User profile not found in database.' };
+            }
+
+            const mappedUser = {
+                id: userData.id,
+                name: userData.name,
+                email: userData.email,
+                plan: userData.plan,
+                tasksCompleted: userData.tasks_completed,
+                hoursSaved: userData.hours_saved,
+                successRate: userData.success_rate,
+                picovoiceKey: userData.picovoice_key,
+                aiSettings: userData.ai_settings,
+                appSettings: userData.app_settings,
+                actCount: userData.act_count,
+                askCount: userData.ask_count
+            };
+
+            this.cacheUser(mappedUser);
+            return { success: true, user: mappedUser };
         } catch (error) {
             return { success: false, message: error.message };
         }
@@ -161,6 +217,62 @@ module.exports = {
         }
     },
 
+    async generateDevicePairingCode(userId, deviceName) {
+        let lastError = null;
+        for (let i = 0; i < 3; i++) {
+            try {
+                if (!supabase) return null;
+                
+                const code = Math.random().toString(36).substring(2, 8).toUpperCase();
+                const expires = new Date(Date.now() + 10 * 60 * 1000).toISOString();
+
+                console.log(`[Supabase] Attempting to generate pairing code (attempt ${i + 1}/3)...`);
+                
+                const { error } = await supabase
+                    .from('paired_devices')
+                    .insert({
+                        user_id: userId,
+                        name: deviceName,
+                        pairing_code: code,
+                        pairing_expires: expires,
+                        status: 'pending'
+                    });
+
+                if (error) {
+                    if (error.code === '23503') {
+                        throw new Error(`User ID ${userId} not found in database. Please run the registration SQL.`);
+                    }
+                    throw error;
+                }
+                console.log(`[Supabase] Pairing code generated successfully: ${code}`);
+                return code;
+            } catch (error) {
+                lastError = error;
+                console.warn(`[Supabase] Pairing code generation attempt ${i + 1} failed:`, error.message);
+                // Exponential backoff
+                await new Promise(resolve => setTimeout(resolve, 1000 * Math.pow(2, i)));
+            }
+        }
+        console.error('Error generating pairing code after 3 attempts:', lastError);
+        return null;
+    },
+
+    async updateDeviceStatus(deviceId, status) {
+        try {
+            if (!supabase) return false;
+            const { error } = await supabase
+                .from('paired_devices')
+                .update({ 
+                    status: status,
+                    last_seen: new Date().toISOString()
+                })
+                .eq('id', deviceId);
+            return !error;
+        } catch (e) {
+            return false;
+        }
+    },
+
     async getGeminiKey(plan) {
         const keys = this.getKeys();
         if (keys && keys.gemini_keys) {
@@ -247,5 +359,14 @@ module.exports = {
                 fs.unlinkSync(cacheFile);
             }
         } catch (e) {}
+    },
+
+    async signOut() {
+        try {
+            if (supabase) {
+                await supabase.auth.signOut();
+            }
+        } catch (e) {}
+        this.clearCachedUser();
     }
 };

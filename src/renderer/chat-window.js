@@ -52,8 +52,6 @@ class ChatWindow {
         // Speech recognition for auto-send feature
         this.speechTimeout = null;
         this.autoSendEnabled = false;
-        this.speechTimeout = null;
-        this.autoSendEnabled = false;
         this.lastSpeechTime = null;
         this.baseText = ''; // Track committed text for partial updates
         this.userName = null; // Track user name for personalization
@@ -2163,7 +2161,7 @@ class ChatWindow {
         // Rate limit display moved to Settings -> Account
         // Keep functionality but remove UI dependency in chat window
         const user = (this.settings && this.settings.userDetails) ? this.settings.userDetails : {};
-        // Normalize plan name (Firebase may store "Free Plan", "Pro Plan", "Master Plan" etc.)
+        // Normalize plan name (Supabase may store "Free", "Pro", "Master" etc.)
         const planRaw = user.plan || 'free';
         const plan = String(planRaw).toLowerCase().replace(/\s*plan\s*/gi, '').trim() || 'free';
         const mode = this.currentMode || 'act';
@@ -2239,15 +2237,20 @@ class ChatWindow {
 
 
     async openSettings() {
+        if (this.isOpeningSettings) return;
         try {
+            this.isOpeningSettings = true;
             console.log('Opening settings...');
             if (window.chatAPI && window.chatAPI.showSettings) {
                 await window.chatAPI.showSettings();
             } else if (window.chatAPI && window.chatAPI.showWindow) {
                 await window.chatAPI.showWindow('settings');
             }
+            // Add a small delay before allowing another open call to prevent bouncing
+            setTimeout(() => { this.isOpeningSettings = false; }, 1000);
         } catch (error) {
             console.error('Failed to open settings:', error);
+            this.isOpeningSettings = false;
         }
     }
 

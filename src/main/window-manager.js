@@ -7,6 +7,7 @@ app.disableHardwareAcceleration()
 class WindowManager {
     constructor() {
         this.windows = new Map();
+        this.creatingWindows = new Set();
         this.mainWindow = null;
         this.chatVisible = false;
         this.isInteractive = false; // overlay click-through by default; enable on hover when needed

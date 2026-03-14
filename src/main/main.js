@@ -1,17 +1,44 @@
+const electron = require('electron');
+const { app, BrowserWindow, globalShortcut, ipcMain, screen, shell, Tray, Menu } = electron;
 const path = require('path');
-const { app, BrowserWindow, globalShortcut, ipcMain, screen, shell, Tray, Menu } = require('electron');
 const fs = require('fs-extra');
 
 // Environment variable loading strategy for bundled apps
-const isDev = require('electron-is-dev');
+let isDev = false;
+try {
+    isDev = typeof electron === 'object' && (electron.app ? electron.app.isPackaged === false : false);
+    if (!isDev && (process.defaultApp || /node_modules[\\/]electron[\\/]/.test(process.execPath))) {
+        isDev = true;
+    }
+} catch (e) {
+    isDev = false;
+}
+
 const dotenv = require('dotenv');
 
 const possibleEnvPaths = [
     path.join(__dirname, '../../.env'), // Development
-    path.join(path.dirname(app.getPath('exe')), '.env'), // Production (next to exe)
-    path.join(app.getPath('userData'), '.env'), // Persistent user data folder
 ];
 
+// Late-bind app paths logic (used inside ready or when needed)
+function loadExtendedEnv() {
+    try {
+        const extendedPaths = [
+            path.join(path.dirname(app.getPath('exe')), '.env'), 
+            path.join(app.getPath('userData'), '.env')
+        ];
+        for (const envPath of extendedPaths) {
+            if (fs.existsSync(envPath)) {
+                console.log(`[Main] Loading extended environment from: ${envPath}`);
+                dotenv.config({ path: envPath, override: false }); // don't override dev .env
+            }
+        }
+    } catch (e) {
+        // app.getPath might fail before ready
+    }
+}
+
+// Initial load
 for (const envPath of possibleEnvPaths) {
     if (fs.existsSync(envPath)) {
         console.log(`[Main] Loading environment from: ${envPath}`);
@@ -22,6 +49,9 @@ for (const envPath of possibleEnvPaths) {
 
 const { spawn } = require('child_process');
 app.disableHardwareAcceleration();
+
+// Load extended env as soon as app is somewhat initialized (even before ready, sometimes path is available)
+setTimeout(loadExtendedEnv, 0);
 
 // Global error handlers
 process.on('uncaughtException', (error) => {
@@ -236,6 +266,40 @@ class ComputerUseAgent {
     }
 
     async onAppReady() {
+        console.log('[Main] app.whenReady() triggered');
+        await this.init();
+    }
+
+    async handleSuccessfulAuth(userData) {
+        console.log('[Main] Handling successful authentication for:', userData.id);
+        
+        this.isAuthenticated = true;
+        this.currentUser = userData;
+
+        this.settingsManager.updateSettings({
+            userAuthenticated: true,
+            userDetails: userData
+        });
+
+        // Broadcast to all active windows
+        this.windowManager.broadcast('user-changed', userData);
+        this.windowManager.broadcast('settings-updated', this.settingsManager.getSettings());
+
+        // 1. Show main overlay
+        await this.windowManager.showWindow('main');
+
+        // 2. Automatically show chat/lite window if configured
+        if (this.settingsManager.getSettings().windowVisibility !== false) {
+            await this.windowManager.toggleChat();
+        }
+
+        // 3. Hide entry window after a small delay to ensure smooth transition
+        setTimeout(() => {
+            this.windowManager.hideWindow('entry');
+        }, 500);
+    }
+
+    async init() {
         try {
             console.log('[Main] Control starting (High Concurrency Mode)...');
 
@@ -501,25 +565,30 @@ class ComputerUseAgent {
             }
         });
 
-        // Authentication & entry window
+        ipcMain.handle('login-with-email', async (event, email, password) => {
+            try {
+                const result = await dbService.login(email, password);
+                if (result.success) {
+                    await this.handleSuccessfulAuth(result.user);
+                }
+                return result;
+            } catch (error) {
+                console.error('Login error:', error);
+                return { success: false, message: error.message };
+            }
+        });
+
+        // Authentication & entry window (ID-based, kept for backward compatibility and pairing)
         ipcMain.handle('authenticate-user', async (event, userId) => {
             try {
                 const result = await dbService.verifyEntryID(userId);
-
                 if (result.success) {
-                    this.settingsManager.updateSettings({
-                        userAuthenticated: true,
-                        userDetails: result.user
-                    });
+                    await this.handleSuccessfulAuth(result.user);
                 }
-
                 return result;
             } catch (error) {
                 console.error('Authentication error:', error);
-                return {
-                    success: false,
-                    message: 'Authentication failed. Please try again.'
-                };
+                return { success: false, message: 'Authentication failed. Please try again.' };
             }
         });
 
@@ -608,30 +677,13 @@ class ComputerUseAgent {
         ipcMain.handle('verify-entry-id', async (event, entryId) => {
             try {
                 const result = await dbService.verifyEntryID(entryId);
-
                 if (result.success) {
-                    this.settingsManager.updateSettings({
-                        userAuthenticated: true,
-                        userDetails: result.user
-                    });
-
-                    this.isAuthenticated = true;
-                    this.currentUser = result.user;
-
-                    // Broadcast user data to all windows
-                    this.windowManager.broadcast('user-changed', result.user);
-                    this.windowManager.broadcast('settings-updated', this.getSettings());
-
-                    await this.windowManager.showWindow('main');
+                    await this.handleSuccessfulAuth(result.user);
                 }
-
                 return result;
             } catch (error) {
                 console.error('Entry ID verification error:', error);
-                return {
-                    success: false,
-                    message: 'Verification failed. Please try again.'
-                };
+                return { success: false, message: 'Verification failed. Please try again.' };
             }
         });
 
@@ -945,8 +997,8 @@ class ComputerUseAgent {
             this.isAuthenticated = false;
             this.currentUser = null;
 
-            // Clear cache
-            dbService.clearCachedUser();
+            // Clear cache and sign out from Supabase
+            await dbService.signOut();
 
             // Update settings
             this.settingsManager.updateSettings({

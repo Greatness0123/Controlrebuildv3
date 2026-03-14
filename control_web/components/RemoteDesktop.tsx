@@ -1,100 +1,112 @@
 "use client";
 
 import { useEffect, useRef, useState } from 'react';
-import { getSupabaseClient } from '@/lib/supabase';
+import { Monitor, Cpu, Terminal } from 'lucide-react';
 
-export default function RemoteDesktop({ computerId, type }: { computerId: string, type: 'vm' | 'local' }) {
-    const videoRef = useRef<HTMLVideoElement>(null);
-    const [status, setStatus] = useState('Connecting...');
-    const [error, setError] = useState<string | null>(null);
+interface RemoteDesktopProps {
+    vmId: string;
+    noVncPort?: number;
+    instanceUrl?: string;
+    type?: 'vm' | 'local';
+}
+
+export default function RemoteDesktop({ vmId, noVncPort, instanceUrl, type = 'vm' }: RemoteDesktopProps) {
+    const [status, setStatus] = useState('Initializing...');
 
     useEffect(() => {
-        const setupConnection = async () => {
-            try {
-                const supabase = getSupabaseClient();
-                if (!supabase) {
-                    setStatus('Supabase not configured');
-                    setError('Set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY to enable realtime remote control.');
-                    return;
-                }
+        // Simulate connection sequence
+        const steps = [
+            { delay: 500, msg: 'Authenticating...' },
+            { delay: 1500, msg: 'Establishing secure tunnel...' },
+            { delay: 2500, msg: 'Waiting for stream...' },
+        ];
 
-                // In a real implementation, we would initialize WebRTC here
-                // For now, we simulate the connection status
-                setStatus('Authenticated. Waiting for stream...');
+        const timeouts = steps.map(({ delay, msg }) =>
+            setTimeout(() => setStatus(msg), delay)
+        );
 
-                // Mock signaling: Listen for responses from the desktop
-                const channel = supabase.channel(`remote_${computerId}`)
-                    .on('broadcast', { event: 'stream_ready' }, () => {
-                        setStatus('Streaming');
-                    })
-                    .subscribe();
+        return () => timeouts.forEach(clearTimeout);
+    }, [vmId]);
 
-                return () => {
-                    supabase.removeChannel(channel);
-                };
-            } catch (err: any) {
-                setError(err.message);
-                setStatus('Failed');
-            }
-        };
-
-        setupConnection();
-    }, [computerId]);
-
-    const handleMouseMove = (e: React.MouseEvent) => {
-        const supabase = getSupabaseClient();
-        if (!supabase) return;
-        if (status !== 'Streaming' || !videoRef.current) return;
-
-        const rect = videoRef.current.getBoundingClientRect();
-        const x = (e.clientX - rect.left) / rect.width * 1000;
-        const y = (e.clientY - rect.top) / rect.height * 1000;
-
-        // Send to signaling table
-        supabase.from('remote_signaling').insert({
-            user_id: 'current-user-id', // Would get from session
-            source: 'web',
-            target: 'desktop',
-            payload: { type: 'mouse_move', x, y }
-        });
-    };
-
-    const handleClick = (e: React.MouseEvent) => {
-        const supabase = getSupabaseClient();
-        if (!supabase) return;
-        supabase.from('remote_signaling').insert({
-            user_id: 'current-user-id',
-            source: 'web',
-            target: 'desktop',
-            payload: { type: 'click' }
-        });
-    };
+    // Render VNC Stream if available, otherwise fallback to the mock UI
+    if (instanceUrl && noVncPort) {
+        // Build the VNC url. noVNC usually serves on `/vnc.html`
+        const vncUrl = `http://${instanceUrl}:${noVncPort}/vnc.html?resize=remote&autoconnect=true`;
+        return (
+            <div className="w-full h-full bg-black relative">
+                <iframe 
+                    src={vncUrl} 
+                    className="w-full h-full border-none absolute inset-0"
+                    title={`VNC Stream for ${vmId}`}
+                />
+            </div>
+        );
+    }
 
     return (
-        <div className="relative w-full aspect-video bg-black rounded-lg overflow-hidden border border-zinc-800">
-            {status !== 'Streaming' && (
-                <div className="absolute inset-0 flex flex-col items-center justify-center text-zinc-400 bg-zinc-900/80 z-10">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white mb-4"></div>
-                    <p>{status}</p>
-                    {error && <p className="text-red-500 text-sm mt-2">{error}</p>}
+        <div className="relative w-full h-full bg-black flex items-center justify-center">
+            {/* Simulated Desktop */}
+            <div className="absolute inset-0 dot-grid opacity-30" />
+
+            <div className="relative z-10 flex flex-col items-center justify-center gap-4 p-8">
+                {/* Icon */}
+                <div className="w-16 h-16 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center animate-pulse-glow">
+                    {type === 'vm' ? (
+                        <Cpu size={28} className="text-zinc-500" />
+                    ) : (
+                        <Monitor size={28} className="text-zinc-500" />
+                    )}
                 </div>
-            )}
 
-            <video
-                ref={videoRef}
-                className="w-full h-full object-contain cursor-crosshair"
-                onMouseMove={handleMouseMove}
-                onClick={handleClick}
-                autoPlay
-                playsInline
-            />
+                {/* Status */}
+                <div className="text-center space-y-2">
+                    <p className="text-sm text-zinc-400 font-medium">{status}</p>
+                    <div className="flex items-center gap-2 justify-center">
+                        <div className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />
+                        <span className="text-[10px] text-zinc-600 font-mono uppercase tracking-widest">
+                            {type === 'vm' ? 'Virtual Machine' : 'Remote Desktop'}
+                        </span>
+                    </div>
+                </div>
 
-            <div className="absolute bottom-4 left-4 flex gap-2">
-                <div className="px-3 py-1 bg-black/60 backdrop-blur rounded-full text-xs text-white border border-white/10 flex items-center gap-2">
-                    <div className={`w-2 h-2 rounded-full ${status === 'Streaming' ? 'bg-green-500 animate-pulse' : 'bg-zinc-500'}`}></div>
-                    {type === 'vm' ? 'Virtual Machine' : 'Remote Desktop'}
+                {/* Mock Terminal Lines */}
+                <div className="mt-4 w-full max-w-sm space-y-1.5">
+                    <TerminalLine text="$ ssh control@157.230.22.10" delay={800} />
+                    <TerminalLine text="Connecting to remote host..." delay={1600} />
+                    <TerminalLine text="Authentication successful." delay={2400} />
+                    <TerminalLine text="Loading desktop environment..." delay={3200} blinking />
                 </div>
             </div>
+
+            {/* Bottom status bar */}
+            <div className="absolute bottom-3 left-3 right-3 flex items-center justify-between">
+                <div className="flex items-center gap-2 px-3 py-1.5 bg-black/60 backdrop-blur-md rounded-full text-[10px] text-zinc-500 border border-white/5">
+                    <Terminal size={10} />
+                    {vmId}
+                </div>
+                <div className="flex items-center gap-2 px-3 py-1.5 bg-black/60 backdrop-blur-md rounded-full text-[10px] border border-white/5">
+                    <div className="w-1.5 h-1.5 rounded-full bg-yellow-500 animate-pulse" />
+                    <span className="text-yellow-500/80">Connecting</span>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+function TerminalLine({ text, delay, blinking }: { text: string; delay: number; blinking?: boolean }) {
+    const [visible, setVisible] = useState(false);
+
+    useEffect(() => {
+        const t = setTimeout(() => setVisible(true), delay);
+        return () => clearTimeout(t);
+    }, [delay]);
+
+    if (!visible) return null;
+
+    return (
+        <div className="flex items-center gap-2 animate-fade-in">
+            <span className="text-[11px] font-mono text-zinc-600">{text}</span>
+            {blinking && <span className="w-1.5 h-4 bg-zinc-500" style={{ animation: 'blink 1s step-end infinite' }} />}
         </div>
     );
 }

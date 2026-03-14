@@ -108,16 +108,75 @@ class SettingsModal {
             document.getElementById('remotePairingSection').style.display = enabled ? 'block' : 'none';
             if (window.settingsAPI && window.settingsAPI.toggleRemoteAccess) {
                 await window.settingsAPI.toggleRemoteAccess(enabled);
+                this.startRemoteStatusPolling();
             }
         });
 
         document.getElementById('generatePairingBtn')?.addEventListener('click', async () => {
+            const btn = document.getElementById('generatePairingBtn');
+            const text = document.getElementById('generateBtnText');
+            const loader = document.getElementById('generateBtnLoader');
+            const copyBtn = document.getElementById('copyPairingBtn');
+
             if (window.settingsAPI && window.settingsAPI.getRemotePairingCode) {
-                const code = await window.settingsAPI.getRemotePairingCode();
-                document.getElementById('pairingCodeDisplay').textContent = code;
-                this.showToast('New pairing code generated', 'success');
+                // Set loading state
+                btn.disabled = true;
+                text.style.display = 'none';
+                loader.style.display = 'block';
+
+                try {
+                    // Note: We don't try to use require('os') or process here as they crash the renderer
+                    const code = await window.settingsAPI.getRemotePairingCode();
+                    if (code) {
+                        document.getElementById('pairingCodeDisplay').textContent = code;
+                        this.showToast('New pairing code generated', 'success');
+                        if (copyBtn) copyBtn.style.display = 'block';
+                    } else {
+                        this.showToast('Failed to generate code', 'error');
+                    }
+                } catch (err) {
+                    console.error('Pairing error:', err);
+                    this.showToast('Error generating code', 'error');
+                } finally {
+                    // Restore state
+                    btn.disabled = false;
+                    text.style.display = 'block';
+                    loader.style.display = 'none';
+                }
             }
         });
+
+        document.getElementById('copyPairingBtn')?.addEventListener('click', () => {
+            const code = document.getElementById('pairingCodeDisplay').textContent.trim();
+            if (code && code !== '---- ----') {
+                navigator.clipboard.writeText(code);
+                this.showToast('Code copied to clipboard', 'info');
+            }
+        });
+    }
+
+    startRemoteStatusPolling() {
+        if (this.remoteStatusInterval) clearInterval(this.remoteStatusInterval);
+        this.remoteStatusInterval = setInterval(async () => {
+            if (window.settingsAPI && window.settingsAPI.getRemoteStatus) {
+                const status = await window.settingsAPI.getRemoteStatus();
+                this.updateRemoteUI(status);
+            }
+        }, 5000);
+    }
+
+    updateRemoteUI(status) {
+        const indicator = document.getElementById('remoteStatusIndicator');
+        const text = document.getElementById('remoteStatusText');
+        if (indicator && text) {
+            if (status.enabled) {
+                indicator.className = 'status-dot online';
+                text.textContent = status.streaming ? 'Streaming live' : 'Ready for control';
+            } else {
+                indicator.className = 'status-dot offline';
+                text.textContent = 'Disconnected';
+            }
+        }
     }
 
     setupLayoutCards() {
@@ -298,6 +357,7 @@ class SettingsModal {
     async saveSettings() {
         if (window.settingsAPI) {
             await window.settingsAPI.saveSettings(this.settings);
+            this.showToast('Settings saved successfully', 'success');
         }
     }
 
@@ -442,16 +502,21 @@ class SettingsModal {
     }
 
     recordHotkey(type) {
-        const btn = type === 'toggleChat' ? document.getElementById('editToggleChatBtn') : document.getElementById('editStopActionBtn');
-        const originalText = btn.textContent;
-        btn.textContent = 'Press keys...';
-        btn.classList.add('btn-primary');
+        const modal = document.getElementById('hotkeyModal');
+        const display = document.getElementById('hotkeyDisplay');
+        const saveBtn = document.getElementById('saveHotkeyBtn');
+        const cancelBtn = document.getElementById('cancelHotkeyBtn');
+        
+        display.textContent = 'Press keys...';
+        saveBtn.disabled = true;
+        modal.style.display = 'flex';
+        
+        let currentCombo = '';
 
-        const keys = new Set();
         const onKeyDown = (e) => {
             e.preventDefault();
             if (e.key === 'Escape') {
-                finish();
+                cleanup();
                 return;
             }
 
@@ -463,18 +528,25 @@ class SettingsModal {
 
             if (!['Control', 'Alt', 'Shift', 'Meta'].includes(e.key)) {
                 combo.push(e.key.length === 1 ? e.key.toUpperCase() : e.key);
-                this.settings.hotkeys[type] = combo.join('+');
-                finish();
+                currentCombo = combo.join('+');
+                display.textContent = currentCombo;
+                saveBtn.disabled = false;
             }
         };
 
-        const finish = () => {
+        const cleanup = () => {
             window.removeEventListener('keydown', onKeyDown);
-            btn.classList.remove('btn-primary');
-            this.updateHotkeysUI();
-            this.saveSettings();
+            modal.style.display = 'none';
         };
 
+        saveBtn.onclick = () => {
+            this.settings.hotkeys[type] = currentCombo;
+            this.updateHotkeysUI();
+            this.saveSettings();
+            cleanup();
+        };
+
+        cancelBtn.onclick = cleanup;
         window.addEventListener('keydown', onKeyDown);
     }
 

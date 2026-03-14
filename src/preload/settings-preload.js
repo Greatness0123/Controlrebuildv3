@@ -47,7 +47,7 @@ contextBridge.exposeInMainWorld('settingsAPI', {
     validatePicovoiceKey: (key) => ipcRenderer.invoke('validate-picovoice-key', key),
 
     // Remote pairing
-    getRemotePairingCode: () => ipcRenderer.invoke('get-remote-pairing-code'),
+    getRemotePairingCode: (deviceName) => ipcRenderer.invoke('get-remote-pairing-code', deviceName),
     toggleRemoteAccess: (enabled) => ipcRenderer.invoke('toggle-remote-access', enabled),
 
     // Window visibility

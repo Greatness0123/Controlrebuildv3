@@ -113,7 +113,8 @@
             margin-bottom: 4px;
         }
 
-        .sidebar-item:hover, .sidebar-item.active {
+        .sidebar-item:hover,
+        .sidebar-item.active {
             color: var(--text-primary);
             background: var(--bg-tertiary);
         }
@@ -184,8 +185,15 @@
         }
 
         @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
         }
 
         .section-title {
@@ -276,7 +284,8 @@
             justify-content: center;
         }
 
-        .provider-logo svg, .provider-logo img {
+        .provider-logo svg,
+        .provider-logo img {
             width: 100%;
             height: 100%;
             object-fit: contain;
@@ -344,7 +353,9 @@
         }
 
         /* Forms & Inputs */
-        input[type="text"], input[type="password"], select {
+        input[type="text"],
+        input[type="password"],
+        select {
             background: var(--bg-tertiary);
             border: 1px solid var(--border-color);
             color: var(--text-primary);
@@ -429,14 +440,14 @@
             background-color: white;
             transition: .3s;
             border-radius: 50%;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
         }
 
-        input:checked + .slider {
+        input:checked+.slider {
             background-color: var(--accent-color);
         }
 
-        input:checked + .slider:before {
+        input:checked+.slider:before {
             transform: translateX(20px);
         }
 
@@ -447,24 +458,90 @@
             left: 50%;
             transform: translateX(-50%) translateY(100px);
             padding: 12px 24px;
-            border-radius: 8px;
+            border-radius: 12px;
             background: var(--accent-color);
             color: var(--bg-primary);
             font-size: 14px;
-            font-weight: 500;
-            transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-            z-index: 1000;
+            font-weight: 600;
+            transition: all 0.4s cubic-bezier(0.18, 0.89, 0.32, 1.28);
+            z-index: 2000;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            display: flex;
+            align-items: center;
+            gap: 10px;
         }
 
         #toast.show {
             transform: translateX(-50%) translateY(0);
         }
 
+        #toast.success { background: #10b981; color: white; }
+        #toast.error { background: #ef4444; color: white; }
+        #toast.info { background: #3b82f6; color: white; }
+
+        /* Hotkey Modal */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(4px);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+
+        .modal-content {
+            background: var(--bg-primary);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            padding: 30px;
+            width: 360px;
+            text-align: center;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
+            animation: modalIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        @keyframes modalIn {
+            from { transform: scale(0.9) translateY(20px); opacity: 0; }
+            to { transform: scale(1) translateY(0); opacity: 1; }
+        }
+
+        .hotkey-recording-display {
+            font-size: 32px;
+            font-weight: 700;
+            color: var(--text-primary);
+            margin: 20px 0;
+            min-height: 48px;
+            padding: 10px;
+            background: var(--bg-tertiary);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
         /* Scrollbar */
-        ::-webkit-scrollbar { width: 6px; }
-        ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: var(--border-color); border-radius: 10px; }
-        ::-webkit-scrollbar-thumb:hover { background: var(--text-secondary); }
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: var(--border-color);
+            border-radius: 10px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--text-secondary);
+        }
 
         .form-group {
             margin-bottom: 20px;
@@ -529,13 +606,17 @@
             <div class="tab-content active" id="account">
                 <div class="setting-card">
                     <div style="display: flex; align-items: center; gap: 20px; margin-bottom: 20px;">
-                        <div id="userAvatar" style="width: 80px; height: 80px; border-radius: 50%; background: var(--accent-color); color: var(--bg-primary); display: flex; align-items: center; justify-content: center; font-size: 32px; font-weight: 700;">
+                        <div id="userAvatar"
+                            style="width: 80px; height: 80px; border-radius: 50%; background: var(--accent-color); color: var(--bg-primary); display: flex; align-items: center; justify-content: center; font-size: 32px; font-weight: 700;">
                             C
                         </div>
                         <div>
                             <h2 id="userName" style="font-size: 20px; font-weight: 700;">Control User</h2>
-                            <p id="userEmail" style="color: var(--text-secondary); margin-bottom: 8px;">user@control.ai</p>
-                            <span class="plan-badge" style="background: var(--accent-color); color: var(--bg-primary); padding: 4px 12px; border-radius: 20px; font-size: 11px; font-weight: 700;">PRO PLAN</span>
+                            <p id="userEmail" style="color: var(--text-secondary); margin-bottom: 8px;">user@control.ai
+                            </p>
+                            <span class="plan-badge"
+                                style="background: var(--accent-color); color: var(--bg-primary); padding: 4px 12px; border-radius: 20px; font-size: 11px; font-weight: 700;">PRO
+                                PLAN</span>
                         </div>
                     </div>
                     <div class="setting-row">
@@ -550,19 +631,27 @@
                 <div class="section-title"><i data-lucide="activity"></i> Account Usage & Limits</div>
                 <div style="display: flex; flex-wrap: wrap; gap: 60px; padding: 20px 0;">
                     <div class="stat-group">
-                        <div style="font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(--text-secondary); margin-bottom: 8px;">ACT Mode Usage</div>
+                        <div
+                            style="font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(--text-secondary); margin-bottom: 8px;">
+                            ACT Mode Usage</div>
                         <div style="font-size: 28px; font-weight: 700;" id="actLimitText">0 / 0</div>
                     </div>
                     <div class="stat-group">
-                        <div style="font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(--text-secondary); margin-bottom: 8px;">ASK Mode Usage</div>
+                        <div
+                            style="font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(--text-secondary); margin-bottom: 8px;">
+                            ASK Mode Usage</div>
                         <div style="font-size: 28px; font-weight: 700;" id="askLimitText">0 / 0</div>
                     </div>
                     <div class="stat-group">
-                        <div style="font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(--text-secondary); margin-bottom: 8px;">Tasks Run</div>
+                        <div
+                            style="font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(--text-secondary); margin-bottom: 8px;">
+                            Tasks Run</div>
                         <div style="font-size: 28px; font-weight: 700;" id="statTasks">0</div>
                     </div>
                     <div class="stat-group">
-                        <div style="font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(--text-secondary); margin-bottom: 8px;">Hours Saved</div>
+                        <div
+                            style="font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(--text-secondary); margin-bottom: 8px;">
+                            Hours Saved</div>
                         <div style="font-size: 28px; font-weight: 700;" id="statHours">0</div>
                     </div>
                 </div>
@@ -597,63 +686,116 @@
                 <div class="section-title">Interface Layout</div>
                 <div class="layout-grid">
                     <div class="layout-card active" data-layout="classic">
-                        <div class="layout-preview" style="background: linear-gradient(to right, #f1f3f5 100%, transparent);">
+                        <div class="layout-preview"
+                            style="background: linear-gradient(to right, #f1f3f5 100%, transparent);">
                             <div style="padding: 10px;">
                                 <div style="height: 10px; width: 60%; background: #ddd; margin-bottom: 5px;"></div>
                                 <div style="height: 10px; width: 40%; background: #eee;"></div>
                             </div>
-                            <div style="position: absolute; bottom: 10px; left: 10px; right: 10px; height: 15px; background: #fff; border: 1px solid #ddd; border-radius: 4px;"></div>
+                            <div
+                                style="position: absolute; bottom: 10px; left: 10px; right: 10px; height: 15px; background: #fff; border: 1px solid #ddd; border-radius: 4px;">
+                            </div>
                         </div>
                         <div class="layout-name">Classic <span>Default</span></div>
                     </div>
+                    <!-- Lite mode card disabled for now -->
+                    <!-- 
                     <div class="layout-card" data-layout="lite">
-                        <div class="layout-preview" style="background: #fff; display: flex; align-items: flex-end; padding: 10px;">
-                            <div style="width: 100%; height: 20px; background: #f8f9fa; border: 1px solid #000; border-radius: 20px;"></div>
+                        <div class="layout-preview"
+                            style="background: #fff; display: flex; align-items: flex-end; padding: 10px;">
+                            <div
+                                style="width: 100%; height: 20px; background: #f8f9fa; border: 1px solid #000; border-radius: 20px;">
+                            </div>
                         </div>
                         <div class="layout-name">Lite <span>Compact</span></div>
-                    </div>
+                    </div> 
+                    -->
                 </div>
             </div>
 
             <!-- AI Providers Tab -->
             <div class="tab-content" id="providers">
                 <div class="section-title">Select Provider</div>
-                <p class="setting-desc" style="margin-bottom: 20px;">Choose and configure your preferred AI model provider.</p>
+                <p class="setting-desc" style="margin-bottom: 20px;">Choose and configure your preferred AI model
+                    provider.</p>
 
                 <div class="provider-grid">
                     <div class="provider-card" data-provider="gemini">
                         <div class="provider-logo">
-                            <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12 2.25a.75.75 0 0 1 .714.518l1.493 4.478a.75.75 0 0 0 .47.47l4.478 1.493a.75.75 0 0 1 0 1.428l-4.478 1.493a.75.75 0 0 0-.47.47l-1.493 4.478a.75.75 0 0 1-1.428 0l-1.493-4.478a.75.75 0 0 0-.47-.47l-4.478-1.493a.75.75 0 0 1 0-1.428l4.478-1.493a.75.75 0 0 0 .47-.47l1.493-4.478a.75.75 0 0 1 .714-.518Z" fill="#4285F4"/></svg>
+                            <svg xmlns="http://www.w3.org/2000/svg" width={64} height={64} viewBox="0 0 64 64"
+                                fill="none" {...props}>
+                                <g clipPath="url(#gemini)">
+                                    <path fill="url(#b)"
+                                        d="M32 64A38.14 38.14 0 0 0 0 32 38.14 38.14 0 0 0 32 0a38.15 38.15 0 0 0 32 32 38.15 38.15 0 0 0-32 32" />
+                                </g>
+                                <defs>
+                                    <linearGradient id="b" x1={0} x2={4398.72} y1={6400} y2={1945.28}
+                                        gradientUnits="userSpaceOnUse">
+                                        <stop stopColor="#1C7DFF" />
+                                        <stop offset={0.52} stopColor="#1C69FF" />
+                                        <stop offset={1} stopColor="#F0DCD6" />
+                                    </linearGradient>
+                                    <clipPath id="gemini">
+                                        <path fill="#fff" d="M0 0h64v64H0z" />
+                                    </clipPath>
+                                </defs>
+                            </svg>
                         </div>
                         <div class="provider-name">Gemini</div>
                     </div>
                     <div class="provider-card" data-provider="openai">
                         <div class="provider-logo">
-                            <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M22.28 9.82a5.98 5.98 0 0 0-.51-4.91 6.05 6.05 0 0 0-3.95-3.12 6.01 6.01 0 0 0-5.11 1.05 6.01 6.01 0 0 0-4.32-1.05 6.05 6.05 0 0 0-3.95 3.12 5.98 5.98 0 0 0-.51 4.91 6.01 6.01 0 0 0-1.05 5.11 6.05 6.05 0 0 0 3.12 3.95 6.01 6.01 0 0 0 5.11-1.05 6.01 6.01 0 0 0 4.32 1.05 6.05 6.05 0 0 0 3.95-3.12 5.98 5.98 0 0 0 .51-4.91 6.01 6.01 0 0 0 1.05-5.11 6.05 6.05 0 0 0-3.12-3.95Z" fill="#10a37f"/></svg>
+                            <svg xmlns="http://www.w3.org/2000/svg" width={64} height={64} viewBox="0 0 64 64"
+                                fill="none" {...props}>
+                                <path fill="#000" fillRule="evenodd"
+                                    d="M57.467 26.677a14.44 14.44 0 0 0-1.275-12.002C52.947 9.1 46.427 6.232 40.059 7.58a14.9 14.9 0 0 0-11.176-4.914c-6.51-.014-12.286 4.122-14.288 10.234a14.8 14.8 0 0 0-9.902 7.088 14.63 14.63 0 0 0 1.843 17.334 14.44 14.44 0 0 0 1.272 12.005c3.245 5.573 9.765 8.44 16.133 7.093a14.9 14.9 0 0 0 11.174 4.912c6.514.016 12.293-4.122 14.296-10.24A14.8 14.8 0 0 0 59.317 44a14.63 14.63 0 0 0-1.848-17.325zM35.117 57.5a11.2 11.2 0 0 1-7.133-2.544c.09-.048.248-.134.352-.198l11.84-6.746a1.89 1.89 0 0 0 .97-1.662V29.88l5.006 2.85a.18.18 0 0 1 .096.134v13.64c-.008 6.064-4.987 10.981-11.13 10.995M11.18 47.413a10.82 10.82 0 0 1-1.328-7.368c.085.054.24.147.349.208L22.04 47c.6.347 1.344.347 1.947 0l14.453-8.235v5.702a.18.18 0 0 1-.072.152L26.4 51.435c-5.33 3.029-12.139 1.226-15.219-4.027zM8.06 21.91a11.07 11.07 0 0 1 5.8-4.816l-.005.403v13.493a1.9 1.9 0 0 0 .97 1.664l14.454 8.232-5.003 2.854a.18.18 0 0 1-.168.013l-11.97-6.824c-5.32-3.04-7.144-9.755-4.08-15.013zm41.112 9.44L34.72 23.115l5.003-2.848a.18.18 0 0 1 .168-.016l11.97 6.818c5.328 3.04 7.155 9.766 4.078 15.022a11.1 11.1 0 0 1-5.798 4.818V33.013a1.89 1.89 0 0 0-.968-1.661zm4.979-7.394q-.175-.106-.352-.208L41.96 17a1.95 1.95 0 0 0-1.944 0l-14.453 8.235v-5.702a.18.18 0 0 1 .072-.152L37.6 12.568c5.333-3.032 12.147-1.227 15.219 4.035a10.87 10.87 0 0 1 1.333 7.352m-31.31 10.16-5.005-2.848a.17.17 0 0 1-.096-.136V17.49c.003-6.072 4.995-10.992 11.15-10.987 2.602 0 5.12.901 7.122 2.544a10 10 0 0 0-.349.195l-11.84 6.746a1.89 1.89 0 0 0-.973 1.662l-.008 16.461zm2.72-5.782L32 24.667l6.437 3.666v7.334L32 39.333l-6.44-3.666v-7.334z"
+                                    clipRule="evenodd" />
+                            </svg>
                         </div>
                         <div class="provider-name">OpenAI</div>
                     </div>
                     <div class="provider-card" data-provider="anthropic">
                         <div class="provider-logo">
-                           <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M15.548 3.425a.75.75 0 0 0-1.096 0L2.348 15.528a.75.75 0 0 0 .548 1.272h2.247a.75.75 0 0 0 .548-.225l1.62-1.62h9.434l1.62 1.62a.75.75 0 0 0 .548.225h2.247a.75.75 0 0 0 .548-1.272L15.548 3.425Z" fill="#D97757"/></svg>
+                            <svg xmlns="http://www.w3.org/2000/svg" width={245} height={245} fill="none"
+                                viewBox="0 0 245 245" {...props}>
+                                <path fill="#000" fillRule="evenodd"
+                                    d="M141.151 35.933h36.78L245 204.166h-36.781zm-74.093 0h38.455l67.069 168.233h-37.505l-13.71-35.331H51.215l-13.72 35.321H0L67.069 35.953zm42.181 101.665L86.291 78.471l-22.948 59.137h45.886z"
+                                    clipRule="evenodd" />
+                            </svg>
                         </div>
                         <div class="provider-name">Anthropic</div>
                     </div>
                     <div class="provider-card" data-provider="openrouter">
                         <div class="provider-logo">
-                            <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12 2L4.5 20.29l.71.71L12 18l6.79 3 .71-.71L12 2z" fill="#000"/></svg>
+                            <svg fill="none" fillRule="evenodd" height={64} width={64} viewBox="0 0 64 64"
+                                xmlns="http://www.w3.org/2000/svg" {...props}>
+                                <path fill="#000" fillRule="evenodd"
+                                    d="M42.01 4.893l18.05 10.263v0.218l-18.235 10.153 0.043-5.293-2.053-0.075c-2.648-0.07-4.028 0.005-5.67 0.275-2.66 0.438-5.095 1.443-7.868 3.38l-5.415 3.743c-0.71 0.488-1.238 0.84-1.7 1.138l-1.288 0.805-0.993 0.585 0.963 0.575 1.325 0.845c1.19 0.785 2.925 1.99 6.753 4.665 2.775 1.938 5.208 2.943 7.868 3.38l0.75 0.113c1.735 0.228 3.438 0.235 7.063 0.083l0.055-5.398 18.05 10.263v0.218L41.473 55l0.035-4.655-1.588 0.055c-3.465 0.105-5.343 0.005-7.845-0.405-4.235-0.7-8.15-2.315-12.203-5.148l-5.395-3.75a54.993 54.993 0 01-1.888-1.245l-1.168-0.7a139.818 139.818 0 01-1.9-1.075C7.27 36.825 1.408 35.29 0 35.29V24.72l0.35 0.01c1.41-0.018 7.275-1.555 9.523-2.81l2.54-1.45 1.095-0.685c1.07-0.7 2.68-1.815 6.715-4.633 4.053-2.833 7.965-4.45 12.203-5.148 2.88-0.475 4.935-0.533 9.535-0.345l0.05-4.768z"
+                                    clipRule="evenodd"></path>
+                            </svg>
                         </div>
                         <div class="provider-name">OpenRouter</div>
                     </div>
                     <div class="provider-card" data-provider="ollama">
                         <div class="provider-logo">
-                            <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12 2L4 10l1.41 1.41L11 5.83V22h2V5.83l5.59 5.58L20 10 12 2z" fill="#000"/></svg>
+                            <svg xmlns="http://www.w3.org/2000/svg" width={64} height={64} viewBox="0 0 64 64"
+                                fill="none" {...props}>
+                                <path fill="currentColor"
+                                    d="M32 8C18.745 8 8 18.745 8 32s10.745 24 24 24 24-10.745 24-24S45.255 8 32 8zm0 4c11.046 0 20 8.954 20 20s-8.954 20-20 20-20-8.954-20-20 8.954-20 20-20z" />
+                                <circle cx="32" cy="32" r="12" fill="currentColor" />
+                                <circle cx="32" cy="32" r="6" fill="white" />
+                            </svg>
                         </div>
                         <div class="provider-name">Ollama</div>
                     </div>
                     <div class="provider-card" data-provider="xai">
                         <div class="provider-logo">
-                            <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M18.901 1.153h3.68l-8.04 9.19 9.457 12.504h-7.406l-5.8-7.584-6.638 7.584H.471l8.6-9.83L0 1.154h7.594l5.243 6.932 6.064-6.932zm-1.292 19.494h2.039L6.486 3.24H4.298l13.311 17.407z" fill="#000"/></svg>
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="currentColor" fillRule="evenodd" height={24}
+                                viewBox="0 0 24 24" width={24} {...props}>
+                                <title>Grok</title>
+                                <path
+                                    d="M6.469 8.776L16.512 23h-4.464L2.005 8.776H6.47zm-.004 7.9l2.233 3.164L6.467 23H2l4.465-6.324zM22 2.582V23h-3.659V7.764L22 2.582zM22 1l-9.952 14.095-2.233-3.163L17.533 1H22z" />
+                            </svg>
                         </div>
                         <div class="provider-name">xAI</div>
                     </div>
@@ -767,7 +909,8 @@
                         <input type="range" id="ttsRateSlider" min="0.5" max="2.0" step="0.1" value="1.0">
                     </div>
                     <div style="margin-top: 10px; display: flex; justify-content: flex-end;">
-                        <button class="btn btn-secondary" id="testVoiceBtn"><i data-lucide="play"></i> Test Voice</button>
+                        <button class="btn btn-secondary" id="testVoiceBtn"><i data-lucide="play"></i> Test
+                            Voice</button>
                     </div>
                 </div>
 
@@ -853,14 +996,16 @@
                             <div class="setting-name">Toggle Chat</div>
                             <div class="setting-desc">Show or hide the main chat window</div>
                         </div>
-                        <button class="btn btn-secondary" id="editToggleChatBtn"><span id="toggleChatHotkeyDisplay">Ctrl+Space</span></button>
+                        <button class="btn btn-secondary" id="editToggleChatBtn"><span
+                                id="toggleChatHotkeyDisplay">Ctrl+Space</span></button>
                     </div>
                     <div class="setting-row">
                         <div class="setting-info">
                             <div class="setting-name">Emergency Stop</div>
                             <div class="setting-desc">Immediately abort current AI task</div>
                         </div>
-                        <button class="btn btn-secondary" id="editStopActionBtn"><span id="stopActionHotkeyDisplay">Alt+Z</span></button>
+                        <button class="btn btn-secondary" id="editStopActionBtn"><span
+                                id="stopActionHotkeyDisplay">Alt+Z</span></button>
                     </div>
                     <div style="margin-top: 20px; display: flex; justify-content: flex-end;">
                         <button class="btn btn-secondary" id="resetHotkeysBtn">Reset to Defaults</button>
@@ -885,16 +1030,30 @@
                         </label>
                     </div>
 
-                    <div id="remotePairingSection" style="display: none; margin-top: 20px; padding-top: 20px; border-top: 1px solid var(--item-border);">
+                    <div id="remotePairingSection"
+                        style="display: none; margin-top: 20px; padding-top: 20px; border-top: 1px solid var(--item-border);">
                         <div class="form-group">
                             <label class="form-label">Active Pairing Code</label>
                             <div style="display: flex; gap: 12px; align-items: center;">
-                                <div id="pairingCodeDisplay" style="flex: 1; background: var(--bg-tertiary); padding: 12px; border-radius: 8px; font-family: 'JetBrains Mono', monospace; font-size: 20px; letter-spacing: 2px; text-align: center; border: 1px dashed var(--border-color);">
-                                    ---- ----
+                                <div style="flex: 1; position: relative; display: flex; align-items: center;">
+                                    <div id="pairingCodeDisplay"
+                                        style="flex: 1; background: var(--bg-tertiary); padding: 12px; border-radius: 8px; font-family: 'JetBrains Mono', monospace; font-size: 20px; letter-spacing: 2px; text-align: center; border: 1px dashed var(--border-color);">
+                                        ---- ----
+                                    </div>
+                                    <button class="btn btn-secondary" id="copyPairingBtn" title="Copy code" style="position: absolute; right: 8px; padding: 6px; display: none;">
+                                        <i data-lucide="copy" style="width: 16px; height: 16px;"></i>
+                                    </button>
                                 </div>
-                                <button class="btn btn-primary" id="generatePairingBtn">Generate</button>
+                                <button class="btn btn-primary" id="generatePairingBtn">
+                                    <span id="generateBtnText">Generate</span>
+                                    <div id="generateBtnLoader" style="display: none; width: 16px; height: 16px; border: 2px solid rgba(255,255,255,0.3); border-radius: 50%; border-top-color: #fff; animation: spin 0.8s linear infinite;"></div>
+                                </button>
                             </div>
-                            <p class="setting-desc" style="margin-top: 8px;">Code expires in 10 minutes. Enter this code in the Web App to pair.</p>
+                            <style>
+                                @keyframes spin { to { transform: rotate(360deg); } }
+                            </style>
+                            <p class="setting-desc" style="margin-top: 8px;">Code expires in 10 minutes. Enter this code
+                                in the Web App to pair.</p>
                         </div>
                     </div>
                 </div>
@@ -906,7 +1065,9 @@
                             <div class="setting-name">Status</div>
                             <div id="remoteStatusText" class="setting-desc">Disconnected</div>
                         </div>
-                        <div id="remoteStatusDot" style="width: 12px; height: 12px; border-radius: 50%; background: var(--text-secondary);"></div>
+                        <div id="remoteStatusIndicator"
+                            style="width: 12px; height: 12px; border-radius: 50%; background: var(--text-secondary);">
+                        </div>
                     </div>
                 </div>
             </div>
@@ -958,15 +1119,34 @@
         </main>
     </div>
 
+    <!-- Hotkey Recording Modal -->
+    <div id="hotkeyModal" class="modal-overlay">
+        <div class="modal-content">
+            <h2 style="font-size: 18px; font-weight: 700; margin-bottom: 12px;">Recording Hotkey</h2>
+            <p style="color: var(--text-secondary); font-size: 13px;">Press the key combination you want to use</p>
+            
+            <div id="hotkeyDisplay" class="hotkey-recording-display">...</div>
+            
+            <div style="display: flex; gap: 10px; justify-content: center; margin-top: 20px;">
+                <button class="btn btn-secondary" id="cancelHotkeyBtn">Cancel</button>
+                <button class="btn btn-primary" id="saveHotkeyBtn" disabled>Save Hotkey</button>
+            </div>
+            <p style="margin-top: 15px; font-size: 11px; color: var(--text-secondary);">ESC to cancel</p>
+        </div>
+    </div>
+
     <!-- PIN Modal -->
-    <div class="pin-modal" id="pinModal" style="display: none; position: fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); z-index:1000; align-items:center; justify-content:center;">
-        <div class="pin-content" style="background:var(--bg-primary); border-radius:12px; padding:32px; width:340px; text-align:center;">
-            <h3 class="pin-title" id="pinTitle" style="margin-bottom:8px;">Set Security PIN</h3>
-            <p class="pin-description" id="pinDescription" style="font-size:13px; color:var(--text-secondary); margin-bottom:24px;">Enter a 4-digit code</p>
-            <input type="password" id="pinInput" maxlength="4" style="width:100%; font-size:32px; text-align:center; letter-spacing:10px; margin-bottom:24px;">
-            <div style="display:flex; gap:12px;">
-                <button class="btn btn-secondary" style="flex:1" id="pinCancelButton">Cancel</button>
-                <button class="btn btn-primary" style="flex:1" id="pinConfirmButton">Confirm</button>
+    <div id="pinModal" class="modal-overlay">
+        <div class="modal-content">
+            <h3 id="pinTitle" style="font-size: 20px; font-weight: 700; margin-bottom: 8px;">Set Security PIN</h3>
+            <p id="pinDescription" style="font-size: 13px; color: var(--text-secondary); margin-bottom: 24px;">Enter a 4-digit code</p>
+            
+            <input type="password" id="pinInput" maxlength="4" 
+                   style="width: 100%; font-size: 32px; text-align: center; letter-spacing: 10px; margin-bottom: 24px; background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 8px; padding: 10px;">
+            
+            <div style="display: flex; gap: 12px;">
+                <button class="btn btn-secondary" style="flex: 1" id="pinCancelButton">Cancel</button>
+                <button class="btn btn-primary" style="flex: 1" id="pinConfirmButton">Confirm</button>
             </div>
         </div>
     </div>
@@ -975,5 +1155,4 @@
 
     <script src="settings-modal.js"></script>
 </body>
-
 </html>

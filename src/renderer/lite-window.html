@@ -10,27 +10,29 @@
         * { margin: 0; padding: 0; box-sizing: border-box; }
 
         :root {
-            --glass-bg: rgba(255, 255, 255, 0.8);
+            --glass-bg: rgba(255, 255, 255, 0.65);
             --glass-border: rgba(255, 255, 255, 0.4);
-            --text-primary: #1a1a1a;
-            --text-secondary: #65676b;
-            --accent: #000;
-            --ai-bubble: #ffffff;
-            --user-bubble: #000;
-            --user-text: #fff;
-            --shadow: 0 12px 40px rgba(0, 0, 0, 0.12);
+            --text-primary: #111111;
+            --text-secondary: #6b7280;
+            --accent: #000000;
+            --accent-hover: #333333;
+            --ai-bubble: rgba(255, 255, 255, 0.5);
+            --user-bubble: #000000;
+            --user-text: #ffffff;
+            --shadow: 0 20px 60px rgba(0, 0, 0, 0.15), 0 0 0 1px inset rgba(255, 255, 255, 0.5);
         }
 
         body.dark-mode {
-            --glass-bg: rgba(20, 20, 20, 0.7);
+            --glass-bg: rgba(18, 18, 18, 0.65);
             --glass-border: rgba(255, 255, 255, 0.08);
             --text-primary: #f5f5f7;
-            --text-secondary: #a1a1a6;
-            --accent: #fff;
-            --ai-bubble: #2c2c2e;
+            --text-secondary: #9ca3af;
+            --accent: #ffffff;
+            --accent-hover: #dddddd;
+            --ai-bubble: rgba(40, 40, 40, 0.5);
             --user-bubble: #ffffff;
-            --user-text: #000;
-            --shadow: 0 12px 40px rgba(0, 0, 0, 0.4);
+            --user-text: #000000;
+            --shadow: 0 20px 60px rgba(0, 0, 0, 0.5), 0 0 0 1px inset rgba(255, 255, 255, 0.05);
         }
 
         html, body {
@@ -38,7 +40,8 @@
             width: 100%;
             overflow: hidden;
             background: transparent !important;
-            font-family: 'Inter', -apple-system, sans-serif;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            -webkit-font-smoothing: antialiased;
         }
 
         .lite-container {
@@ -47,52 +50,141 @@
             display: flex;
             flex-direction: column;
             justify-content: flex-end;
-            padding: 24px;
-            gap: 16px;
+            padding: 20px;
+            gap: 12px;
             position: relative;
         }
 
-        /* Glassmorphism */
         .glass {
             background: var(--glass-bg);
-            backdrop-filter: blur(25px) saturate(160%);
-            -webkit-backdrop-filter: blur(25px) saturate(160%);
+            backdrop-filter: blur(40px) saturate(180%);
+            -webkit-backdrop-filter: blur(40px) saturate(180%);
             border: 1px solid var(--glass-border);
             box-shadow: var(--shadow);
+            border-radius: 24px;
         }
 
-        /* Messages Window (The "Drawer") */
-        .messages-popup {
+        /* Input Bar (The Main Component) */
+        .input-bar-container {
+            display: flex;
+            align-items: center;
+            padding: 6px;
+            height: 64px;
+            gap: 8px;
+            transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+            position: relative;
+            z-index: 10;
+        }
+
+        .input-bar-container:focus-within {
+            box-shadow: 0 0 0 2px var(--accent), var(--shadow);
+        }
+
+        .icon-btn {
+            width: 44px;
+            height: 44px;
+            border-radius: 18px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: transparent;
+            border: none;
+            color: var(--text-secondary);
+            cursor: pointer;
+            transition: all 0.2s;
+            flex-shrink: 0;
+            -webkit-app-region: no-drag;
+        }
+
+        .icon-btn:hover {
+            color: var(--text-primary);
+            background: rgba(128, 128, 128, 0.1);
+        }
+
+        .send-btn {
+            background: var(--accent);
+            color: var(--glass-bg);
+        }
+
+        .send-btn:hover {
+            background: var(--accent-hover);
+            color: var(--glass-bg);
+        }
+
+        .send-btn:disabled {
+            background: rgba(128, 128, 128, 0.2);
+            color: rgba(128, 128, 128, 0.5);
+            cursor: not-allowed;
+        }
+
+        /* Settings and other controls at left */
+        .controls-left {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            margin-left: 2px;
+        }
+
+        textarea {
             flex: 1;
-            max-height: calc(100vh - 160px);
-            border-radius: 28px;
-            display: none;
+            background: transparent;
+            border: none;
+            outline: none;
+            color: var(--text-primary);
+            font-size: 16px;
+            font-weight: 400;
+            resize: none;
+            height: 24px;
+            line-height: 24px;
+            padding: 0 4px;
+            font-family: inherit;
+            -webkit-app-region: no-drag;
+            scrollbar-width: none;
+        }
+        
+        textarea::-webkit-scrollbar { display: none; }
+        textarea::placeholder { font-weight: 400; color: var(--text-secondary); opacity: 0.6; }
+
+        /* Messages Drawer */
+        .messages-drawer {
+            flex: 1;
+            max-height: calc(100vh - 120px);
+            display: flex;
             flex-direction: column;
             overflow-y: auto;
             opacity: 0;
-            transform: translateY(20px) scale(0.98);
+            pointer-events: none;
+            transform: translateY(10px) scale(0.98);
+            transform-origin: bottom center;
             transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
             padding: 24px;
             gap: 20px;
+            -webkit-app-region: no-drag;
+            position: absolute;
+            bottom: 96px; /* above the input bar */
+            left: 20px;
+            right: 20px;
+            height: calc(100vh - 116px);
         }
 
-        .messages-popup.visible {
-            display: flex;
+        .messages-drawer.visible {
             opacity: 1;
+            pointer-events: auto;
             transform: translateY(0) scale(1);
         }
 
-        /* Professional Message Styling */
+        /* Message Styling */
         .message {
             display: flex;
             flex-direction: column;
-            gap: 8px;
-            max-width: 90%;
-            animation: fadeIn 0.3s ease-out;
+            gap: 6px;
+            max-width: 88%;
+            animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+            opacity: 0;
+            transform: translateY(10px);
         }
 
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(8px); }
+        @keyframes slideUp {
             to { opacity: 1; transform: translateY(0); }
         }
 
@@ -107,172 +199,80 @@
         }
 
         .bubble {
-            padding: 12px 18px;
+            padding: 14px 18px;
             border-radius: 20px;
             font-size: 14px;
-            line-height: 1.55;
+            line-height: 1.6;
             word-wrap: break-word;
         }
 
         .user .bubble {
             background: var(--user-bubble);
             color: var(--user-text);
-            border-bottom-right-radius: 4px;
+            border-bottom-right-radius: 6px;
             font-weight: 500;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
         }
 
         .ai .bubble {
             background: var(--ai-bubble);
             color: var(--text-primary);
             border: 1px solid var(--glass-border);
-            border-top-left-radius: 4px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+            border-top-left-radius: 6px;
+            backdrop-filter: blur(10px);
         }
 
-        /* Agentic Elements */
         .thought {
-            font-size: 12px;
+            font-size: 13px;
             color: var(--text-secondary);
             font-style: italic;
-            padding-left: 12px;
             border-left: 2px solid var(--glass-border);
+            padding-left: 14px;
             margin: 4px 0;
         }
 
         .action-log {
-            background: rgba(128, 128, 128, 0.05);
+            background: rgba(128, 128, 128, 0.04);
             border: 1px solid var(--glass-border);
-            border-radius: 12px;
-            padding: 10px 14px;
+            border-radius: 14px;
+            padding: 12px 16px;
             display: flex;
             align-items: center;
-            gap: 12px;
+            gap: 14px;
             font-size: 13px;
             color: var(--text-secondary);
             margin-bottom: 8px;
+            max-width: 90%;
+            align-self: flex-start;
+            animation: slideUp 0.3s ease-out forwards;
         }
 
         .action-icon {
             color: var(--accent);
-            width: 16px;
-            text-align: center;
+            width: 20px;
+            height: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--glass-bg);
+            border-radius: 5px;
+            border: 1px solid var(--glass-border);
         }
 
         .action-status {
             margin-left: auto;
-            font-size: 11px;
+            font-size: 10px;
             text-transform: uppercase;
             font-weight: 700;
             letter-spacing: 0.5px;
+            padding: 2px 6px;
+            border-radius: 10px;
+            background: rgba(128,128,128,0.1);
         }
 
-        .status-running { color: #007aff; }
-        .status-success { color: #34c759; }
-        .status-error { color: #ff3b30; }
-
-        /* Controls Row */
-        .bottom-row {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-        }
-
-        .control-btns {
-            display: flex;
-            gap: 8px;
-        }
-
-        .control-btn {
-            width: 44px;
-            height: 44px;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            cursor: pointer;
-            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-            color: var(--text-primary);
-            font-size: 16px;
-        }
-
-        .control-btn:hover {
-            transform: scale(1.08);
-            background: var(--accent);
-            color: var(--glass-bg);
-            border-color: var(--accent);
-        }
-
-        .control-btn.active {
-            background: var(--accent);
-            color: var(--glass-bg);
-        }
-
-        /* Input Bar */
-        .input-bar {
-            flex: 1;
-            height: 56px;
-            border-radius: 28px;
-            display: flex;
-            align-items: center;
-            padding: 0 16px;
-            gap: 12px;
-            transition: all 0.3s;
-        }
-
-        .input-bar:focus-within {
-            box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.1);
-            border-color: rgba(0, 122, 255, 0.3);
-        }
-
-        textarea {
-            flex: 1;
-            background: transparent;
-            border: none;
-            outline: none;
-            color: var(--text-primary);
-            font-size: 15px;
-            font-weight: 500;
-            resize: none;
-            max-height: 120px;
-            padding: 16px 0;
-            font-family: inherit;
-        }
-
-        .icon-btn {
-            width: 36px;
-            height: 36px;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            background: transparent;
-            border: none;
-            color: var(--text-secondary);
-            cursor: pointer;
-            transition: all 0.2s;
-        }
-
-        .icon-btn:hover {
-            color: var(--text-primary);
-            background: rgba(128, 128, 128, 0.1);
-        }
-
-        .send-btn {
-            background: var(--accent);
-            color: var(--glass-bg);
-            width: 36px;
-            height: 36px;
-        }
-
-        .send-btn:disabled {
-            opacity: 0.3;
-            cursor: not-allowed;
-        }
-
-        /* Markdown Overrides */
-        code { font-family: 'JetBrains Mono', monospace; background: rgba(128,128,128,0.1); padding: 2px 4px; border-radius: 4px; font-size: 0.9em; }
-        pre { background: rgba(0,0,0,0.05); padding: 12px; border-radius: 8px; overflow-x: auto; margin: 8px 0; }
-        .dark-mode pre { background: rgba(255,255,255,0.05); }
+        .status-running { color: #007aff; background: rgba(0, 122, 255, 0.1); }
+        .status-success { color: #34c759; background: rgba(52, 199, 89, 0.1); }
+        .status-error { color: #ff3b30; background: rgba(255, 59, 48, 0.1); }
 
         /* Window Drag */
         .drag-handle {
@@ -282,33 +282,45 @@
             z-index: -1;
         }
 
-        .no-drag { -webkit-app-region: no-drag; }
-
         /* Scrollbar */
-        ::-webkit-scrollbar { width: 5px; }
-        ::-webkit-scrollbar-thumb { background: rgba(128,128,128,0.3); border-radius: 10px; }
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: rgba(128,128,128,0.2); border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: rgba(128,128,128,0.4); }
+
+        /* Markdown Overrides */
+        code { font-family: 'JetBrains Mono', monospace; background: rgba(128,128,128,0.1); padding: 2px 4px; border-radius: 4px; font-size: 0.9em; }
+        pre { background: rgba(0,0,0,0.05); padding: 16px; border-radius: 12px; overflow-x: auto; margin: 12px 0; border: 1px solid var(--glass-border); }
+        .dark-mode pre { background: rgba(255,255,255,0.03); }
+        .ai .bubble p { margin-bottom: 8px; }
+        .ai .bubble p:last-child { margin-bottom: 0; }
     </style>
 </head>
 <body>
     <div class="drag-handle"></div>
 
     <div class="lite-container">
-        <div class="messages-popup glass no-drag" id="messagesPopup">
-            <!-- Messages go here -->
+        <!-- Expanded Messages Area -->
+        <div class="messages-drawer glass" id="messagesDrawer">
+            <!-- Messages populated via JS -->
         </div>
 
-        <div class="bottom-row no-drag">
-            <div class="control-btns">
-                <button class="control-btn glass" id="newChatBtn" title="New Chat"><i class="fas fa-plus"></i></button>
-                <button class="control-btn glass" id="settingsBtn" title="Settings"><i class="fas fa-sliders-h"></i></button>
-                <button class="control-btn glass" id="toggleMessages" title="Toggle Messages"><i class="fas fa-chevron-up"></i></button>
+        <!-- Sleek Search/Input Bar -->
+        <div class="input-bar-container glass">
+            <div class="controls-left">
+                <button class="icon-btn" id="toggleMessagesBtn" title="Toggle Chat History">
+                    <i class="fas fa-bars"></i>
+                </button>
             </div>
-
-            <div class="input-bar glass">
-                <button class="icon-btn" id="voiceBtn"><i class="fas fa-microphone"></i></button>
-                <textarea id="chatInput" placeholder="Describe a task..." rows="1"></textarea>
-                <button class="icon-btn send-btn" id="sendBtn" disabled><i class="fas fa-arrow-up"></i></button>
-            </div>
+            
+            <textarea id="chatInput" placeholder="Ask Control to do something..." rows="1"></textarea>
+            
+            <button class="icon-btn" id="voiceBtn" title="Voice Input">
+                <i class="fas fa-microphone"></i>
+            </button>
+            <button class="icon-btn send-btn" id="sendBtn" disabled title="Send">
+                <i class="fas fa-arrow-up"></i>
+            </button>
         </div>
     </div>
 
@@ -316,9 +328,10 @@
     <script>
         class LiteAgent {
             constructor() {
-                this.popup = document.getElementById('messagesPopup');
+                this.drawer = document.getElementById('messagesDrawer');
                 this.input = document.getElementById('chatInput');
                 this.sendBtn = document.getElementById('sendBtn');
+                this.toggleBtn = document.getElementById('toggleMessagesBtn');
                 this.messagesVisible = false;
                 this.streamContainer = null;
                 this.streamText = "";
@@ -349,16 +362,24 @@
             }
 
             setupListeners() {
-                document.getElementById('toggleMessages').onclick = () => this.toggleMessages();
-                document.getElementById('settingsBtn').onclick = () => window.chatAPI.showSettings();
-                document.getElementById('newChatBtn').onclick = () => this.reset();
+                this.toggleBtn.onclick = () => this.toggleMessages();
 
                 this.sendBtn.onclick = () => this.sendMessage();
-                this.input.oninput = () => {
+                
+                this.input.addEventListener('input', () => {
                     this.sendBtn.disabled = !this.input.value.trim();
-                    this.input.style.height = 'auto';
-                    this.input.style.height = Math.min(this.input.scrollHeight, 120) + 'px';
-                };
+                    // Auto-resize
+                    this.input.style.height = '24px';
+                    const newHeight = Math.min(this.input.scrollHeight, 120);
+                    if (newHeight > 24) {
+                        this.input.style.height = newHeight + 'px';
+                        this.input.parentElement.style.height = 'auto';
+                        this.input.parentElement.style.padding = '12px 6px';
+                    } else {
+                        this.input.parentElement.style.height = '64px';
+                        this.input.parentElement.style.padding = '6px';
+                    }
+                });
 
                 this.input.onkeydown = (e) => {
                     if (e.key === 'Enter' && !e.shiftKey) {
@@ -370,12 +391,15 @@
 
             toggleMessages(force) {
                 this.messagesVisible = force !== undefined ? force : !this.messagesVisible;
-                this.popup.classList.toggle('visible', this.messagesVisible);
-                document.getElementById('toggleMessages').innerHTML = this.messagesVisible ?
-                    '<i class="fas fa-chevron-down"></i>' : '<i class="fas fa-chevron-up"></i>';
-
+                this.drawer.classList.toggle('visible', this.messagesVisible);
+                
                 if (this.messagesVisible) {
-                    setTimeout(() => this.popup.scrollTop = this.popup.scrollHeight, 100);
+                    this.toggleBtn.classList.add('active');
+                    this.toggleBtn.style.color = 'var(--text-primary)';
+                    setTimeout(() => this.drawer.scrollTop = this.drawer.scrollHeight, 100);
+                } else {
+                    this.toggleBtn.classList.remove('active');
+                    this.toggleBtn.style.color = 'var(--text-secondary)';
                 }
             }
 
@@ -390,22 +414,25 @@
 
                 this.input.value = '';
                 this.sendBtn.disabled = true;
-                this.input.style.height = 'auto';
+                this.input.style.height = '24px';
+                this.input.parentElement.style.height = '64px';
+                this.input.parentElement.style.padding = '6px';
+                
                 this.streamContainer = null;
                 this.streamText = "";
             }
 
             addMessage(content, sender, isHtml = false) {
                 const msgDiv = document.createElement('div');
-                msgDiv.className = `message \${sender}`;
+                msgDiv.className = `message ${sender}`;
 
                 const bubble = document.createElement('div');
                 bubble.className = 'bubble';
                 bubble.innerHTML = isHtml ? content : this.escapeHtml(content);
 
                 msgDiv.appendChild(bubble);
-                this.popup.appendChild(msgDiv);
-                this.popup.scrollTop = this.popup.scrollHeight;
+                this.drawer.appendChild(msgDiv);
+                this.drawer.scrollTop = this.drawer.scrollHeight;
                 return msgDiv;
             }
 
@@ -415,13 +442,12 @@
                     this.streamContainer = this.addMessage('', 'ai', true);
                 }
                 this.streamText += chunk;
-                // Check if it's JSON or markdown
                 if (this.streamText.trim().startsWith('{')) {
                     this.streamContainer.querySelector('.bubble').innerHTML = '<div class="thought">Thinking...</div>';
                 } else {
                     this.streamContainer.querySelector('.bubble').innerHTML = marked.parse(this.streamText);
                 }
-                this.popup.scrollTop = this.popup.scrollHeight;
+                this.drawer.scrollTop = this.drawer.scrollHeight;
             }
 
             handleResponse(data) {
@@ -449,36 +475,28 @@
                 if (description.toLowerCase().includes('type')) icon = 'fa-keyboard';
                 if (description.toLowerCase().includes('search')) icon = 'fa-search';
 
-                log.innerHTML = \`
-                    <div class="action-icon"><i class="fas \${icon}"></i></div>
-                    <div class="action-desc">\${description}</div>
-                    <div class="action-status status-\${status}">\${status}</div>
-                \`;
+                log.innerHTML = `
+                    <div class="action-icon"><i class="fas ${icon}"></i></div>
+                    <div class="action-desc">${description}</div>
+                    <div class="action-status status-${status}">${status}</div>
+                `;
 
-                this.popup.appendChild(log);
-                this.popup.scrollTop = this.popup.scrollHeight;
+                this.drawer.appendChild(log);
+                this.drawer.scrollTop = this.drawer.scrollHeight;
             }
 
             updateAction(description, status) {
-                const logs = this.popup.querySelectorAll('.action-log');
+                const logs = this.drawer.querySelectorAll('.action-log');
                 for (let i = logs.length - 1; i >= 0; i--) {
                     if (logs[i].dataset.desc === description) {
                         const statusEl = logs[i].querySelector('.action-status');
-                        statusEl.className = \`action-status status-\${status}\`;
+                        statusEl.className = `action-status status-${status}`;
                         statusEl.textContent = status;
                         const icon = logs[i].querySelector('.action-icon i');
                         icon.className = icon.className.replace('fa-spin', '');
                         break;
                     }
                 }
-            }
-
-            reset() {
-                this.popup.innerHTML = '';
-                this.toggleMessages(false);
-                this.input.value = '';
-                this.input.style.height = 'auto';
-                this.input.focus();
             }
 
             escapeHtml(text) {

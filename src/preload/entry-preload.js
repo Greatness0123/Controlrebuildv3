@@ -1,9 +1,10 @@
 const { contextBridge, ipcRenderer } = require('electron');
 
 contextBridge.exposeInMainWorld('entryAPI', {
-    // Authentication - verify entry ID with Firebase
+    // Authentication - verify entry ID with Supabase
     verifyEntryID: (entryId) => ipcRenderer.invoke('verify-entry-id', entryId),
     authenticateUser: (userId) => ipcRenderer.invoke('authenticate-user', userId),
+    loginWithEmail: (email, password) => ipcRenderer.invoke('login-with-email', email, password),
     getUserInfo: () => ipcRenderer.invoke('get-user-info'),
 
     // Window control
