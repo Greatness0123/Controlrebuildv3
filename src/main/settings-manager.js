@@ -93,6 +93,7 @@ class SettingsManager {
                 toggleChat: process.platform === 'darwin' ? 'Command+.' : 'CommandOrControl+Space',
                 stopAction: 'Alt+Z'
             },
+            remoteAccessEnabled: false,
             userDetails: null
         };
     }

@@ -13,10 +13,17 @@ RUN apt-get update && apt-get install -y \
     novnc \
     websockify \
     python3 \
+    python3-pip \
+    python3-tk \
+    python3-dev \
+    scrot \
     curl \
     git \
     sudo \
+    firefox \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
+
+RUN pip3 install pyautogui websockets mss Pillow
 
 # Create a non-root user
 RUN useradd -m -s /bin/bash controluser && echo "controluser:control" | chpasswd && adduser controluser sudo
@@ -27,20 +34,23 @@ RUN mkdir -p /opt/novnc && \
     git clone https://github.com/novnc/noVNC.git /opt/novnc && \
     ln -s /opt/novnc/vnc.html /opt/novnc/index.html
 
-# Expose noVNC port
+# Expose noVNC and Agent ports
 EXPOSE 6080
+EXPOSE 8080
 
 # Set up working directory
 WORKDIR /home/controluser
 
-# Entrypoint script to start services
+# Entrypoint and Agent scripts
 COPY entrypoint.sh /home/controluser/entrypoint.sh
-RUN chown controluser:controluser /home/controluser/entrypoint.sh && chmod +x /home/controluser/entrypoint.sh
+COPY ai_agent.py /home/controluser/ai_agent.py
+RUN chown controluser:controluser /home/controluser/entrypoint.sh /home/controluser/ai_agent.py && \
+    chmod +x /home/controluser/entrypoint.sh
 
 USER controluser
 
 # Environment variables for VNC
 ENV DISPLAY=:1
-ENV RESOLUTION=1280x800x24
+ENV RESOLUTION=1920x1080x24
 
 ENTRYPOINT ["/home/controluser/entrypoint.sh"]

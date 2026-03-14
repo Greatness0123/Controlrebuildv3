@@ -81,8 +81,8 @@ export default function WorkspaceLayout({ children }: { children: ReactNode }) {
     if (isCreatingChat) return;
     setIsCreatingChat(true);
     try {
-      const pairedDevice = devices.find(d => d.status === 'paired');
       const runningVm = vms.find(v => v.status === 'running');
+      const pairedDevice = devices.find(d => d.status === 'paired');
       const res = await chatApi.create(runningVm?.id, pairedDevice?.id);
       setSessions([res.session, ...sessions]);
       router.push(`/c/${res.session.id}`);

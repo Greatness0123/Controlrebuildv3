@@ -15,6 +15,10 @@ class ValidateCodeRequest(BaseModel):
     code: str
 
 
+class UpdateStatusRequest(BaseModel):
+    status: str
+
+
 @router.post("/generate")
 async def generate_code(req: GenerateCodeRequest, user: dict = Depends(get_current_user)):
     db = get_service_client()
@@ -37,6 +41,16 @@ async def list_devices(user: dict = Depends(get_current_user)):
     db = get_service_client()
     devices = desktop_bridge.list_devices(db, user["id"])
     return {"devices": devices}
+
+
+@router.patch("/{device_id}")
+async def update_device_status(device_id: str, req: UpdateStatusRequest, user: dict = Depends(get_current_user)):
+    db = get_service_client()
+    try:
+        result = desktop_bridge.update_device_status(db, device_id, user["id"], req.status)
+        return result
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
 
 
 @router.delete("/{device_id}")

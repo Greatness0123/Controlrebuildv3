@@ -44,6 +44,7 @@ class VMService:
 
         novnc_port = self._get_free_port(VM_BASE_NOVNC_PORT)
         vnc_port = self._get_free_port(5900)
+        agent_port = self._get_free_port(8080)
 
         try:
             container = self.docker_client.containers.run(
@@ -53,6 +54,7 @@ class VMService:
                 ports={
                     "6080/tcp": novnc_port,
                     "5900/tcp": vnc_port,
+                    "8080/tcp": agent_port,
                 },
                 environment={
                     "RESOLUTION": "1280x800x24",
@@ -75,6 +77,7 @@ class VMService:
                 "container_id": container.id,
                 "vnc_port": vnc_port,
                 "novnc_port": novnc_port,
+                "agent_port": agent_port,
                 "instance_url": f"http://{PUBLIC_IP}:{novnc_port}",
             }
             result = db.table("virtual_machines").insert(vm_data).execute()
@@ -102,14 +105,25 @@ class VMService:
         try:
             container = self.docker_client.containers.get(vm_data["container_id"])
             container.start()
-            db.table("virtual_machines").update({"status": "running"}).eq("id", vm_id).execute()
-            return {**vm_data, "status": "running"}
+            
+            # Wait briefly and verify container is actually running
+            import time
+            for _ in range(5):
+                time.sleep(0.5)
+                container.reload()
+                if container.status == "running":
+                    break
+            
+            actual_status = "running" if container.status == "running" else "starting"
+            db.table("virtual_machines").update({"status": actual_status}).eq("id", vm_id).execute()
+            return {**vm_data, "status": actual_status}
         except docker.errors.NotFound:
             db.table("virtual_machines").update({"status": "stopped"}).eq("id", vm_id).execute()
             raise ValueError("Container not found — it may have been removed")
 
     async def stop_vm(self, db: Client, vm_id: str, user_id: str) -> dict:
         """Stop a running VM."""
+        logger.info(f"Stopping VM {vm_id} requested by user {user_id}")
         vm = db.table("virtual_machines").select("*").eq("id", vm_id).eq("user_id", user_id).execute()
         if not vm.data:
             raise ValueError("VM not found")
@@ -154,7 +168,14 @@ class VMService:
                 if vm.get("container_id"):
                     try:
                         container = self.docker_client.containers.get(vm["container_id"])
-                        actual_status = "running" if container.status == "running" else "stopped"
+                        # Handle various Docker states
+                        if container.status == "running":
+                            actual_status = "running"
+                        elif container.status in ["restarting", "created", "starting"]:
+                            actual_status = "starting"
+                        else:
+                            actual_status = "stopped"
+
                         if actual_status != vm.get("status"):
                             db.table("virtual_machines").update({"status": actual_status}).eq("id", vm["id"]).execute()
                             vm["status"] = actual_status

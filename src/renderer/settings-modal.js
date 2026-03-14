@@ -40,6 +40,7 @@ class SettingsModal {
 
         this.updateUI();
         this.initializeLucideIcons();
+        this.startRemoteStatusPolling();
     }
 
     initializeLucideIcons() {
@@ -168,10 +169,29 @@ class SettingsModal {
     updateRemoteUI(status) {
         const indicator = document.getElementById('remoteStatusIndicator');
         const text = document.getElementById('remoteStatusText');
+        const pairingCodeDisplay = document.getElementById('pairingCodeDisplay');
+        const copyBtn = document.getElementById('copyPairingBtn');
+
+        if (pairingCodeDisplay && status.pairing?.pairing_code && pairingCodeDisplay.textContent === '---- ----') {
+            pairingCodeDisplay.textContent = status.pairing.pairing_code;
+            if (copyBtn) copyBtn.style.display = 'block';
+        }
+
         if (indicator && text) {
-            if (status.enabled) {
+            if (status.streaming) {
+                // Actively streaming frames to the web
                 indicator.className = 'status-dot online';
-                text.textContent = status.streaming ? 'Streaming live' : 'Ready for control';
+                text.textContent = 'Streaming live';
+            } else if (status.paired) {
+                // Paired and channel is active, ready for control
+                indicator.className = 'status-dot online';
+                text.textContent = 'Online — Ready for control';
+            } else if (status.enabled) {
+                // Channel is active, waiting for web to connect/pair
+                indicator.className = 'status-dot connecting';
+                text.textContent = status.pairing?.pairing_code 
+                    ? 'Online — Awaiting pairing' 
+                    : 'Connecting...';
             } else {
                 indicator.className = 'status-dot offline';
                 text.textContent = 'Disconnected';
@@ -448,6 +468,14 @@ class SettingsModal {
         this.updateTheme();
         this.updateUserInfo();
         this.updateHotkeysUI();
+
+        // Restore Remote Access toggle
+        const remoteToggle = document.getElementById('remoteAccessToggle');
+        const pairingSection = document.getElementById('remotePairingSection');
+        if (remoteToggle && this.settings.remoteAccessEnabled) {
+            remoteToggle.checked = true;
+            if (pairingSection) pairingSection.style.display = 'block';
+        }
     }
 
     updateTheme() {

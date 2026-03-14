@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Monitor, Cpu, Terminal } from 'lucide-react';
 
 interface RemoteDesktopProps {
@@ -29,15 +29,22 @@ export default function RemoteDesktop({ vmId, noVncPort, instanceUrl, type = 'vm
     }, [vmId]);
 
     // Render VNC Stream if available, otherwise fallback to the mock UI
-    if (instanceUrl && noVncPort) {
+    if (instanceUrl) {
         // Build the VNC url. noVNC usually serves on `/vnc.html`
-        const vncUrl = `http://${instanceUrl}:${noVncPort}/vnc.html?resize=remote&autoconnect=true`;
+        let vncUrl = instanceUrl;
+        if (!vncUrl.includes('/vnc.html')) {
+            vncUrl = `${vncUrl.endsWith('/') ? vncUrl : vncUrl + '/'}vnc.html?resize=remote&autoconnect=true`;
+        } else if (!vncUrl.includes('autoconnect=true')) {
+            vncUrl += (vncUrl.includes('?') ? '&' : '?') + 'resize=remote&autoconnect=true';
+        }
+
         return (
             <div className="w-full h-full bg-black relative">
                 <iframe 
                     src={vncUrl} 
                     className="w-full h-full border-none absolute inset-0"
                     title={`VNC Stream for ${vmId}`}
+                    allow="fullscreen"
                 />
             </div>
         );

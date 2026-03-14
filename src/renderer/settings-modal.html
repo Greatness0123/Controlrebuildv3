@@ -1052,8 +1052,7 @@
                             <style>
                                 @keyframes spin { to { transform: rotate(360deg); } }
                             </style>
-                            <p class="setting-desc" style="margin-top: 8px;">Code expires in 10 minutes. Enter this code
-                                in the Web App to pair.</p>
+                            <p class="setting-desc" style="margin-top: 8px;">This code is permanent and locked to this device. Enter it in the Web App to pair.</p>
                         </div>
                     </div>
                 </div>
@@ -1065,9 +1064,14 @@
                             <div class="setting-name">Status</div>
                             <div id="remoteStatusText" class="setting-desc">Disconnected</div>
                         </div>
-                        <div id="remoteStatusIndicator"
-                            style="width: 12px; height: 12px; border-radius: 50%; background: var(--text-secondary);">
-                        </div>
+                        <div id="remoteStatusIndicator" class="status-dot offline"
+                            style="width: 12px; height: 12px; border-radius: 50%;"></div>
+                        <style>
+                            .status-dot.online { background: #10b981; box-shadow: 0 0 8px rgba(16, 185, 129, 0.5); }
+                            .status-dot.connecting { background: #f59e0b; animation: statusPulse 1.5s infinite; }
+                            .status-dot.offline { background: var(--text-secondary); opacity: 0.5; }
+                            @keyframes statusPulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+                        </style>
                     </div>
                 </div>
             </div>

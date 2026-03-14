@@ -15,6 +15,12 @@ class CreateSessionRequest(BaseModel):
     device_id: Optional[str] = None
 
 
+class UpdateSessionRequest(BaseModel):
+    vm_id: Optional[str] = None
+    device_id: Optional[str] = None
+    title: Optional[str] = None
+
+
 class SendMessageRequest(BaseModel):
     message: str
     model: Optional[str] = "gemini-2.0-flash"
@@ -77,7 +83,7 @@ async def send_message(session_id: str, req: SendMessageRequest, user: dict = De
     vm_data = session_data.get("virtual_machines") or {}
 
     async def event_stream():
-        async for event in agent_executor.execute_task(db, session_id, req.message, vm_data):
+        async for event in agent_executor.execute_task(db, session_id, req.message, session_data):
             yield f"data: {json.dumps(event)}\n\n"
 
     return StreamingResponse(
@@ -89,6 +95,25 @@ async def send_message(session_id: str, req: SendMessageRequest, user: dict = De
             "X-Accel-Buffering": "no",
         },
     )
+
+
+@router.patch("/{session_id}")
+async def update_session(session_id: str, req: UpdateSessionRequest, user: dict = Depends(get_current_user)):
+    db = get_service_client()
+    session = db.table("chat_sessions").select("user_id").eq("id", session_id).execute()
+    if not session.data or session.data[0]["user_id"] != user["id"]:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    update_data = {}
+    if req.vm_id is not None:
+        update_data["vm_id"] = req.vm_id
+    if req.device_id is not None:
+        update_data["device_id"] = req.device_id
+    if req.title is not None:
+        update_data["title"] = req.title
+
+    result = db.table("chat_sessions").update(update_data).eq("id", session_id).execute()
+    return {"session": result.data[0]}
 
 
 @router.delete("/{session_id}")

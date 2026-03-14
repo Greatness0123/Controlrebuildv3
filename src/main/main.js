@@ -96,7 +96,7 @@ class ComputerUseAgent {
         this.edgeTTS = new EdgeTTSManager();
         this.voskServerManager = new VoskServerManager();
         this.settingsManager = new SettingsManager();
-        this.remoteDesktopManager = new RemoteDesktopManager(this.windowManager);
+        this.remoteDesktopManager = new RemoteDesktopManager(this.windowManager, this.settingsManager);
 
         // Load persisted settings
         this.appSettings = this.settingsManager.getSettings();

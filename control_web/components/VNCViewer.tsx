@@ -110,8 +110,8 @@ export default function VNCViewer({ url, status = 'stopped', className }: VNCVie
         {url ? (
           <iframe
             ref={iframeRef}
-            src={url}
-            className="w-full h-full border-none"
+            src={url.includes('/vnc.html') ? url : `${url.endsWith('/') ? url : url + '/'}vnc.html?resize=scale&autoconnect=true&reconnect=true`}
+            className="absolute inset-0 w-full h-full border-none overflow-hidden"
             onLoad={() => setLoading(false)}
             onError={() => setError(true)}
             allow="fullscreen"

@@ -3,13 +3,14 @@ import json
 import asyncio
 import logging
 import google.generativeai as genai
+import websockets
 from typing import AsyncGenerator
 from supabase import Client
 from app.config import GEMINI_API_KEY
 
 logger = logging.getLogger(__name__)
 
-SYSTEM_PROMPT = """You are Control AI, an agent that controls a virtual computer to complete tasks for the user.
+SYSTEM_PROMPT = """You are Control AI, an agent that controls a virtual computer to complete tasks for the user. (Note: Always use Firefox browser for web tasks).
 
 You can see the computer's screen via screenshots and you can perform these actions:
 - CLICK(x, y) — Click at screen coordinates
@@ -36,9 +37,11 @@ class AgentExecutor:
             self.model = None
 
     async def execute_task(
-        self, db: Client, session_id: str, user_message: str, vm_data: dict
+        self, db: Client, session_id: str, user_message: str, session_data: dict
     ) -> AsyncGenerator[dict, None]:
         """Execute a task and stream results back."""
+        vm_data = session_data.get("virtual_machines") or {}
+        device_id = session_data.get("device_id")
         
         # Save user message
         db.table("chat_messages").insert({
@@ -67,7 +70,8 @@ class AgentExecutor:
 
         try:
             # Build context
-            context = f"""VM Info: {vm_data.get('name', 'Unknown')} (noVNC at port {vm_data.get('novnc_port', 'N/A')})
+            target_name = vm_data.get('name') or session_data.get('device_name') or "Remote Desktop"
+            context = f"""Target Info: {target_name} 
 User request: {user_message}"""
 
             chat = self.model.start_chat(history=[
@@ -100,12 +104,46 @@ User request: {user_message}"""
                     "action_data": params,
                 }).execute()
 
-                # For now, simulate action execution
+                # Execute action if not DONE
                 if action == "DONE":
                     yield {"type": "message", "content": f"✅ {params.get('summary', 'Task completed')}"}
                 else:
-                    yield {"type": "message", "content": f"Executed: {action}({json.dumps(params)})"}
-                    yield {"type": "message", "content": "Taking screenshot to verify..."}
+                    if device_id:
+                        # Broadcast action to the paired desktop
+                        logger.info(f"Broadcasting {action} to device {device_id}")
+                        db.channel(f"remote_control:{device_id}").send({
+                            "type": "broadcast",
+                            "event": "action",
+                            "payload": {"type": action.lower(), **params}
+                        })
+                        yield {"type": "message", "content": f"Sent action to Desktop: {action}({json.dumps(params)})"}
+                    elif vm_data:
+                        # Connect to VM Agent
+                        agent_port = vm_data.get('agent_port')
+                        if agent_port:
+                            logger.info(f"Connecting to VM agent at 127.0.0.1:{agent_port}")
+                            try:
+                                async with websockets.connect(f"ws://127.0.0.1:{agent_port}") as ws:
+                                    await ws.send(json.dumps({
+                                        "type": "command",
+                                        "data": {
+                                            "command": action.lower(),
+                                            "parameters": params
+                                        }
+                                    }))
+                                    res = await asyncio.wait_for(ws.recv(), timeout=5.0)
+                                    res_data = json.loads(res)
+                                    if res_data.get('type') == 'result':
+                                        yield {"type": "message", "content": f"VM action executed: {action}"}
+                                    else:
+                                        yield {"type": "message", "content": f"VM action failed: {res_data.get('data', {}).get('error')}"}
+                            except Exception as e:
+                                logger.error(f"VM Agent connection error: {e}")
+                                yield {"type": "message", "content": f"Could not connect to VM agent: {str(e)}"}
+                        else:
+                            yield {"type": "message", "content": "VM agent port not assigned."}
+                    
+                    yield {"type": "message", "content": "Waiting for screen update..."}
 
             except json.JSONDecodeError:
                 # Plain text response

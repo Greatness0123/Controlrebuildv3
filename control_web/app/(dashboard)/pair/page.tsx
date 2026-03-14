@@ -71,6 +71,21 @@ export default function PairPage() {
     }
   };
 
+  const handleRestore = async (id: string, name: string) => {
+    const ok = await confirm(`This will reactivate access for "${name}".`, {
+      title: 'Restore Device Access?',
+      confirmLabel: 'Restore',
+      cancelLabel: 'Cancel',
+    });
+    if (!ok) return;
+    try {
+      await pairApi.updateStatus(id, 'paired');
+      loadDevices();
+    } catch (err: any) {
+      setError(err.message);
+    }
+  };
+
   const handleRevoke = async (id: string) => {
     const ok = await confirm('This will disconnect the device and revoke all access immediately.', {
       title: 'Revoke Device Access?',
@@ -244,16 +259,24 @@ export default function PairPage() {
                     <div className="flex items-center gap-4">
                       <div className={cn(
                         "w-10 h-10 rounded-xl flex items-center justify-center border",
-                        device.status === 'paired' ? "bg-green-500/10 border-green-500/20" : "bg-zinc-500/10 border-zinc-500/20"
+                        device.status === 'paired' ? "bg-green-500/10 border-green-500/20" : 
+                        device.status === 'revoked' ? "bg-red-500/5 border-red-500/10" :
+                        "bg-zinc-500/10 border-zinc-500/20"
                       )}>
-                        <Monitor size={18} className={device.status === 'paired' ? "text-green-400" : "text-zinc-500"} />
+                        <Monitor size={18} className={cn(
+                          device.status === 'paired' ? "text-green-400" : 
+                          device.status === 'revoked' ? "text-red-900" :
+                          "text-zinc-500"
+                        )} />
                       </div>
                       <div>
                         <h4 className="text-sm font-bold text-white">{device.name}</h4>
                         <div className="flex items-center gap-3 mt-0.5">
                           <span className={cn(
                             "text-[10px] uppercase font-bold tracking-widest",
-                            device.status === 'paired' ? "text-green-500" : "text-zinc-600"
+                            device.status === 'paired' ? "text-green-500" : 
+                            device.status === 'revoked' ? "text-red-500" :
+                            "text-zinc-600"
                           )}>
                             {device.status}
                           </span>
@@ -264,13 +287,25 @@ export default function PairPage() {
                         </div>
                       </div>
                     </div>
-                    <button
-                      onClick={() => handleRevoke(device.id)}
-                      className="p-2.5 text-zinc-700 hover:text-red-400 hover:bg-red-400/10 rounded-lg transition-all"
-                      title="Revoke Access"
-                    >
-                      <Trash2 size={16} />
-                    </button>
+                    <div className="flex items-center gap-2">
+                      {device.status === 'revoked' && (
+                        <button
+                          onClick={() => handleRestore(device.id, device.name)}
+                          className="px-3 py-1.5 bg-green-500/10 text-green-400 border border-green-500/20 rounded-lg text-[10px] font-bold hover:bg-green-500/20 transition-all uppercase tracking-wider"
+                        >
+                          Restore
+                        </button>
+                      )}
+                      {device.status !== 'revoked' && (
+                        <button
+                          onClick={() => handleRevoke(device.id)}
+                          className="p-2.5 text-zinc-700 hover:text-red-400 hover:bg-red-400/10 rounded-lg transition-all"
+                          title="Revoke Access"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      )}
+                    </div>
                   </div>
                 ))}
               </div>

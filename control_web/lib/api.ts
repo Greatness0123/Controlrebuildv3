@@ -45,6 +45,11 @@ export const chatApi = {
     }),
   messages: (sessionId: string) =>
     apiFetch<{ messages: any[] }>(`/api/chat/${sessionId}/messages`),
+  update: (sessionId: string, data: { vm_id?: string | null; device_id?: string | null; title?: string }) =>
+    apiFetch<{ session: any }>(`/api/chat/${sessionId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    }),
   delete: (sessionId: string) =>
     apiFetch<{ success: boolean }>(`/api/chat/${sessionId}`, { method: 'DELETE' }),
 
@@ -96,6 +101,11 @@ export const pairApi = {
       method: 'POST', body: JSON.stringify({ code }),
     }),
   devices: () => apiFetch<{ devices: any[] }>('/api/pair/devices'),
+  updateStatus: (deviceId: string, status: string) =>
+    apiFetch<{ id: string; status: string }>(`/api/pair/${deviceId}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ status }),
+    }),
   revoke: (deviceId: string) =>
     apiFetch<{ success: boolean }>(`/api/pair/${deviceId}`, { method: 'DELETE' }),
 };

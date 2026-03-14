@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, ReactNode } from 'react';
+import { useState, useEffect, useRef, ReactNode } from 'react';
 import { X, AlertCircle, CheckCircle2, Info, AlertTriangle } from 'lucide-react';
 
 // ─── Types ───────────────────────────────────────────────────────────────────

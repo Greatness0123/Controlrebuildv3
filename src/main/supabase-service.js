@@ -41,7 +41,7 @@ const initSupabase = () => {
 initSupabase();
 
 module.exports = {
-    supabase,
+    get supabase() { return supabase; },
     initSupabase,
 
     async verifyEntryID(entryId) {
@@ -201,7 +201,6 @@ module.exports = {
             if (data.picovoiceKey) updateData.picovoice_key = data.picovoiceKey;
             if (data.tasksCompleted) updateData.tasks_completed = data.tasksCompleted;
             if (data.remote_pairing_code) updateData.remote_pairing_code = data.remote_pairing_code;
-            if (data.remote_pairing_expires) updateData.remote_pairing_expires = data.remote_pairing_expires;
             if (data.remote_access_enabled !== undefined) updateData.remote_access_enabled = data.remote_access_enabled;
 
             const { error } = await supabase
@@ -224,19 +223,19 @@ module.exports = {
                 if (!supabase) return null;
                 
                 const code = Math.random().toString(36).substring(2, 8).toUpperCase();
-                const expires = new Date(Date.now() + 10 * 60 * 1000).toISOString();
 
-                console.log(`[Supabase] Attempting to generate pairing code (attempt ${i + 1}/3)...`);
+                console.log(`[Supabase] Generating code for User: ${userId}`);
+                console.log(`[Supabase] Attempting to generate permanent pairing code (attempt ${i + 1}/3)...`);
                 
-                const { error } = await supabase
+                const { data, error } = await supabase
                     .from('paired_devices')
                     .insert({
                         user_id: userId,
                         name: deviceName,
                         pairing_code: code,
-                        pairing_expires: expires,
                         status: 'pending'
-                    });
+                    })
+                    .select();
 
                 if (error) {
                     if (error.code === '23503') {
@@ -244,8 +243,18 @@ module.exports = {
                     }
                     throw error;
                 }
-                console.log(`[Supabase] Pairing code generated successfully: ${code}`);
-                return code;
+
+                // Also store code on the user record so the web can look it up
+                await supabase
+                    .from('users')
+                    .update({ remote_pairing_code: code })
+                    .eq('id', userId);
+
+                console.log(`[Supabase] Permanent pairing code generated and saved to user: ${code}`);
+                return {
+                    code: code,
+                    device_id: data && data[0] ? data[0].id : null
+                };
             } catch (error) {
                 lastError = error;
                 console.warn(`[Supabase] Pairing code generation attempt ${i + 1} failed:`, error.message);
@@ -259,17 +268,34 @@ module.exports = {
 
     async updateDeviceStatus(deviceId, status) {
         try {
-            if (!supabase) return false;
-            const { error } = await supabase
+            if (!supabase) return { success: false, status: 'off' };
+            
+            // First check if it's already revoked
+            const { data: existing } = await supabase
+                .from('paired_devices')
+                .select('status')
+                .eq('id', deviceId)
+                .single();
+
+            if (existing && existing.status === 'revoked') {
+                return { success: false, status: 'revoked' };
+            }
+
+            const { data, error } = await supabase
                 .from('paired_devices')
                 .update({ 
-                    status: status,
+                    status: status || existing?.status || 'paired',
                     last_seen: new Date().toISOString()
                 })
-                .eq('id', deviceId);
-            return !error;
+                .eq('id', deviceId)
+                .select('status')
+                .single();
+
+            if (error) throw error;
+            return { success: true, status: data.status };
         } catch (e) {
-            return false;
+            console.error('[Supabase] Update status error:', e.message);
+            return { success: false, status: 'error' };
         }
     },
 
