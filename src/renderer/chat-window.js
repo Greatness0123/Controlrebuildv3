@@ -101,7 +101,7 @@ class ChatWindow {
         // Don't auto-start new conversation here to avoid resetting UI state if restoring
         if (!this.currentSessionId) {
             // CRITICAL: Pass true for keepMode to ensure restored mode is preserved
-            this.startNewConversation(false, true);
+            this.startNewConversation(true, true);
         }
     }
 
@@ -244,14 +244,15 @@ class ChatWindow {
         const workflowButton = document.getElementById('workflowButton');
         if (workflowButton) {
             workflowButton.addEventListener('click', () => {
-                console.log('Workflow button clicked');
                 if (window.chatAPI && window.chatAPI.showWindow) {
                     window.chatAPI.showWindow('workflow');
-                } else if (window.chatAPI && window.chatAPI.showWorkflow) {
-                    window.chatAPI.showWorkflow();
                 }
             });
         }
+
+        // Periodically refresh remote status to show ID in status bar
+        setInterval(() => this.refreshRemoteStatus(), 10000);
+        this.refreshRemoteStatus();
 
         // New chat button
         if (this.newChatButton) {
@@ -295,6 +296,32 @@ class ChatWindow {
                 this.chatInput.blur();
             }
         });
+    }
+
+    async refreshRemoteStatus() {
+        if (!window.chatAPI || !window.chatAPI.getRemoteStatus) return;
+        try {
+            const status = await window.chatAPI.getRemoteStatus();
+            const statusContent = document.getElementById('statusContent');
+            if (statusContent) {
+                let remoteInfo = document.getElementById('remoteInfo');
+                if (!remoteInfo) {
+                    remoteInfo = document.createElement('div');
+                    remoteInfo.id = 'remoteInfo';
+                    remoteInfo.style.cssText = 'display: flex; align-items: center; gap: 4px; border: 1px solid var(--border); background: var(--bg-secondary); padding: 2px 6px; border-radius: 4px; margin-right: 12px; font-size: 9px; font-weight: bold; color: var(--text-secondary);';
+                    statusContent.parentNode.insertBefore(remoteInfo, statusContent);
+                }
+                
+                const idShort = status.deviceId ? status.deviceId.split('-')[0] : (status.pairing?.id ? status.pairing.id.split('-')[0] : (status.deviceId ? status.deviceId.split('-')[0] : 'None'));
+                remoteInfo.innerHTML = `
+                    <i class="fas fa-signal" style="font-size: 8px; color: ${status.enabled ? '#22c55e' : '#71717a'};"></i>
+                    <span>ID: ${idShort}</span>
+                `;
+                remoteInfo.title = `Full Signaling ID: ${status.deviceId || (status.pairing?.id || 'Not Assigned')}`;
+            }
+        } catch (e) {
+            console.warn('[ChatWindow] Failed to refresh remote status:', e);
+        }
     }
 
     async loadSkillsForAutocomplete() {
@@ -360,9 +387,22 @@ class ChatWindow {
             displayDesc = displayDesc.replace(/import(ed)? from .*/i, '').trim();
             if (displayDesc.length > 50) displayDesc = displayDesc.substring(0, 50) + '...';
 
+            // Choose an icon based on the command name or generic lightning bolt
+            let iconClass = 'fas fa-bolt';
+            const cmd = skill.name.toLowerCase();
+            if (cmd.includes('web')) iconClass = 'fas fa-globe';
+            else if (cmd.includes('cmd') || cmd.includes('terminal')) iconClass = 'fas fa-terminal';
+            else if (cmd.includes('file') || cmd.includes('read')) iconClass = 'fas fa-file-alt';
+            else if (cmd.includes('code') || cmd.includes('edit')) iconClass = 'fas fa-code';
+            else if (cmd.includes('media') || cmd.includes('audio')) iconClass = 'fas fa-volume-up';
+
             item.innerHTML = `
-                <div class="cmd-name">/${skill.name}</div>
-                <div class="cmd-desc">${displayDesc}</div>
+                <div class="suggestion-icon"><i class="${iconClass}"></i></div>
+                <div class="suggestion-content">
+                    <div class="cmd-name">/${skill.name}</div>
+                    <div class="cmd-desc">${displayDesc}</div>
+                </div>
+                ${index === 0 ? '<div class="suggestion-hint">Enter</div>' : ''}
             `;
             item.onclick = () => {
                 this.chatInput.value = `/${skill.name} `;
@@ -1148,17 +1188,16 @@ class ChatWindow {
         this.autoResizeTextarea();
         this.updateSendButton();
         this.handleSlashCommandInput();
-        this.actionStatuses.clear();
-        this.lastActionId = null;
-        this.currentAIResponseContainer = null;
-
-        // Show welcome screen and ensure it's visible
+        
         if (showWelcome !== false) {
             this.showWelcomeScreen();
         } else {
             this.hideWelcomeScreen();
         }
 
+        this.actionStatuses.clear();
+        this.lastActionId = null;
+        this.currentAIResponseContainer = null;
         this.updateStatus('Ready', 'ready');
 
         if (!keepMode) {
@@ -1576,11 +1615,19 @@ class ChatWindow {
         // Read file as ArrayBuffer for direct transfer (more efficient than base64)
         const arrayBuffer = await file.arrayBuffer();
         const uint8Array = new Uint8Array(arrayBuffer);
+        
+        let thumbnail = null;
+        if (file.type.startsWith('image/')) {
+            const blob = new Blob([uint8Array], { type: file.type });
+            thumbnail = URL.createObjectURL(blob);
+        }
+
         const attachment = {
             name: file.name,
             size: file.size,
             type: file.type,
-            data: Array.from(uint8Array)  // Convert to regular array for IPC serialization
+            data: Array.from(uint8Array), // Convert to regular array for IPC serialization
+            thumbnail: thumbnail
         };
         this.attachments.push(attachment);
         this.renderAttachments();
@@ -1593,10 +1640,20 @@ class ChatWindow {
         this.attachments.forEach((a, idx) => {
             const pill = document.createElement('div');
             pill.className = 'attachment-pill';
+            
+            let iconClass = 'fas fa-file';
+            if (a.type.startsWith('image/')) iconClass = 'fas fa-image';
+            else if (a.type.includes('pdf')) iconClass = 'fas fa-file-pdf';
+            else if (a.type.includes('zip') || a.type.includes('archive')) iconClass = 'fas fa-file-archive';
+            else if (a.type.includes('javascript') || a.type.includes('python') || a.type.includes('code')) iconClass = 'fas fa-file-code';
+
             pill.innerHTML = `
-                <div style="font-weight:500">${a.name}</div>
-                <div style="opacity:0.6; font-size:11px">${this.formatFileSize(a.size)}</div>
-                <button class="attachment-remove" title="Remove" data-idx="${idx}">×</button>
+                ${a.thumbnail ? `<img src="${a.thumbnail}" class="attachment-thumb" />` : `<div class="attachment-icon"><i class="${iconClass}"></i></div>`}
+                <div class="attachment-info">
+                    <div class="attachment-name">${a.name}</div>
+                    <div class="attachment-size">${this.formatFileSize(a.size)}</div>
+                </div>
+                <button class="attachment-remove" title="Remove" data-idx="${idx}">&times;</button>
             `;
             this.attachmentsContainer.appendChild(pill);
         });
@@ -1604,6 +1661,10 @@ class ChatWindow {
         this.attachmentsContainer.querySelectorAll('.attachment-remove').forEach(btn => {
             btn.addEventListener('click', (e) => {
                 const idx = Number(e.currentTarget.getAttribute('data-idx'));
+                const attachment = this.attachments[idx];
+                if (attachment.thumbnail) {
+                    URL.revokeObjectURL(attachment.thumbnail);
+                }
                 this.attachments.splice(idx, 1);
                 this.renderAttachments();
                 this.updateSendButton();
@@ -1808,7 +1869,7 @@ class ChatWindow {
         }
 
         const messageDiv = document.createElement('div');
-        messageDiv.className = `message ${sender}`;
+        messageDiv.className = `message ${sender} fade-in`;
         const contentDiv = document.createElement('div');
         contentDiv.className = 'message-content';
         contentDiv.innerHTML = this.parseMarkdown(safeText);
@@ -1823,7 +1884,7 @@ class ChatWindow {
             attachments.forEach(att => {
                 const attDiv = document.createElement('div');
                 if (att.type && att.type.startsWith('image/')) {
-                    attDiv.className = 'message-attachment';
+                    attDiv.className = 'message-attachment-image';
                     const img = document.createElement('img');
                     try {
                         const uint8Array = att.data instanceof Array ? new Uint8Array(att.data) : att.data;
@@ -1836,8 +1897,14 @@ class ChatWindow {
                         attDiv.textContent = att.name;
                     }
                 } else {
-                    attDiv.className = 'message-attachment-file';
-                    attDiv.innerHTML = `<i class="fas fa-file"></i><span>${att.name} (${this.formatFileSize(att.size)})</span>`;
+                    attDiv.className = 'message-attachment-pill';
+                    attDiv.innerHTML = `
+                        <div class="att-file-info">
+                            <i class="fas fa-file"></i>
+                            <span class="att-name">${att.name}</span>
+                            <span class="att-size">${this.formatFileSize(att.size)}</span>
+                        </div>
+                    `;
                 }
                 attachmentContainer.appendChild(attDiv);
             });
@@ -1857,24 +1924,40 @@ class ChatWindow {
         const sectionContent = this.getSectionContent(container, 'actions');
 
         const actionCard = document.createElement('div');
-        actionCard.className = 'action-card';
+        actionCard.className = 'action-card fade-in';
         actionCard.dataset.actionId = actionId;
+        
+        // Map common task words to icons
+        let icon = 'fa-cog';
+        const t = text.toLowerCase();
+        if (t.includes('search') || t.includes('find')) icon = 'fa-search';
+        if (t.includes('click') || t.includes('tap')) icon = 'fa-mouse-pointer';
+        if (t.includes('type') || t.includes('keyboard')) icon = 'fa-keyboard';
+        if (t.includes('scroll')) icon = 'fa-arrows-alt-v';
+        if (t.includes('screenshot')) icon = 'fa-camera';
+        if (t.includes('thinking')) icon = 'fa-brain';
+        if (t.includes('waiting')) icon = 'fa-clock';
+
         actionCard.innerHTML = `
-            <div class="action-header">
-                <div class="action-icon"><div class="action-spinner"></div></div>
-                <div class="action-title" style="flex:1">${text}</div>
-                <button class="header-btn" style="width:20px; height:20px; font-size:10px" title="Logs">
-                    <i class="fas fa-terminal"></i>
-                </button>
+            <div class="action-icon">
+                <i class="fas ${icon}"></i>
+                <div class="action-spinner"></div>
             </div>
-            <div class="action-details" style="display:none; max-height: 200px; overflow-y:auto; margin-top:8px"></div>
+            <div style="flex:1">
+                <div class="action-title">${text}</div>
+                <div class="action-details" style="display:none"></div>
+            </div>
+            <button class="icon-btn log-toggle" title="View Logs">
+                <i class="fas fa-terminal" style="font-size: 10px;"></i>
+            </button>
         `;
 
-        const logBtn = actionCard.querySelector('.header-btn');
+        const logBtn = actionCard.querySelector('.log-toggle');
         const detailsDiv = actionCard.querySelector('.action-details');
         if (logBtn && detailsDiv) {
-            logBtn.addEventListener('click', () => {
-                const isHidden = detailsDiv.style.display === 'none';
+            logBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const isHidden = window.getComputedStyle(detailsDiv).display === 'none';
                 detailsDiv.style.display = isHidden ? 'block' : 'none';
                 logBtn.classList.toggle('active');
             });

@@ -59,9 +59,24 @@ class VMAgent:
                 return {"success": True, "screenshot": encoded}
 
             elif command == "click":
-                x, y = params.get('x'), params.get('y')
-                pyautogui.click(x, y)
-                return {"success": True}
+                x_norm, y_norm = params.get('x'), params.get('y')
+                if x_norm is not None and y_norm is not None:
+                    screen_width, screen_height = pyautogui.size()
+                    x = int((x_norm / 1000.0) * screen_width)
+                    y = int((y_norm / 1000.0) * screen_height)
+                    pyautogui.click(x, y)
+                    return {"success": True}
+                return {"success": False, "error": "Missing coordinates"}
+
+            elif command == "mouse_move":
+                x_norm, y_norm = params.get('x'), params.get('y')
+                if x_norm is not None and y_norm is not None:
+                    screen_width, screen_height = pyautogui.size()
+                    x = int((x_norm / 1000.0) * screen_width)
+                    y = int((y_norm / 1000.0) * screen_height)
+                    pyautogui.moveTo(x, y)
+                    return {"success": True}
+                return {"success": False, "error": "Missing coordinates"}
 
             elif command == "type":
                 text = params.get('text', '')

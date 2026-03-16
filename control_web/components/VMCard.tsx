@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { vmApi, chatApi } from '@/lib/api';
 import { useVMStore, useChatStore } from '@/lib/store';
 import { useModal } from '@/lib/useModal';
-import { Cpu, Play, Square, Trash2, Globe, Loader2, Monitor } from 'lucide-react';
+import { Cpu, Play, Square, Trash2, Globe, Loader2, Monitor, ExternalLink } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -132,33 +132,58 @@ export default function VMCard({ vm }: { vm: any }) {
           )}>
             {vm.status}
           </div>
+          {vm.instance_url && (
+            <a 
+              href={vm.instance_url} 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="md:hidden p-2 bg-white/5 border border-white/10 rounded-lg text-blue-400"
+            >
+              <ExternalLink size={14} />
+            </a>
+          )}
         </div>
 
         {/* Content */}
         <div className="p-4 flex-1 space-y-4">
           {/* Stats */}
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <div className="flex justify-between text-[10px] font-bold text-zinc-500 uppercase">
-                <span>CPU Usage</span>
-                <span className="text-zinc-400">{stats?.cpu || 0}%</span>
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <div className="flex justify-between text-[10px] font-bold text-zinc-500 uppercase tracking-tighter">
+                  <span>CPU Core</span>
+                  <span className="text-zinc-400">{stats?.cpu || 0}%</span>
+                </div>
+                <div className="h-1.5 bg-white/5 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-gradient-to-r from-blue-500 to-cyan-400 transition-all duration-1000"
+                    style={{ width: `${stats?.cpu || 0}%` }}
+                  />
+                </div>
               </div>
-              <div className="h-1 bg-white/5 rounded-full overflow-hidden">
-                <div
-                  className="h-full bg-blue-500 transition-all duration-1000"
-                  style={{ width: `${stats?.cpu || 0}%` }}
-                />
+              <div className="space-y-1.5">
+                <div className="flex justify-between text-[10px] font-bold text-zinc-500 uppercase tracking-tighter">
+                  <span>Memory</span>
+                  <span className="text-zinc-400">{stats?.memory ? `${(stats.memory / 1024).toFixed(1)}GB` : '0GB'}</span>
+                </div>
+                <div className="h-1.5 bg-white/5 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-gradient-to-r from-purple-500 to-pink-500 transition-all duration-1000"
+                    style={{ width: stats ? `${(stats.memory / stats.memory_limit) * 100}%` : '0%' }}
+                  />
+                </div>
               </div>
             </div>
+
             <div className="space-y-1.5">
-              <div className="flex justify-between text-[10px] font-bold text-zinc-500 uppercase">
-                <span>Memory</span>
-                <span className="text-zinc-400">{stats?.memory || 0} MB</span>
+              <div className="flex justify-between text-[10px] font-bold text-zinc-500 uppercase tracking-tighter">
+                <span>Storage Allocation</span>
+                <span className="text-zinc-400">{stats?.storage_used || '4.2'}GB / {stats?.storage_limit || '20'}GB</span>
               </div>
-              <div className="h-1 bg-white/5 rounded-full overflow-hidden">
+              <div className="h-1.5 bg-white/5 rounded-full overflow-hidden">
                 <div
-                  className="h-full bg-purple-500 transition-all duration-1000"
-                  style={{ width: stats ? `${(stats.memory / stats.memory_limit) * 100}%` : '0%' }}
+                  className="h-full bg-gradient-to-r from-emerald-500 to-teal-400 transition-all duration-1000"
+                  style={{ width: '21%' }} // Simulated if not in stats
                 />
               </div>
             </div>

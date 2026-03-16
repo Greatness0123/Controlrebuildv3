@@ -37,7 +37,7 @@ CREATE TABLE IF NOT EXISTS public.app_config (
 INSERT INTO public.app_config (key, value)
 VALUES ('api_keys', '{
     "gemini_keys": [],
-    "gemini_model": "gemini-1.5-flash",
+    "gemini_model": "gemini-2.0-flash",
     "openrouter_keys": []
 }'::jsonb)
 ON CONFLICT (key) DO NOTHING;

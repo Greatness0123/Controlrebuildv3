@@ -33,16 +33,16 @@ export default function RemoteDesktop({ vmId, noVncPort, instanceUrl, type = 'vm
         // Build the VNC url. noVNC usually serves on `/vnc.html`
         let vncUrl = instanceUrl;
         if (!vncUrl.includes('/vnc.html')) {
-            vncUrl = `${vncUrl.endsWith('/') ? vncUrl : vncUrl + '/'}vnc.html?resize=remote&autoconnect=true`;
+            vncUrl = `${vncUrl.endsWith('/') ? vncUrl : vncUrl + '/'}vnc.html?resize=scale&autoconnect=true`;
         } else if (!vncUrl.includes('autoconnect=true')) {
-            vncUrl += (vncUrl.includes('?') ? '&' : '?') + 'resize=remote&autoconnect=true';
+            vncUrl += (vncUrl.includes('?') ? '&' : '?') + 'resize=scale&autoconnect=true';
         }
 
         return (
-            <div className="w-full h-full bg-black relative">
+            <div className="w-full h-full bg-black relative overflow-hidden">
                 <iframe 
                     src={vncUrl} 
-                    className="w-full h-full border-none absolute inset-0"
+                    className="w-full h-full border-none absolute inset-0 overflow-hidden"
                     title={`VNC Stream for ${vmId}`}
                     allow="fullscreen"
                 />

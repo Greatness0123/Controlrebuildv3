@@ -115,33 +115,45 @@ class SettingsModal {
 
         document.getElementById('generatePairingBtn')?.addEventListener('click', async () => {
             const btn = document.getElementById('generatePairingBtn');
-            const text = document.getElementById('generateBtnText');
+            const textEl = document.getElementById('generateBtnText');
             const loader = document.getElementById('generateBtnLoader');
-            const copyBtn = document.getElementById('copyPairingBtn');
+            const codeDisplay = document.getElementById('pairingCodeDisplay');
+            const currentCode = codeDisplay.textContent.trim();
+            const hasCode = currentCode && currentCode !== '---- ----';
+
+            if (hasCode) {
+                const confirm = await window.settingsAPI?.showConfirmModal({
+                    title: 'Regenerate Pairing Code?',
+                    message: 'Proceeding will permanently invalidate all existing pairings and disconnect any active remote sessions. This action cannot be undone.',
+                    confirmText: 'Invalidate & Regenerate',
+                    cancelText: 'Keep Current',
+                    type: 'warning'
+                }) || (hasCode ? false : true); // If modal fails, only proceed if we don't have a code
+
+                if (confirm === false) return;
+            }
 
             if (window.settingsAPI && window.settingsAPI.getRemotePairingCode) {
-                // Set loading state
                 btn.disabled = true;
-                text.style.display = 'none';
+                textEl.style.display = 'none';
                 loader.style.display = 'block';
 
                 try {
-                    // Note: We don't try to use require('os') or process here as they crash the renderer
-                    const code = await window.settingsAPI.getRemotePairingCode();
+                    // Force regenerate if we already had a code
+                    const code = await window.settingsAPI.getRemotePairingCode(null, hasCode);
                     if (code) {
-                        document.getElementById('pairingCodeDisplay').textContent = code;
-                        this.showToast('New pairing code generated', 'success');
+                        codeDisplay.textContent = code;
+                        textEl.textContent = 'Regenerate';
+                        this.showToast(hasCode ? 'Old pairings revoked. New code generated.' : 'Pairing code generated', 'success');
+                        const copyBtn = document.getElementById('copyPairingBtn');
                         if (copyBtn) copyBtn.style.display = 'block';
-                    } else {
-                        this.showToast('Failed to generate code', 'error');
                     }
                 } catch (err) {
                     console.error('Pairing error:', err);
-                    this.showToast('Error generating code', 'error');
+                    this.showToast('Error managing pairing', 'error');
                 } finally {
-                    // Restore state
                     btn.disabled = false;
-                    text.style.display = 'block';
+                    textEl.style.display = 'block';
                     loader.style.display = 'none';
                 }
             }
@@ -163,39 +175,52 @@ class SettingsModal {
                 const status = await window.settingsAPI.getRemoteStatus();
                 this.updateRemoteUI(status);
             }
-        }, 5000);
+        }, 2000);
     }
 
     updateRemoteUI(status) {
         const indicator = document.getElementById('remoteStatusIndicator');
+        const headerIndicator = document.getElementById('remoteHeaderIndicator');
+        const badgeText = document.getElementById('remoteBadgeText');
         const text = document.getElementById('remoteStatusText');
         const pairingCodeDisplay = document.getElementById('pairingCodeDisplay');
         const copyBtn = document.getElementById('copyPairingBtn');
 
-        if (pairingCodeDisplay && status.pairing?.pairing_code && pairingCodeDisplay.textContent === '---- ----') {
-            pairingCodeDisplay.textContent = status.pairing.pairing_code;
-            if (copyBtn) copyBtn.style.display = 'block';
+        if (pairingCodeDisplay && status.pairing?.pairing_code) {
+            const currentCode = pairingCodeDisplay.textContent.trim();
+            if (currentCode !== status.pairing.pairing_code) {
+                pairingCodeDisplay.textContent = status.pairing.pairing_code;
+                if (copyBtn) copyBtn.style.display = 'block';
+                
+                // Update button text to Regenerate if we have a code
+                const generateBtnText = document.getElementById('generateBtnText');
+                if (generateBtnText) generateBtnText.textContent = 'Regenerate';
+            }
         }
 
-        if (indicator && text) {
-            if (status.streaming) {
-                // Actively streaming frames to the web
-                indicator.className = 'status-dot online';
-                text.textContent = 'Streaming live';
-            } else if (status.paired) {
-                // Paired and channel is active, ready for control
-                indicator.className = 'status-dot online';
-                text.textContent = 'Online — Ready for control';
-            } else if (status.enabled) {
-                // Channel is active, waiting for web to connect/pair
-                indicator.className = 'status-dot connecting';
-                text.textContent = status.pairing?.pairing_code 
-                    ? 'Online — Awaiting pairing' 
-                    : 'Connecting...';
-            } else {
-                indicator.className = 'status-dot offline';
-                text.textContent = 'Disconnected';
+        const updateStatus = (dotClass, statusText, badgeLabel, badgeStyle = {}) => {
+            if (indicator) indicator.className = `status-dot ${dotClass}`;
+            if (headerIndicator) headerIndicator.className = `status-dot ${dotClass}`;
+            if (text) text.textContent = statusText;
+            if (badgeText) {
+                badgeText.textContent = badgeLabel;
+                badgeText.style.background = badgeStyle.bg || 'var(--bg-tertiary)';
+                badgeText.style.color = badgeStyle.color || 'var(--text-secondary)';
             }
+        };
+
+        if (status.streaming) {
+            updateStatus('online', 'Streaming live', 'Live', { bg: 'rgba(16, 185, 129, 0.2)', color: '#10b981' });
+        } else if (status.paired) {
+            updateStatus('online', 'Online — Ready for control', 'Ready', { bg: 'rgba(59, 130, 246, 0.2)', color: '#3b82f6' });
+        } else if (status.enabled) {
+            const label = status.pairing?.pairing_code ? 'Linking' : 'Standby';
+            const text = status.pairing?.pairing_code ? 'Online — Awaiting pairing' : 'Active — Ready for pairing';
+            updateStatus('connecting', text, label, { bg: 'rgba(245, 158, 11, 0.2)', color: '#f59e0b' });
+        } else if (status.toggleOn) {
+            updateStatus('connecting', 'Searching for network...', 'Searching', { bg: 'rgba(245, 158, 11, 0.1)', color: '#94a3b8' });
+        } else {
+            updateStatus('offline', 'Remote Access Disabled', 'Off');
         }
     }
 
@@ -233,7 +258,8 @@ class SettingsModal {
             'proceedWithoutConfirmationToggle': 'proceedWithoutConfirmation',
             'windowVisibilityToggle': 'windowVisibility',
             'autoStartToggle': 'openAtLogin',
-            'floatingButtonToggle': 'floatingButtonVisible'
+            'floatingButtonToggle': 'floatingButtonVisible',
+            'remoteAccessToggle': 'remoteAccessEnabled'
         };
 
         Object.keys(toggleMap).forEach(id => {
@@ -253,6 +279,10 @@ class SettingsModal {
 
                     if (id === 'pinToggle' && window.settingsAPI) {
                         window.settingsAPI.enableSecurityPin(e.target.checked);
+                    }
+
+                    if (id === 'remoteAccessToggle' && window.settingsAPI) {
+                        window.settingsAPI.toggleRemoteAccess(e.target.checked);
                     }
 
                     this.saveSettings();
@@ -298,13 +328,27 @@ class SettingsModal {
 
         // Action Buttons
         document.getElementById('logoutButton')?.addEventListener('click', async () => {
-            if (confirm('Are you sure you want to log out?')) {
+            const confirmed = await window.settingsAPI?.showConfirmModal({
+                title: 'Log Out',
+                message: 'Are you sure you want to log out? Your local session will be cleared.',
+                confirmText: 'Log Out',
+                cancelText: 'Stay Logged In',
+                type: 'warning'
+            });
+            if (confirmed) {
                 if (window.settingsAPI) await window.settingsAPI.logout();
             }
         });
 
         document.getElementById('deleteAllDataBtn')?.addEventListener('click', async () => {
-            if (confirm('DANGER: This will delete ALL your data, settings, and workflows. This cannot be undone. Proceed?')) {
+            const confirmed = await window.settingsAPI?.showConfirmModal({
+                title: 'Delete All Data?',
+                message: 'DANGER: This will permanently delete ALL your local settings, sessions, and workflows. This action CANNOT be undone.',
+                confirmText: 'Delete Everything',
+                cancelText: 'Cancel',
+                type: 'error'
+            });
+            if (confirmed) {
                 if (window.settingsAPI) {
                     const res = await window.settingsAPI.deleteAllData();
                     if (res.success) {
@@ -418,7 +462,8 @@ class SettingsModal {
             'proceedWithoutConfirmationToggle': 'proceedWithoutConfirmation',
             'windowVisibilityToggle': 'windowVisibility',
             'autoStartToggle': 'openAtLogin',
-            'floatingButtonToggle': 'floatingButtonVisible'
+            'floatingButtonToggle': 'floatingButtonVisible',
+            'remoteAccessToggle': 'remoteAccessEnabled'
         };
 
         Object.keys(toggleMap).forEach(id => {

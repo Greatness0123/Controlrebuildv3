@@ -47,8 +47,9 @@ contextBridge.exposeInMainWorld('settingsAPI', {
     validatePicovoiceKey: (key) => ipcRenderer.invoke('validate-picovoice-key', key),
 
     // Remote pairing
-    getRemotePairingCode: (deviceName) => ipcRenderer.invoke('get-remote-pairing-code', deviceName),
+    getRemotePairingCode: (deviceName, forceRegenerate) => ipcRenderer.invoke('get-remote-pairing-code', deviceName, forceRegenerate),
     toggleRemoteAccess: (enabled) => ipcRenderer.invoke('toggle-remote-access', enabled),
+    getRemoteStatus: () => ipcRenderer.invoke('get-remote-status'),
 
     // Window visibility
     setWindowVisibility: (visible) => ipcRenderer.invoke('set-window-visibility', visible),
@@ -63,4 +64,6 @@ contextBridge.exposeInMainWorld('settingsAPI', {
     importSkill: () => ipcRenderer.invoke('import-skill'),
     deleteSkill: (name) => ipcRenderer.invoke('delete-skill', name),
     getSkills: () => ipcRenderer.invoke('read-behaviors'),
+    showConfirmModal: (options) => ipcRenderer.invoke('show-confirm-modal', options),
+    promptModal: (message, defaultValue, options) => ipcRenderer.invoke('show-prompt-modal', message, defaultValue, options),
 });

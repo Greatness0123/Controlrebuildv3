@@ -1,16 +1,17 @@
 "use client";
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { chatApi, vmApi, pairApi } from '@/lib/api';
 import { useChatStore, useVMStore } from '@/lib/store';
 import { useModal } from '@/lib/useModal';
 import ChatPanel from '@/components/ChatPanel';
 import VNCViewer from '@/components/VNCViewer';
 import RemoteDesktopViewer from '@/components/RemoteDesktopViewer';
-import { 
-  Loader2, Cpu, Settings, Trash2, ChevronRight, 
-  Monitor, Layout, SplitSquareVertical, Maximize2 
+import {
+  Loader2, Cpu, Settings, Trash2, ChevronRight,
+  Monitor, Layout, SplitSquareVertical, Maximize2, MessageSquare
 } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -23,21 +24,20 @@ export default function ChatSessionPage() {
   const { chatId } = useParams() as { chatId: string };
   const router = useRouter();
   const { sessions, setActiveSession, setSessions } = useChatStore();
-  const { vms, setVMs, updateVM } = useVMStore();
+  const { vms, setVMs } = useVMStore();
   const { modal, confirm } = useModal();
-  
-  const [session, setSession] = useState<any>(null);
-  const [vm, setVm] = useState<any>(null);
-  const [device, setDevice] = useState<any>(null);
+
+  const currentSession = useMemo(() => sessions.find(s => s.id === chatId), [sessions, chatId]);
+  const [currentVm, setCurrentVm] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [splitRatio, setSplitRatio] = useState(40); // % for chat
+  const [showViewer, setShowViewer] = useState(false); // Closed by default as requested
 
   useEffect(() => {
     setActiveSession(chatId);
-    
+
     const loadSession = async () => {
       try {
-        // Load sessions and populate store
         const chatRes = await chatApi.list();
         const found = chatRes.sessions.find(s => s.id === chatId);
         if (!found) {
@@ -45,26 +45,16 @@ export default function ChatSessionPage() {
           return;
         }
         setSessions(chatRes.sessions);
-        setSession(found);
-        
-        // Always load VMs into the store so the target selector works
+
         const vmRes = await vmApi.list();
         setVMs(vmRes.vms);
-        if (found.vm_id) {
-          const foundVm = vmRes.vms.find(v => v.id === found.vm_id);
-          setVm(foundVm || null);
-        }
-        
-        // Always load devices into the store so the target selector works
+        setCurrentVm(vmRes.vms.find(v => v.id === found.vm_id));
+
         try {
           const pairRes = await pairApi.devices();
           const { useDeviceStore } = await import('@/lib/store');
           useDeviceStore.getState().setDevices(pairRes.devices);
-          if (found.device_id) {
-            const foundDev = pairRes.devices.find(d => d.id === found.device_id);
-            setDevice(foundDev || null);
-          }
-        } catch { /* devices endpoint might not be available */ }
+        } catch { }
       } catch (err) {
         console.error(err);
       } finally {
@@ -75,21 +65,16 @@ export default function ChatSessionPage() {
     loadSession();
   }, [chatId, setActiveSession, router, setSessions, setVMs]);
 
-  // Handle VM status updates — keep local state AND store in sync
+  // Handle VM status updates
   useEffect(() => {
-    if (!vm) return;
     const interval = setInterval(async () => {
       try {
         const res = await vmApi.list();
-        setVMs(res.vms); // Keep store in sync
-        const updated = res.vms.find(v => v.id === vm.id);
-        if (updated && updated.status !== vm.status) {
-          setVm(updated);
-        }
-      } catch {}
+        setVMs(res.vms);
+      } catch { }
     }, 10000);
     return () => clearInterval(interval);
-  }, [vm]);
+  }, [setVMs]);
 
   const handleDelete = async () => {
     const ok = await confirm('This will permanently delete this chat session and its history.', {
@@ -101,7 +86,7 @@ export default function ChatSessionPage() {
     try {
       await chatApi.delete(chatId);
       router.push('/');
-    } catch {}
+    } catch { }
   };
 
   if (loading) {
@@ -117,95 +102,128 @@ export default function ChatSessionPage() {
       {modal}
       <div className="flex-1 flex flex-col min-h-0 bg-black">
         {/* Session Header */}
-      <header className="h-14 flex items-center justify-between px-4 border-b border-white/5 bg-zinc-950 shrink-0">
-        <div className="flex items-center gap-3 min-w-0">
-          <div className="flex items-center gap-2 text-zinc-500 text-[11px] font-medium uppercase tracking-wider">
-            <Layout size={12} />
-            <span>Session</span>
-            <ChevronRight size={10} />
-          </div>
-          <h2 className="text-sm font-bold truncate">{session?.title}</h2>
-        </div>
-
-        {/* Dynamic target display */}
-        {(() => {
-          const currentTarget = vm ? { type: 'vm', name: vm.name } : device ? { type: 'device', name: device.name } : null;
-          return currentTarget && (
-            <div className={cn(
-                "flex items-center gap-2 px-2.5 py-1 rounded-lg border",
-                currentTarget.type === 'vm' ? "bg-white/5 border-white/10" : "bg-blue-500/10 border-blue-500/20"
-            )}>
-              <div className={cn(
-                "w-1.5 h-1.5 rounded-full",
-                currentTarget.type === 'vm' ? (vm?.status === 'running' ? 'bg-green-500 shadow-sm shadow-green-500/50' : 'bg-white/20') : 'bg-blue-500 animate-pulse'
-              )} />
-              <span className={cn(
-                "text-[10px] font-black uppercase tracking-widest",
-                currentTarget.type === 'vm' ? 'text-zinc-500' : 'text-blue-400'
-              )}>
-                {currentTarget.name}
-              </span>
+        <header className="h-14 flex items-center justify-between px-4 border-b border-white/5 bg-zinc-950 shrink-0 relative z-20">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="min-w-0">
+              <h2 className="text-sm font-bold truncate text-white">{currentSession?.title || 'Active Session'}</h2>
+              <div className="flex items-center gap-2">
+                <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest truncate">
+                  Control: {currentVm?.name || currentSession?.device_id?.split('-')[0] || 'Cloud Node'}
+                </span>
+              </div>
             </div>
-          );
-        })()}
+          </div>
 
-        <div className="flex items-center gap-2">
-          <div className="h-6 w-px bg-white/5 mx-1" />
-          <button 
-            onClick={handleDelete}
-            className="p-1.5 hover:bg-red-500/10 hover:text-red-400 rounded-md text-zinc-600 transition-all"
-            title="Delete Session"
+          <div className="flex items-center gap-2">
+            {/* Mobile Launch Monitor Button (Both VM and Device) */}
+            {typeof window !== 'undefined' && (
+              <div className="flex md:hidden items-center gap-2">
+                {currentVm?.instance_url ? (
+                  <a
+                    href={currentVm.instance_url.includes('/vnc.html') ? currentVm.instance_url : `${currentVm.instance_url.endsWith('/') ? currentVm.instance_url : currentVm.instance_url + '/'}vnc.html?resize=scale&autoconnect=true`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-2 px-3 py-1.5 bg-white text-black rounded-lg text-[10px] font-black uppercase tracking-widest hover:bg-zinc-200 transition-all shadow-lg shadow-white/5"
+                  >
+                    <Monitor size={12} /> Monitor
+                  </a>
+                ) : currentSession?.device_id ? (
+                  <Link
+                    href={`/remote/${currentSession.device_id}`}
+                    target="_blank"
+                    className="flex items-center gap-2 px-3 py-1.5 bg-white text-black rounded-lg text-[10px] font-black uppercase tracking-widest hover:bg-zinc-200 transition-all shadow-lg shadow-white/5"
+                  >
+                    <Monitor size={12} /> Monitor
+                  </Link>
+                ) : null}
+              </div>
+            )}
+
+            <div className="hidden md:flex items-center gap-1.5 ml-3 mr-1">
+              <button
+                onClick={() => setShowViewer(!showViewer)}
+                className={cn(
+                  "flex items-center gap-2 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all",
+                  showViewer ? "bg-white text-black shadow-lg shadow-white/10" : "bg-white/5 text-zinc-500 hover:bg-white/10"
+                )}
+                title={showViewer ? "Close Monitor" : "Open Monitor"}
+              >
+                <Monitor size={14} />
+              </button>
+            </div>
+
+            <div className="hidden md:block h-6 w-px bg-white/5 mx-1" />
+
+            <button
+              onClick={handleDelete}
+              className="p-2 hover:bg-red-500/10 hover:text-red-400 rounded-xl text-zinc-600 transition-all"
+              title="Delete Session"
+            >
+              <Trash2 size={16} />
+            </button>
+          </div>
+        </header>
+
+        {/* Split View */}
+        <div className="flex-1 flex flex-col md:flex-row min-h-0 bg-black">
+          {/* Chat Panel */}
+          <div
+            style={{ width: typeof window !== 'undefined' && window.innerWidth > 768 ? `${splitRatio}%` : '100%' }}
+            className="flex-[4] md:flex-none md:h-full md:min-w-[300px] flex flex-col border-b md:border-b-0 md:border-r border-white/5"
           >
-            <Trash2 size={16} />
-          </button>
-        </div>
-      </header>
+            <ChatPanel sessionId={chatId} />
+          </div>
 
-      {/* Split View */}
-      <div className="flex-1 flex min-h-0">
-        {/* Chat Panel */}
-        <div style={{ width: `${splitRatio}%` }} className="min-w-[300px] flex flex-col">
-          <ChatPanel sessionId={chatId} />
-        </div>
+          {/* VM or Remote Viewer Panel */}
+          {showViewer && (
+            <>
+              {/* Resizer */}
+              <div
+                className="hidden md:flex w-1 bg-white/5 hover:bg-blue-500/50 cursor-col-resize transition-colors items-center justify-center group shrink-0"
+                onMouseDown={(e) => {
+                  const startX = e.clientX;
+                  const startRatio = splitRatio;
+                  const onMouseMove = (moveE: MouseEvent) => {
+                    const deltaX = moveE.clientX - startX;
+                    const deltaRatio = (deltaX / window.innerWidth) * 100;
+                    setSplitRatio(Math.min(70, Math.max(20, startRatio + deltaRatio)));
+                  };
+                  const onMouseUp = () => {
+                    window.removeEventListener('mousemove', onMouseMove);
+                    window.removeEventListener('mouseup', onMouseUp);
+                  };
+                  window.addEventListener('mousemove', onMouseMove);
+                  window.addEventListener('mouseup', onMouseUp);
+                }}
+              >
+                <div className="w-1 h-8 bg-zinc-800 rounded-full group-hover:bg-blue-400 transition-colors" />
+              </div>
 
-        {/* Resizer */}
-        <div 
-          className="w-1 bg-white/5 hover:bg-blue-500/50 cursor-col-resize transition-colors flex items-center justify-center group"
-          onMouseDown={(e) => {
-            const startX = e.clientX;
-            const startRatio = splitRatio;
-            const onMouseMove = (moveE: MouseEvent) => {
-              const deltaX = moveE.clientX - startX;
-              const deltaRatio = (deltaX / window.innerWidth) * 100;
-              setSplitRatio(Math.min(70, Math.max(20, startRatio + deltaRatio)));
-            };
-            const onMouseUp = () => {
-              window.removeEventListener('mousemove', onMouseMove);
-              window.removeEventListener('mouseup', onMouseUp);
-            };
-            window.addEventListener('mousemove', onMouseMove);
-            window.addEventListener('mouseup', onMouseUp);
-          }}
-        >
-          <div className="w-1 h-8 bg-zinc-800 rounded-full group-hover:bg-blue-400 transition-colors" />
-        </div>
-
-        {/* VM or Remote Viewer Panel */}
-        <div className="flex-1 flex flex-col bg-zinc-900 overflow-hidden">
-          {session?.device_id ? (
-            <RemoteDesktopViewer 
-              deviceId={session.device_id} 
-              className="flex-1"
-            />
-          ) : (
-            <VNCViewer 
-              url={vm?.instance_url} 
-              status={vm?.status}
-              className="flex-1"
-            />
+              <div className="hidden md:flex flex-1 flex flex-col bg-zinc-900 overflow-hidden relative animate-in slide-in-from-right-10 duration-500 border-l border-white/5">
+                {currentSession?.device_id ? (
+                  <RemoteDesktopViewer
+                    key={`device-${currentSession.device_id}`}
+                    deviceId={currentSession.device_id}
+                    className="flex-1"
+                  />
+                ) : currentSession?.vm_id ? (
+                  <VNCViewer
+                    key={`vm-${currentSession.vm_id}`}
+                    url={currentVm?.instance_url}
+                    status={currentVm?.status}
+                    className="flex-1"
+                  />
+                ) : (
+                  <div className="flex-1 flex flex-col items-center justify-center text-center p-8 text-zinc-500 gap-4">
+                    <Monitor size={48} className="opacity-10" />
+                    <p className="text-xs uppercase tracking-widest font-bold">No Resource Selected</p>
+                  </div>
+                )}
+              </div>
+            </>
           )}
         </div>
-      </div>
       </div>
     </>
   );

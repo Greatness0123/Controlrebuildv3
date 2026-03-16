@@ -29,12 +29,19 @@ export async function signIn(email: string, password: string) {
   return data;
 }
 
-export async function signUp(email: string, password: string, name: string) {
+export async function signUp(email: string, password: string, firstName: string, lastName: string) {
   const client = getSupabaseClient();
   const { data, error } = await client.auth.signUp({
     email,
     password,
-    options: { data: { name } },
+    options: { 
+      data: { 
+        first_name: firstName,
+        last_name: lastName,
+        name: `${firstName} ${lastName}`.trim(),
+        plan: 'free',
+      } 
+    },
   });
   if (error) throw error;
   return data;

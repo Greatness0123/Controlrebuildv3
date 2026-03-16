@@ -1,6 +1,13 @@
 const { createClient } = require('@supabase/supabase-js');
 const path = require('path');
 const fs = require('fs');
+const WebSocket = require('ws');
+
+
+if (!globalThis.WebSocket) {
+    globalThis.WebSocket = WebSocket;
+    console.log('[Supabase] Polyfilled globalThis.WebSocket with ws package');
+}
 
 const getCacheFile = () => {
     const { app } = require('electron');
@@ -21,11 +28,15 @@ const initSupabase = () => {
         const supabaseKey = process.env.SUPABASE_ANON_KEY;
 
         if (supabaseUrl && supabaseKey) {
+            console.log(`[Supabase] Initializing with URL: ${supabaseUrl}`);
             supabase = createClient(supabaseUrl, supabaseKey, {
                 auth: {
                     persistSession: false,
                     autoRefreshToken: false,
                     detectSessionInUrl: false
+                },
+                realtime: {
+                    timeout: 30000,
                 }
             });
             console.log('✓ Supabase Client initialized (stateless mode)');
@@ -133,7 +144,7 @@ module.exports = {
         try {
             const cacheFile = getCacheFile();
             fs.writeFileSync(cacheFile, JSON.stringify(userData));
-        } catch (e) {}
+        } catch (e) { }
     },
 
     checkCachedUser() {
@@ -142,7 +153,7 @@ module.exports = {
             if (fs.existsSync(cacheFile)) {
                 return JSON.parse(fs.readFileSync(cacheFile, 'utf8'));
             }
-        } catch (e) {}
+        } catch (e) { }
         return null;
     },
 
@@ -159,7 +170,7 @@ module.exports = {
                 fs.writeFileSync(getKeysCacheFile(), JSON.stringify(data.value));
                 return data.value;
             }
-        } catch (e) {}
+        } catch (e) { }
         return null;
     },
 
@@ -168,7 +179,7 @@ module.exports = {
             if (fs.existsSync(getKeysCacheFile())) {
                 return JSON.parse(fs.readFileSync(getKeysCacheFile(), 'utf8'));
             }
-        } catch (e) {}
+        } catch (e) { }
         return null;
     },
 
@@ -221,12 +232,12 @@ module.exports = {
         for (let i = 0; i < 3; i++) {
             try {
                 if (!supabase) return null;
-                
+
                 const code = Math.random().toString(36).substring(2, 8).toUpperCase();
 
                 console.log(`[Supabase] Generating code for User: ${userId}`);
                 console.log(`[Supabase] Attempting to generate permanent pairing code (attempt ${i + 1}/3)...`);
-                
+
                 const { data, error } = await supabase
                     .from('paired_devices')
                     .insert({
@@ -269,30 +280,40 @@ module.exports = {
     async updateDeviceStatus(deviceId, status) {
         try {
             if (!supabase) return { success: false, status: 'off' };
-            
+
             // First check if it's already revoked
-            const { data: existing } = await supabase
+            const { data: existing, error: selectErr } = await supabase
                 .from('paired_devices')
                 .select('status')
                 .eq('id', deviceId)
-                .single();
+                .maybeSingle();
 
-            if (existing && existing.status === 'revoked') {
+            if (selectErr) {
+                console.warn('[Supabase] Device status check error:', selectErr.message);
+                return { success: false, status: 'error' };
+            }
+
+            if (!existing) {
+                return { success: false, status: 'not_found' };
+            }
+
+            if (existing.status === 'revoked') {
                 return { success: false, status: 'revoked' };
             }
 
             const { data, error } = await supabase
                 .from('paired_devices')
-                .update({ 
-                    status: status || existing?.status || 'paired',
+                .update({
+                    status: status || existing.status || 'paired',
                     last_seen: new Date().toISOString()
                 })
                 .eq('id', deviceId)
-                .select('status')
-                .single();
+                .select('status');
 
             if (error) throw error;
-            return { success: true, status: data.status };
+
+            const updatedStatus = data && data.length > 0 ? data[0].status : status;
+            return { success: true, status: updatedStatus };
         } catch (e) {
             console.error('[Supabase] Update status error:', e.message);
             return { success: false, status: 'error' };
@@ -384,7 +405,7 @@ module.exports = {
             if (fs.existsSync(cacheFile)) {
                 fs.unlinkSync(cacheFile);
             }
-        } catch (e) {}
+        } catch (e) { }
     },
 
     async signOut() {
@@ -392,7 +413,7 @@ module.exports = {
             if (supabase) {
                 await supabase.auth.signOut();
             }
-        } catch (e) {}
+        } catch (e) { }
         this.clearCachedUser();
     }
 };

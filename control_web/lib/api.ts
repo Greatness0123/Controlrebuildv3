@@ -109,3 +109,13 @@ export const pairApi = {
   revoke: (deviceId: string) =>
     apiFetch<{ success: boolean }>(`/api/pair/${deviceId}`, { method: 'DELETE' }),
 };
+
+// ─── Config API ───
+export const configApi = {
+  get: (key: string) => apiFetch<{ value: any }>(`/api/config/${key}`),
+  set: (key: string, value: any) =>
+    apiFetch<{ success: boolean }>(`/api/config/${key}`, {
+      method: 'POST',
+      body: JSON.stringify({ value }),
+    }),
+};

@@ -57,7 +57,7 @@ class VMService:
                     "8080/tcp": agent_port,
                 },
                 environment={
-                    "RESOLUTION": "1280x800x24",
+                    "RESOLUTION": "1920x1080x24",
                 },
                 mem_limit="2g",
                 cpu_period=100000,

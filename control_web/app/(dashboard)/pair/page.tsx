@@ -213,9 +213,9 @@ export default function PairPage() {
               <p className="text-zinc-500 text-sm mb-6">Enter this code in your Control Desktop app settings.</p>
               
               <div className="flex flex-col items-center gap-4">
-                <div className="flex gap-2">
+                <div className="flex gap-2.5">
                   {pairingCode.split('').map((char, i) => (
-                    <div key={i} className="w-12 h-16 bg-white/10 rounded-xl border border-white/20 flex items-center justify-center text-3xl font-mono font-bold text-white shadow-xl">
+                    <div key={i} className="w-12 h-16 bg-gradient-to-b from-white/[0.08] to-white/[0.02] rounded-xl border border-white/10 flex items-center justify-center text-3xl font-mono font-bold text-white shadow-2xl animate-in zoom-in duration-300" style={{ animationDelay: `${i * 100}ms` }}>
                       {char}
                     </div>
                   ))}
@@ -253,10 +253,10 @@ export default function PairPage() {
                 <p className="text-sm text-zinc-600">No devices paired yet.</p>
               </div>
             ) : (
-              <div className="grid grid-cols-1 gap-3">
+              <div className="grid grid-cols-1 gap-4">
                 {devices.map((device) => (
-                  <div key={device.id} className="glass-card p-4 flex items-center justify-between group">
-                    <div className="flex items-center gap-4">
+                  <div key={device.id} className="glass-card p-5 flex items-center justify-between group hover:border-white/10 hover:bg-white/[0.02] transition-all duration-300">
+                    <div className="flex items-center gap-5">
                       <div className={cn(
                         "w-10 h-10 rounded-xl flex items-center justify-center border",
                         device.status === 'paired' ? "bg-green-500/10 border-green-500/20" : 
@@ -288,6 +288,14 @@ export default function PairPage() {
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
+                      {device.status === 'paired' && (
+                        <button
+                          onClick={() => window.open(`/remote/${device.id}`, '_blank')}
+                          className="px-3 py-1.5 bg-blue-500/10 text-blue-400 border border-blue-500/20 rounded-lg text-[10px] font-bold hover:bg-blue-500/20 transition-all uppercase tracking-wider"
+                        >
+                          Launch
+                        </button>
+                      )}
                       {device.status === 'revoked' && (
                         <button
                           onClick={() => handleRestore(device.id, device.name)}

@@ -7,7 +7,8 @@ import { signUp } from '@/lib/supabase';
 import { Command, ArrowRight, AlertCircle, CheckCircle2 } from 'lucide-react';
 
 export default function SignupPage() {
-  const [name, setName] = useState('');
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -20,7 +21,7 @@ export default function SignupPage() {
     setError('');
     setLoading(true);
     try {
-      await signUp(email, password, name);
+      await signUp(email, password, firstName, lastName);
       setSuccess(true);
     } catch (err: any) {
       setError(err.message || 'Sign up failed');
@@ -66,16 +67,29 @@ export default function SignupPage() {
             </div>
           )}
 
-          <div>
-            <label className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest block mb-1.5 px-1">Name</label>
-            <input
-              type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              required
-              className="w-full bg-white/[0.03] border border-white/10 rounded-xl py-3 px-4 text-sm focus:outline-none focus:border-white/20 transition-all placeholder:text-zinc-700"
-              placeholder="Your name"
-            />
+          <div className="flex gap-4">
+            <div className="flex-1">
+              <label className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest block mb-1.5 px-1">First Name</label>
+              <input
+                type="text"
+                value={firstName}
+                onChange={(e) => setFirstName(e.target.value)}
+                required
+                className="w-full bg-white/[0.03] border border-white/10 rounded-xl py-3 px-4 text-sm focus:outline-none focus:border-white/20 transition-all placeholder:text-zinc-700"
+                placeholder="John"
+              />
+            </div>
+            <div className="flex-1">
+              <label className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest block mb-1.5 px-1">Last Name</label>
+              <input
+                type="text"
+                value={lastName}
+                onChange={(e) => setLastName(e.target.value)}
+                required
+                className="w-full bg-white/[0.03] border border-white/10 rounded-xl py-3 px-4 text-sm focus:outline-none focus:border-white/20 transition-all placeholder:text-zinc-700"
+                placeholder="Doe"
+              />
+            </div>
           </div>
 
           <div>

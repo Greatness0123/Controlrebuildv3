@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { getSupabaseClient } from '@/lib/supabase';
 import { useAuthStore } from '@/lib/store';
+import { configApi } from '@/lib/api';
 import { 
   User, Shield, Zap, Key, Database, Globe, 
   ChevronRight, Save, Loader2, Sparkles, AlertTriangle, X, Command
@@ -27,16 +28,34 @@ export default function SettingsPage() {
     }, 3000);
   }, []);
   
-  // Fake settings state for UI (in real app, fetched from DB config)
   const [settings, setSettings] = useState({
-    geminiModel: 'gemini-2.0-flash',
+    geminiModel: 'gemini-2.5-flash',
     theme: 'dark',
     agentConfirmActions: true,
     remotePairingCode: '',
     hotkeyStop: 'ESCAPE',
     hotkeyScreenshot: 'CTRL + S',
     hotkeyTerminal: 'ALT + T',
+    customApiKey: '',
   });
+
+  useEffect(() => {
+    const loadConfig = async () => {
+      try {
+        const res = await configApi.get('api_keys');
+        if (res.value) {
+          setSettings(prev => ({
+            ...prev,
+            geminiModel: res.value.gemini_model || 'gemini-2.5-flash',
+            customApiKey: res.value.custom_key || '',
+          }));
+        }
+      } catch (err) {
+        console.error('Failed to load AI config:', err);
+      }
+    };
+    loadConfig();
+  }, []);
 
   const [recordingKey, setRecordingKey] = useState<{ id: keyof typeof settings, label: string } | null>(null);
   const [currentKeys, setCurrentKeys] = useState('');
@@ -82,13 +101,23 @@ export default function SettingsPage() {
     }
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     setLoading(true);
-    setTimeout(() => {
-      setLoading(false);
+    try {
+      await configApi.set('api_keys', {
+        gemini_model: settings.geminiModel,
+        custom_key: settings.customApiKey,
+        updated_at: new Date().toISOString(),
+      });
+      
       setSuccess(true);
+      showToast('Settings saved successfully');
       setTimeout(() => setSuccess(false), 3000);
-    }, 1000);
+    } catch (err: any) {
+      showToast(err.message || 'Failed to save settings');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -135,10 +164,14 @@ export default function SettingsPage() {
                   {user?.user_metadata?.name?.[0]?.toUpperCase() || 'U'}
                 </div>
                 <div>
-                  <h3 className="text-base font-bold text-white">{user?.user_metadata?.name || 'User'}</h3>
+                  <h3 className="text-base font-bold text-white">
+                    {user?.user_metadata?.first_name 
+                      ? `${user.user_metadata.first_name}${user.user_metadata.last_name ? ' ' + user.user_metadata.last_name : ''}`
+                      : (user?.user_metadata?.name || 'User')}
+                  </h3>
                   <p className="text-xs text-zinc-500">{user?.email}</p>
                   <div className="inline-flex items-center gap-2 px-2 py-0.5 bg-zinc-900 border border-white/5 rounded-full text-[9px] font-bold text-zinc-500 uppercase tracking-widest mt-2">
-                    Free Plan
+                    {user?.user_metadata?.plan || 'Free'} Plan
                   </div>
                 </div>
               </div>
@@ -159,10 +192,15 @@ export default function SettingsPage() {
                   onChange={(e) => setSettings({...settings, geminiModel: e.target.value})}
                   className="w-full bg-white/[0.03] border border-white/10 rounded-xl py-3 px-4 text-sm text-white focus:outline-none focus:border-white/20 transition-all appearance-none cursor-pointer"
                 >
-                  <option value="gemini-2.0-flash">Gemini 2.0 Flash (Fast & Efficient)</option>
+                  <option value="gemini-2.5-flash">Gemini 2.5 Flash (Latest & Fastest)</option>
+                  <option value="gemini-2.0-flash">Gemini 2.0 Flash (Stable)</option>
                   <option value="gemini-1.5-pro">Gemini 1.5 Pro (Reasoning & Complex Tasks)</option>
                   <option value="claude-3-5-sonnet">Claude 3.5 Sonnet</option>
                   <option value="gpt-4o">GPT-4o</option>
+                  <option value="moonshot-v1">Moonshot V1</option>
+                  <option value="azure-foundry">Azure Foundry (Enterprise)</option>
+                  <option value="nvidia-nim">NVIDIA NIM</option>
+                  <option value="openrouter">OpenRouter (Any Model)</option>
                 </select>
               </div>
 
@@ -201,6 +239,8 @@ export default function SettingsPage() {
                 <div className="relative">
                   <input
                     type="password"
+                    value={settings.customApiKey}
+                    onChange={(e) => setSettings({...settings, customApiKey: e.target.value})}
                     placeholder="sk-..."
                     className="w-full bg-white/[0.03] border border-white/10 rounded-xl py-3 px-4 text-sm text-white focus:outline-none focus:border-white/20 transition-all font-mono"
                   />

@@ -285,6 +285,11 @@ class ComputerUseAgent {
         this.windowManager.broadcast('user-changed', userData);
         this.windowManager.broadcast('settings-updated', this.settingsManager.getSettings());
 
+        // 0. Auto-start remote access if enabled
+        if (this.remoteDesktopManager) {
+            this.remoteDesktopManager.checkAndAutoStart();
+        }
+
         // 1. Show main overlay
         await this.windowManager.showWindow('main');
 
@@ -322,6 +327,11 @@ class ComputerUseAgent {
                 this.isAuthenticated = true;
                 this.currentUser = cachedUser;
                 this.settingsManager.updateSettings({ userAuthenticated: true, userDetails: cachedUser });
+                
+                // Track if we need to auto-start remote access
+                if (this.remoteDesktopManager) {
+                    this.remoteDesktopManager.checkAndAutoStart();
+                }
 
                 // Concurrent sync
                 userDataPromise = dbService.updateUser(cachedUser.id, {}).then(res => {
@@ -1438,6 +1448,29 @@ class ComputerUseAgent {
         ipcMain.handle('browser-close', async () => {
             await electronBrowserManager.close();
             return { success: true };
+        });
+
+        // UI Modal Handlers
+        ipcMain.handle('show-confirm-modal', async (event, options) => {
+            const { dialog } = require('electron');
+            const win = electron.BrowserWindow.fromWebContents(event.sender);
+            const result = await dialog.showMessageBox(win, {
+                type: options.type || 'question',
+                buttons: [options.confirmText || 'Yes', options.cancelText || 'No'],
+                defaultId: 0,
+                cancelId: 1,
+                title: options.title || 'Confirm',
+                message: options.message || 'Are you sure?',
+                detail: options.detail || ''
+            });
+            return result.response === 0;
+        });
+
+        ipcMain.handle('show-prompt-modal', async (event, message, defaultValue, options) => {
+            // For now, since native prompt is missing in Electron, we'll return default
+            // In a future update, this could open a custom input window
+            console.warn('[Main] show-prompt-modal not fully implemented, returning default');
+            return defaultValue;
         });
     }
 

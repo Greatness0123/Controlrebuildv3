@@ -20,7 +20,10 @@ RUN apt-get update && apt-get install -y \
     curl \
     git \
     sudo \
-    firefox \
+    software-properties-common \
+    && add-apt-repository -y ppa:mozillateam/ppa \
+    && echo 'Package: *\nPin: release o=LP-PPA-mozillateam\nPin-Priority: 1001\n' > /etc/apt/preferences.d/mozilla-firefox \
+    && apt-get update && apt-get install -y firefox \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 RUN pip3 install pyautogui websockets mss Pillow
@@ -28,6 +31,17 @@ RUN pip3 install pyautogui websockets mss Pillow
 # Create a non-root user
 RUN useradd -m -s /bin/bash controluser && echo "controluser:control" | chpasswd && adduser controluser sudo
 RUN echo 'controluser ALL=(ALL) NOPASSWD:ALL' >> /etc/sudoers
+
+# Set up Firefox Desktop Icon and Disable Lock Screen
+RUN mkdir -p /home/controluser/Desktop && \
+    echo '[Desktop Entry]\nVersion=1.0\nName=Firefox\nExec=firefox\nIcon=firefox\nType=Application\nCategories=Network;WebBrowser;' > /home/controluser/Desktop/firefox.desktop && \
+    chmod +x /home/controluser/Desktop/firefox.desktop && \
+    chown -R controluser:controluser /home/controluser/Desktop
+
+# Disable screensaver and power management prompts
+RUN mkdir -p /home/controluser/.config/xfce4/xfconf/xfce-perchannel-xml && \
+    echo '<?xml version="1.0" encoding="UTF-8"?><channel name="xfce4-screensaver" version="1.0"><property name="saver" type="empty"><property name="enabled" type="bool" value="false"/></property></channel>' > /home/controluser/.config/xfce4/xfconf/xfce-perchannel-xml/xfce4-screensaver.xml && \
+    chown -R controluser:controluser /home/controluser/.config
 
 # Set up noVNC
 RUN mkdir -p /opt/novnc && \

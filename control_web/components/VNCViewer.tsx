@@ -11,7 +11,7 @@ function cn(...inputs: ClassValue[]) {
 
 interface VNCViewerProps {
   url?: string;
-  status?: 'running' | 'stopped' | 'starting';
+  status?: string;
   className?: string;
 }
 

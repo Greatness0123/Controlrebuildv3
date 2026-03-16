@@ -4,11 +4,11 @@ import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
-import { 
-  Monitor, Play, Square, Trash2, MoreVertical, Clock, AlertCircle, 
-  CheckCircle, Loader2, Globe, Terminal, MousePointer2, ScanLine, 
+import {
+  Monitor, Play, Square, Trash2, MoreVertical, Clock, AlertCircle,
+  CheckCircle, Loader2, Globe, Terminal, MousePointer2, ScanLine,
   Cpu, MoreHorizontal, Zap, ShieldCheck, Download, RefreshCw, Plus, ArrowLeft, ArrowRight,
-  Server, Link as LinkIcon, Command
+  Server, Link as LinkIcon, Command, Layout
 } from 'lucide-react';
 import { vmApi, pairApi } from '@/lib/api';
 import { useAuthStore, useVMStore } from '@/lib/store';
@@ -112,9 +112,9 @@ function MachineCard({ machine, onSelect, onUpdate, onDelete }: any) {
           <div className={cn(
             "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium",
             machine.status === "running" ? "bg-emerald-500/10 text-emerald-400" :
-            machine.status === "stopped" ? "bg-white/[0.05] text-zinc-400" :
-            machine.status === "error" ? "bg-red-500/10 text-red-500" :
-            "bg-blue-500/10 text-blue-400"
+              machine.status === "stopped" ? "bg-white/[0.05] text-zinc-400" :
+                machine.status === "error" ? "bg-red-500/10 text-red-500" :
+                  "bg-blue-500/10 text-blue-400"
           )}>
             <StatusIcon className={cn("h-3 w-3", isTransitioning && "animate-spin")} />
             {status.label}
@@ -170,7 +170,7 @@ export default function Dashboard() {
   const router = useRouter();
   const { vms, setVMs, updateVM } = useVMStore();
   const { user, loading: authLoading } = useAuthStore();
-  
+
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [statusFilter, setStatusFilter] = useState<string>("all");
@@ -261,7 +261,7 @@ export default function Dashboard() {
   // Selected Machine View (Remote Desktop + Chat)
   if (selectedMachine) {
     return (
-      <div className="min-h-screen bg-black text-white flex flex-col font-sans overflow-hidden">
+      <div className="h-[100dvh] bg-black text-white flex flex-col font-sans overflow-hidden">
         {/* Header */}
         <header className="h-14 border-b border-white/5 px-6 flex items-center justify-between bg-black/80 backdrop-blur-xl shrink-0">
           <div className="flex items-center gap-6">
@@ -276,18 +276,28 @@ export default function Dashboard() {
             </div>
           </div>
           <div className="flex items-center gap-3">
+            {selectedMachine.instance_url && (
+              <a
+                href={selectedMachine.instance_url.includes('/vnc.html') ? selectedMachine.instance_url : `${selectedMachine.instance_url.endsWith('/') ? selectedMachine.instance_url : selectedMachine.instance_url + '/'}vnc.html?resize=scale&autoconnect=true`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="md:hidden flex items-center gap-2 px-3 py-1.5 bg-white/5 border border-white/10 rounded-lg text-[10px] font-bold text-zinc-400 uppercase tracking-widest hover:bg-white/10 transition-all"
+              >
+                <Monitor size={12} /> Launch Monitor
+              </a>
+            )}
             <div className="w-7 h-7 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-[10px] font-bold cursor-pointer ring-2 ring-black">
               {user?.user_metadata?.name?.[0]?.toUpperCase() || 'U'}
             </div>
           </div>
         </header>
 
-        <main className="flex-1 flex overflow-hidden">
-          <div className="flex-1 relative bg-[#111]">
+        <main className="flex-1 flex flex-col md:flex-row min-h-0 bg-black overflow-hidden relative">
+          <div className="hidden md:block flex-1 relative bg-[#0a0a0a]">
             <RemoteDesktop vmId={selectedMachine.id} noVncPort={selectedMachine.novnc_port} instanceUrl={selectedMachine.instance_url} />
           </div>
-          <div className="w-80 border-l border-white/5 bg-black flex flex-col shrink-0">
-             <ChatPanel sessionId={`chat-${selectedMachine.id}`} />
+          <div className="flex-1 md:w-80 border-t md:border-t-0 md:border-l border-white/5 bg-black flex flex-col shrink-0 overflow-hidden h-full relative z-10">
+            <ChatPanel sessionId={`chat-${selectedMachine.id}`} />
           </div>
         </main>
       </div>
@@ -296,7 +306,7 @@ export default function Dashboard() {
 
   // Grid Dashboard View (Coasty Inspired)
   return (
-    <div className="h-screen bg-black text-white overflow-y-auto scrollbar-invisible relative font-sans">
+    <div className="h-[100dvh] bg-black text-white overflow-y-auto scrollbar-invisible relative font-sans">
       {/* Ambient background */}
       <div className="pointer-events-none fixed inset-0 overflow-hidden z-0">
         <div className="absolute -top-[30%] -right-[15%] h-[60%] w-[50%] rounded-full opacity-[0.04] blur-[120px] bg-white" />
@@ -304,41 +314,44 @@ export default function Dashboard() {
         <div className="absolute inset-0 opacity-[0.02] bg-[linear-gradient(rgba(255,255,255,0.3)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.3)_1px,transparent_1px)]" style={{ backgroundSize: "80px 80px" }} />
       </div>
 
-      <div className="container mx-auto p-4 sm:p-6 lg:p-8 max-w-7xl space-y-8 relative z-10 pt-12">
-        
+      <div className="container mx-auto p-4 sm:p-8 max-w-7xl space-y-6 sm:space-y-8 relative z-10 pt-14 md:pt-12">
+
         {/* Header */}
-        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-          <div>
+        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+          <div className="max-w-xl">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center text-black">
+              <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center text-black shrink-0 shadow-lg">
                 <Command size={20} />
               </div>
-              <h1 className="text-3xl font-bold tracking-tight">Virtual Machines</h1>
+              <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Virtual Machines</h1>
             </div>
-            <p className="text-zinc-400 text-sm mt-2 ml-1">
-              Manage your AI-controlled desktop environments
+            <p className="text-zinc-400 text-xs sm:text-sm mt-3 leading-relaxed">
+              Manage your AI-powered desktop environments. Spin up isolated sessions and let agents handle your tasks.
             </p>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 w-full md:w-auto">
             <button
               onClick={handleRefresh}
               disabled={refreshing}
-              className="h-10 w-10 flex items-center justify-center rounded-xl bg-white/5 hover:bg-white/10 text-zinc-400 hover:text-white transition-all border border-white/10 disabled:opacity-50"
+              className="h-10 w-10 flex items-center justify-center rounded-xl bg-white/5 hover:bg-white/10 text-zinc-400 border border-white/10 shrink-0"
             >
               <RefreshCw className={cn("h-4 w-4", refreshing && "animate-spin")} />
             </button>
+            <Link
+              href="/workspace"
+              className="hidden sm:flex h-10 px-5 rounded-xl gap-2 font-bold bg-white/5 border border-white/10 text-zinc-300 hover:bg-white/10 hover:text-white transition-all items-center justify-center text-xs sm:text-sm"
+            >
+              <Layout className="h-4 w-4" />
+              Open Workspace
+            </Link>
             <button
               onClick={handleCreateNew}
               disabled={creating}
-              className="h-10 px-5 rounded-xl gap-2 font-bold bg-white text-black hover:bg-zinc-200 transition-all flex items-center text-sm disabled:opacity-50"
+              className="flex-1 md:flex-none h-10 px-5 rounded-xl gap-2 font-bold bg-white text-black hover:bg-zinc-200 transition-all flex items-center justify-center text-xs sm:text-sm shadow-xl shadow-white/5"
             >
               {creating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
               New Machine
             </button>
-            {/* Nav to Settings */}
-            <Link href="/settings" className="h-10 px-5 rounded-xl gap-2 font-bold bg-white/5 text-white border border-white/10 hover:bg-white/10 transition-all flex items-center text-sm">
-              Settings
-            </Link>
           </div>
         </motion.div>
 
@@ -386,8 +399,8 @@ export default function Dashboard() {
               </div>
 
               <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
-                <h2 className="text-3xl font-bold tracking-tight mb-4">True AI Employee with full computer access</h2>
-                <p className="text-base text-zinc-400 max-w-lg mx-auto leading-relaxed mb-12">
+                <h2 className="text-3xl font-bold tracking-tight mb-4">True AI Agent with full computer access</h2>
+                <p className="text-sm text-zinc-400 max-w-lg mx-auto leading-relaxed mb-12">
                   Spin up an isolated virtual machine and let AI agents browse the web, run terminals, and control the desktop — hands-free.
                 </p>
               </motion.div>

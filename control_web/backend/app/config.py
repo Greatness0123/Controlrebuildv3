@@ -18,9 +18,9 @@ VM_BASE_NOVNC_PORT = int(os.getenv("VM_BASE_NOVNC_PORT", "6080"))
 
 # Plan limits
 PLAN_LIMITS = {
-    "free": {"max_vms": 1, "max_sessions": 5},
-    "pro": {"max_vms": 3, "max_sessions": 50},
-    "enterprise": {"max_vms": 10, "max_sessions": 500},
+    "free": {"max_vms": 11, "max_sessions": 100},
+    "pro": {"max_vms": 5, "max_sessions": 500},
+    "master": {"max_vms": 10, "max_sessions": 2000},
 }
 
 # Server

@@ -8,7 +8,15 @@ sleep 1
 # Start Desktop Environment
 export DISPLAY=:1
 startxfce4 &
-sleep 2
+sleep 5
+
+# Disable screensaver and power management (just in case)
+xfconf-query -c xfce4-screensaver -p /saver/enabled -n -t bool -s false || true
+xfconf-query -c xfce4-power-manager -p /xfce4-power-manager/lock-screen-suspend-hibernate -n -t bool -s false || true
+
+# Mark desktop files as trusted
+gio set /home/controluser/Desktop/firefox.desktop metadata::trusted true || true
+chmod +x /home/controluser/Desktop/firefox.desktop
 
 # Start VNC Server (retry until X is ready)
 for i in $(seq 1 10); do

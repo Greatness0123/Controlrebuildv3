@@ -7,8 +7,10 @@ import VMCard from '@/components/VMCard';
 import { useModal } from '@/lib/useModal';
 import { Plus, Cpu, Loader2, AlertCircle, RefreshCw } from 'lucide-react';
 import Link from 'next/link';
+import { useAuthStore } from '@/lib/store';
 
 export default function MachinesPage() {
+  const { user } = useAuthStore();
   const { vms, setVMs } = useVMStore();
   const { modal, alert, prompt } = useModal();
   const [loading, setLoading] = useState(true);
@@ -124,7 +126,12 @@ export default function MachinesPage() {
             <div className="w-2 h-2 rounded-full bg-green-500 shadow-sm shadow-green-500/50" />
             <span>Docker Engine Connected</span>
           </div>
-          <div>{vms.length} / 5 Machines used</div>
+          <div>{vms.length} / {(() => {
+            const plan = user?.user_metadata?.plan?.toLowerCase() || 'free';
+            if (plan === 'master') return 10;
+            if (plan === 'pro') return 5;
+            return 11;
+          })()} Machines used</div>
         </div>
         <Link href="/settings" className="hover:text-white transition-colors">View Plan Usage</Link>
       </div>

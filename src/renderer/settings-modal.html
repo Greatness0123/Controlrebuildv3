@@ -1015,6 +1015,14 @@
 
             <!-- Remote Access Tab -->
             <div class="tab-content" id="remote">
+                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; padding: 12px 16px; background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 12px;">
+                    <div style="display: flex; align-items: center; gap: 12px;">
+                        <div id="remoteHeaderIndicator" class="status-dot offline" style="width: 10px; height: 10px; border-radius: 50%;"></div>
+                        <span style="font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Live Signaling Status</span>
+                    </div>
+                    <span id="remoteBadgeText" style="font-size: 10px; font-weight: 700; background: var(--bg-tertiary); color: var(--text-secondary); padding: 4px 10px; border-radius: 20px; text-transform: uppercase;">Idle</span>
+                </div>
+
                 <div class="section-title">Remote Control (View and Control)</div>
                 <p class="setting-desc" style="margin-bottom: 20px;">Control this computer from the Control Web app.</p>
 
@@ -1045,14 +1053,19 @@
                                     </button>
                                 </div>
                                 <button class="btn btn-primary" id="generatePairingBtn">
-                                    <span id="generateBtnText">Generate</span>
+                                    <span id="generateBtnText">Pair Machine</span>
                                     <div id="generateBtnLoader" style="display: none; width: 16px; height: 16px; border: 2px solid rgba(255,255,255,0.3); border-radius: 50%; border-top-color: #fff; animation: spin 0.8s linear infinite;"></div>
                                 </button>
                             </div>
                             <style>
                                 @keyframes spin { to { transform: rotate(360deg); } }
                             </style>
-                            <p class="setting-desc" style="margin-top: 8px;">This code is permanent and locked to this device. Enter it in the Web App to pair.</p>
+                            <div style="margin-top: 12px; padding: 10px; background: rgba(245, 158, 11, 0.05); border: 1px solid rgba(245, 158, 11, 0.1); border-radius: 8px;">
+                                <p style="font-size: 11px; color: #f59e0b; margin: 0; font-weight: 600;">
+                                    <i class="fas fa-exclamation-triangle" style="margin-right: 6px;"></i>
+                                    Regenerating this code will immediately invalidate all existing pairings and disable remote access for any web sessions currently using the old code.
+                                </p>
+                            </div>
                         </div>
                     </div>
                 </div>
