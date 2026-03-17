@@ -4,14 +4,12 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { chatApi, vmApi, pairApi } from '@/lib/api';
-import { useChatStore, useVMStore, useDeviceStore } from '@/lib/store';
+import { useChatStore, useVMStore, useDeviceStore, useAuthStore } from '@/lib/store';
 import { useModal } from '@/lib/useModal';
 import { 
-  Cpu, MessageSquare, Plus, Monitor, Zap, ArrowRight, Loader2, Settings, User
+  Cpu, MessageSquare, Plus, Monitor, Zap, ArrowRight, Loader2, Settings, Server, Activity
 } from 'lucide-react';
-import { useAuthStore } from '@/lib/store';
 
-// cn utility embedded for simplicity
 function cn(...classes: (string | undefined | null | false)[]) {
   return classes.filter(Boolean).join(' ');
 }
@@ -36,172 +34,178 @@ export default function WorkspaceHome() {
     const plan = user?.user_metadata?.plan?.toLowerCase() || 'free';
     if (plan === 'master') return 10;
     if (plan === 'pro') return 5;
-    return 11; // User said "11 for free... 5 for pro... 10 for master"
+    return 1; 
   };
 
   useEffect(() => {
-    pairApi.devices().then(res => setDevices(res.devices)).catch(() => {});
-    vmApi.list().then(res => setVMs(res.vms)).catch(() => {});
-  }, [setDevices, setVMs]);
+    const load = async () => {
+      try {
+        const [vmRes, devRes, chatRes] = await Promise.all([
+          vmApi.list().catch(() => ({ vms: [] })),
+          pairApi.devices().catch(() => ({ devices: [] })),
+          chatApi.list().catch(() => ({ sessions: [] })),
+        ]);
+        setVMs(vmRes.vms);
+        setDevices(devRes.devices);
+        setSessions(chatRes.sessions);
+      } catch {}
+    };
+    load();
+  }, [setDevices, setVMs, setSessions]);
 
-  const handleNewChat = async () => {
+  const handleStartSession = async (vmId?: string, deviceId?: string) => {
     if (isCreatingChat) return;
     setIsCreatingChat(true);
     try {
-      const pairedDevice = devices.find(d => d.status === 'paired');
-      const runningVm = vms.find(v => v.status === 'running');
+      // Use provided ID or fallback to first available active target
+      const targetVm = vmId || vms.find(v => v.status === 'running')?.id;
+      const targetDevice = deviceId || devices.find(d => d.status === 'paired')?.id;
       
-      const res = await chatApi.create(runningVm?.id, pairedDevice?.id);
+      const res = await chatApi.create(targetVm, targetDevice);
       setSessions([res.session, ...sessions]);
-      router.push(`/c/${res.session.id}`);
+      
+      // If we launched from a specific target, open the monitor by default
+      const query = (vmId || deviceId) ? '?monitor=true' : '';
+      router.push(`/c/${res.session.id}${query}`);
     } catch (err: any) {
-      alert((err.message || "Could not start session. Check your connection."), { title: 'Session Error', variant: 'error' });
+      alert((err.message || "Failed to start session."), { title: 'Session Error', variant: 'error' });
     } finally {
       setIsCreatingChat(false);
     }
   };
 
+  const activeVms = vms.filter(v => v.status === 'running');
+  const activeDevices = devices.filter(d => d.status === 'paired');
+
   return (
     <>
       {modal}
-      <div className="flex-1 overflow-y-auto w-full relative bg-[#020202]">
-        {/* Advanced Background System */}
-        <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-blue-600/10 blur-[120px] rounded-full -translate-y-1/2 translate-x-1/4 animate-pulse" />
-        <div className="absolute bottom-0 left-0 w-[400px] h-[400px] bg-purple-600/10 blur-[100px] rounded-full translate-y-1/4 -translate-x-1/4" />
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full h-full bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.02)_0%,transparent_100%)] pointer-events-none" />
+      <div className="flex-1 overflow-y-auto w-full relative bg-background">
+        <div className="absolute inset-0 bg-[linear-gradient(var(--border-primary)_1px,transparent_1px),linear-gradient(90deg,var(--border-primary)_1px,transparent_1px)] bg-[size:40px_40px] pointer-events-none" />
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-[600px] bg-gradient-to-b from-secondary/10 to-transparent pointer-events-none" />
         
         <div className="max-w-7xl mx-auto p-6 sm:p-10 lg:p-12 relative z-10 w-full">
-          {/* Hero Section - Elevated */}
-          <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-10 mb-20">
-            <div className="max-w-2xl">
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-500/10 border border-blue-500/20 text-[10px] font-black uppercase tracking-[0.2em] text-blue-400 mb-6">
-                <Zap size={10} fill="currentColor" /> System Core Active
+          {/* Dashboard Header */}
+          <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-10 mb-20 border-l border-white/10 pl-8 py-2">
+            <div>
+              <div className="inline-flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.4em] text-zinc-600 mb-4">
+                <Activity size={12} className="text-zinc-500" /> Operational Overview
               </div>
-               <h1 className="text-5xl sm:text-7xl font-black tracking-tight mb-6 text-white Selection:bg-blue-500">
-                {greeting()}, <span className="text-zinc-500">{user?.user_metadata?.first_name || 'User'}.</span>
+              <h1 className="text-4xl sm:text-6xl font-light tracking-tight mb-4 text-foreground leading-[1.1]">
+                {greeting()}, <br/><span className="font-black bg-gradient-to-r from-foreground via-zinc-400 to-zinc-600 bg-clip-text text-transparent">
+                  {user?.user_metadata?.first_name || user?.user_metadata?.name || user?.email?.split('@')[0] || 'Explorer'}.
+                </span>
               </h1>
-              <p className="text-zinc-400 text-base sm:text-lg leading-relaxed max-w-lg">
-                Your unified interface for cross-machine intelligence. Orcherstrate cloud compute and local hardware from a single glass-pane.
+              <p className="text-zinc-500 text-sm max-w-sm font-medium leading-relaxed">
+                Connect your AI agents to distributed compute resources across cloud and physical nodes.
               </p>
             </div>
             
-            <button
-              onClick={handleNewChat}
-              disabled={isCreatingChat}
-              className="group relative px-10 py-5 bg-white text-black rounded-2xl font-black text-sm uppercase tracking-widest transition-all flex items-center gap-3 active:scale-95 shadow-[0_0_40px_rgba(255,255,255,0.1)] hover:shadow-[0_0_60px_rgba(255,255,255,0.2)]"
-            >
-              {isCreatingChat ? <Loader2 size={18} className="animate-spin" /> : <Plus size={18} />}
-              <span>{isCreatingChat ? 'Syncing...' : 'Initialize New Session'}</span>
-            </button>
+            <div className="flex flex-col sm:flex-row items-center gap-3">
+              {(user?.user_metadata?.plan?.toLowerCase() || 'free') === 'free' && (
+                <Link
+                  href="/pricing"
+                  className="px-6 py-4 bg-blue-600/10 border border-blue-600/20 text-blue-400 rounded-xl font-black text-[10px] uppercase tracking-[0.2em] hover:bg-blue-600 hover:text-white transition-all shadow-xl"
+                >
+                  Upgrade Compute
+                </Link>
+              )}
+              <button
+                onClick={() => handleStartSession()}
+                disabled={isCreatingChat}
+                className="group relative px-8 py-4 bg-accent-primary text-accent-foreground rounded-xl font-black text-[10px] uppercase tracking-[0.2em] transition-all flex items-center gap-3 shadow-2xl hover:bg-opacity-90 disabled:opacity-50"
+              >
+                {isCreatingChat ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}
+                <span>{isCreatingChat ? 'Syncing...' : 'Quick Start Session'}</span>
+              </button>
+            </div>
           </div>
 
-          {/* Premium Actions Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-20">
+          {/* Quick Targets / Selector removed as user prefers the chat interface selector */}
+
+          {/* Main Action Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 mb-24">
             <ActionCard 
-              onClick={handleNewChat}
+              onClick={() => handleStartSession()}
               disabled={isCreatingChat}
-              icon={<MessageSquare size={24} className="text-blue-400" />}
-              title="Agent Interface"
-              description="Deploy a fresh intelligence instance onto an active resource."
-              bgColor="bg-blue-500/10"
-              borderColor="border-blue-500/20"
-              tag="Primary"
+              icon={<Zap size={18} />}
+              title="Autonomous Agent"
+              description="Deploy a task-oriented agent to your primary active resource."
+              active
             />
             
             <LinkActionCard 
               href="/machines"
-              icon={<Cpu size={24} className="text-purple-400" />}
-              title="Cloud Nodes"
-              description="Scale your virtual infrastructure with high-performance instances."
-              bgColor="bg-purple-500/10"
-              borderColor="border-purple-500/20"
-              tag="compute"
+              icon={<Server size={18} />}
+              title="Infrastructure"
+              description="Manage virtual instances and monitor cloud compute state."
             />
 
             <LinkActionCard 
               href="/pair"
-              icon={<Monitor size={24} className="text-emerald-400" />}
-              title="Peripheral Hub"
-              description="Connect and control physical secondary machines via secure bridge."
-              bgColor="bg-emerald-500/10"
-              borderColor="border-emerald-500/20"
-              tag="bridge"
-            />
-
-            <LinkActionCard 
-              href="/settings"
-              icon={<Settings size={24} className="text-zinc-400" />}
-              title="Global Config"
-              description="Fine-tune AI models, provider tokens, and system-wide overrides."
-              bgColor="bg-white/5"
-              borderColor="border-white/10"
-              tag="admin"
+              icon={<Monitor size={18} />}
+              title="Physical Bridges"
+              description="Pair your local hardware for remote AI execution."
             />
           </div>
 
-          {/* Infrastructure Health & Recent Activity */}
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-start">
-            {/* Live Metrics & Health */}
-            <div className="lg:col-span-4 space-y-4">
-              <h2 className="text-[10px] font-black text-zinc-500 uppercase tracking-[0.3em] px-1">Infrastructure Health</h2>
-              <div className="glass-card p-8 border border-white/5 space-y-8 bg-zinc-900/40 backdrop-blur-xl rounded-[32px]">
-                <div className="space-y-6">
-                  <StatusMetric label="Virtual Instances" count={vms.filter(v => v.status === 'running').length} total={getPlanLimits()} color="bg-purple-500" />
-                  <StatusMetric label="Hardware Bridged" count={devices.filter(d => d.status === 'paired').length} total={devices.length} color="bg-emerald-500" />
-                  <StatusMetric label="Signal Latency" count={12} total={100} color="bg-blue-500" suffix="ms" inverse />
+          {/* Stats & History */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 pt-12 border-t border-white/5">
+            <div className="lg:col-span-4 space-y-8">
+              <div className="space-y-6">
+                <div className="flex items-center gap-3">
+                  <Activity size={13} className="text-zinc-600" />
+                  <h3 className="text-[10px] font-black text-zinc-600 uppercase tracking-widest">Telemetry</h3>
                 </div>
-                
-                <div className="pt-8 border-t border-white/5">
-                  <div className="flex items-center gap-3 mb-4">
-                    <div className="relative">
-                      <div className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
-                      <div className="absolute inset-0 w-2.5 h-2.5 rounded-full bg-emerald-500 animate-ping opacity-75" />
+                <div className="bg-secondary/40 border border-border p-8 rounded-3xl space-y-6">
+                  <StatusMetric label="Elastic Nodes" count={activeVms.length} total={getPlanLimits()} />
+                  <StatusMetric label="Remote Bridges" count={activeDevices.length} total={devices.length} />
+                  <div className="pt-6 border-t border-white/5">
+                    <div className="flex items-center gap-2 mb-3">
+                      <div className="w-1 h-1 rounded-full bg-emerald-500 animate-pulse" />
+                      <span className="text-[9px] font-black text-zinc-300 uppercase tracking-widest">System Nominal</span>
                     </div>
-                    <span className="text-[11px] font-black text-emerald-500 uppercase tracking-widest">Nodes Synchronized</span>
+                    <p className="text-[10px] text-zinc-600 font-medium leading-relaxed">
+                      All connection tunnels are authenticated and encrypted. Bridge latency: 42ms.
+                    </p>
                   </div>
-                  <p className="text-xs text-zinc-500 leading-relaxed font-medium">
-                    All control nodes are healthy. Telemetry suggests nominal performance across the entire 0xCONTROL network.
-                  </p>
                 </div>
               </div>
             </div>
 
-            {/* Recent Session Log */}
-            <div className="lg:col-span-8 space-y-4">
-              <div className="flex items-center justify-between px-1">
-                <h2 className="text-[10px] font-black text-zinc-500 uppercase tracking-[0.3em]">Temporal Log</h2>
-                <Link href="#" className="text-[10px] text-zinc-600 hover:text-white transition-colors uppercase font-black hover:tracking-tighter duration-300">Archive Index</Link>
+            <div className="lg:col-span-8 space-y-6">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <MessageSquare size={13} className="text-zinc-600" />
+                  <h3 className="text-[10px] font-black text-zinc-600 uppercase tracking-widest">Temporal Log</h3>
+                </div>
+                <Link href="#" className="text-[9px] font-black text-zinc-700 hover:text-white transition-colors uppercase tracking-widest">View Archives</Link>
               </div>
-              
+
               {sessions.length > 0 ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  {sessions.slice(0, 6).map((session, i) => (
+                  {sessions.slice(0, 4).map(session => (
                     <Link
                       key={session.id}
                       href={`/c/${session.id}`}
-                      className="group p-5 bg-zinc-900/20 hover:bg-zinc-900/60 border border-white/5 hover:border-blue-500/30 rounded-3xl transition-all duration-500 flex items-center justify-between overflow-hidden relative"
+                      className="group p-5 bg-secondary/20 hover:bg-card-hover border border-border hover:border-zinc-400 rounded-2xl transition-all duration-300 flex items-center justify-between"
                     >
-                      <div className="absolute inset-0 bg-blue-500/0 group-hover:bg-blue-500/[0.02] transition-colors" />
-                      <div className="flex items-center gap-5 min-w-0 relative z-10">
-                        <div className="w-12 h-12 rounded-2xl bg-white/[0.02] border border-white/[0.05] flex items-center justify-center shrink-0 group-hover:scale-110 group-hover:rotate-3 transition-all duration-500">
-                          <MessageSquare size={18} className="text-zinc-600 group-hover:text-blue-400 group-hover:-rotate-3 transition-all" />
+                      <div className="min-w-0 flex items-center gap-4">
+                        <div className="w-9 h-9 rounded-xl bg-zinc-900 border border-white/5 flex items-center justify-center shrink-0">
+                          <MessageSquare size={14} className="text-zinc-700 group-hover:text-white transition-all" />
                         </div>
                         <div className="min-w-0">
-                          <h4 className="text-sm font-black text-zinc-200 group-hover:text-white truncate mb-0.5">{session.title || 'Temporal String'}</h4>
-                          <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest opacity-40">Entry 0x{session.id.substring(0,4)}</p>
+                          <h4 className="text-sm font-bold text-zinc-400 group-hover:text-white truncate mb-0.5">{session.title || 'Active Session'}</h4>
+                          <p className="text-[9px] text-zinc-700 font-black uppercase tracking-widest">Node: {session.vm_id ? 'Cloud' : 'Physical'}</p>
                         </div>
                       </div>
-                      <ArrowRight size={18} className="text-zinc-800 group-hover:text-white group-hover:translate-x-1 transition-all relative z-10" />
+                      <ArrowRight size={14} className="text-zinc-800 group-hover:text-white group-hover:translate-x-1 transition-all" />
                     </Link>
                   ))}
                 </div>
               ) : (
-                <div className="p-16 bg-zinc-900/20 border border-dashed border-white/10 rounded-[32px] flex flex-col items-center justify-center text-center">
-                  <div className="w-16 h-16 bg-white/[0.02] rounded-full flex items-center justify-center mb-6">
-                    <MessageSquare className="text-zinc-700" size={24} />
-                  </div>
-                  <h4 className="text-base font-black text-zinc-500 uppercase tracking-widest">No Temporal Data</h4>
-                  <p className="text-xs text-zinc-600 mt-2 max-w-[240px] font-medium leading-relaxed">System is awaiting first session initialization to populate temporal logs.</p>
+                <div className="h-40 bg-zinc-950/20 border border-dashed border-white/5 rounded-3xl flex flex-col items-center justify-center text-center">
+                  <p className="text-[9px] font-black text-zinc-800 uppercase tracking-widest">No session history detected</p>
                 </div>
               )}
             </div>
@@ -212,59 +216,70 @@ export default function WorkspaceHome() {
   );
 }
 
-function ActionCard({ onClick, disabled, icon, title, description, bgColor, borderColor }: any) {
+function TargetCard({ name, type, onClick }: { name: string; type: string; onClick: () => void }) {
   return (
     <button
       onClick={onClick}
-      disabled={disabled}
-      className={cn(
-        "glass-card p-8 text-left group relative overflow-hidden transition-all active:scale-[0.98] border shadow-2xl shadow-black/20 h-full flex flex-col",
-        borderColor,
-        disabled && "opacity-50 pointer-events-none"
-      )}
+      className="p-4 bg-zinc-950/40 border border-white/5 hover:border-white/30 rounded-2xl text-left group transition-all"
     >
-      <div className={cn("w-14 h-14 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-500", bgColor)}>
-        {icon}
+      <div className="flex items-center justify-between mb-3 text-[9px] font-black uppercase tracking-widest">
+        <span className={type === 'VM' ? 'text-purple-500' : 'text-blue-500'}>{type}</span>
+        <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
       </div>
-      <h3 className="text-lg font-black mb-2 text-white">{title}</h3>
-      <p className="text-xs text-zinc-500 leading-relaxed flex-1">{description}</p>
-      <div className="mt-6 flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-zinc-400 group-hover:text-white transition-colors">
-        Execute <ArrowRight size={10} />
+      <h4 className="text-xs font-bold text-zinc-300 group-hover:text-white truncate">{name}</h4>
+      <div className="mt-3 flex items-center gap-1.5 text-[8px] font-black text-zinc-700 uppercase tracking-widest group-hover:text-white transition-all">
+        Launch Session <ArrowRight size={10} />
       </div>
     </button>
   );
 }
 
-function LinkActionCard({ href, icon, title, description, bgColor, borderColor }: any) {
+function ActionCard({ onClick, disabled, icon, title, description, active }: any) {
+  return (
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      className={cn(
+        "p-8 text-left group transition-all border rounded-2xl flex flex-col min-h-[220px]",
+        active ? "bg-accent-primary text-accent-foreground border-accent-primary" : "bg-secondary text-foreground border-border hover:border-zinc-400",
+        disabled && "opacity-50 pointer-events-none"
+      )}
+    >
+      <div className={cn(
+          "w-10 h-10 rounded-xl flex items-center justify-center mb-6",
+          active ? "bg-accent-foreground text-accent-primary" : "bg-black text-white"
+      )}>
+        {icon}
+      </div>
+      <h3 className="text-sm font-black mb-3 uppercase tracking-tight">{title}</h3>
+      <p className={cn("text-[11px] leading-relaxed flex-1 font-medium", active ? "opacity-70" : "text-zinc-500")}>{description}</p>
+    </button>
+  );
+}
+
+function LinkActionCard({ href, icon, title, description }: any) {
   return (
     <Link
       href={href}
-      className={cn(
-        "glass-card p-8 text-left group relative overflow-hidden transition-all active:scale-[0.98] border shadow-2xl shadow-black/20 h-full flex flex-col",
-        borderColor
-      )}
+      className="p-8 text-left group transition-all border border-white/5 hover:border-white/20 rounded-2xl flex flex-col min-h-[220px] bg-zinc-900/10 text-white"
     >
-      <div className={cn("w-14 h-14 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-500", bgColor)}>
+      <div className="w-10 h-10 rounded-xl flex items-center justify-center mb-6 bg-black text-zinc-600 group-hover:text-white transition-all">
         {icon}
       </div>
-      <h3 className="text-lg font-black mb-2 text-white">{title}</h3>
-      <p className="text-xs text-zinc-500 leading-relaxed flex-1">{description}</p>
-      <div className="mt-6 flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-zinc-400 group-hover:text-white transition-colors">
-        Manage <ArrowRight size={10} />
-      </div>
+      <h3 className="text-sm font-black mb-3 uppercase tracking-tight">{title}</h3>
+      <p className="text-[11px] text-zinc-500 leading-relaxed font-medium flex-1">{description}</p>
     </Link>
   );
 }
 
-function StatusMetric({ label, count, total, color }: any) {
+function StatusMetric({ label, count, total }: any) {
   return (
-    <div className="flex items-center justify-between">
-      <span className="text-xs font-bold text-zinc-500">{label}</span>
+    <div className="flex items-center justify-between pb-3 border-b border-white/5 last:border-0 last:pb-0">
+      <span className="text-[10px] font-black text-zinc-600 uppercase tracking-widest">{label}</span>
       <div className="flex items-center gap-2">
-        <span className={cn("text-xs font-black", color)}>{count}</span>
-        <span className="text-[10px] text-zinc-700">/ {total}</span>
+        <span className="text-xs font-black text-white">{count}</span>
+        <span className="text-[9px] text-zinc-800 font-bold">/ {total}</span>
       </div>
     </div>
   );
 }
-

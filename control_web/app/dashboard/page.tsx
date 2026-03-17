@@ -349,7 +349,7 @@ export default function Dashboard() {
               disabled={creating}
               className="flex-1 md:flex-none h-10 px-5 rounded-xl gap-2 font-bold bg-white text-black hover:bg-zinc-200 transition-all flex items-center justify-center text-xs sm:text-sm shadow-xl shadow-white/5"
             >
-              {creating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+              {creating ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
               New Machine
             </button>
           </div>

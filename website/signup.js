@@ -126,9 +126,11 @@ class SignupPage {
             const userData = {
                 id: 'u_' + Date.now(),
                 app_id: userId,
-                name: `${firstName} ${lastName}`,
+                name: `${firstName} ${lastName}`.trim(),
+                first_name: firstName,
+                last_name: lastName,
                 email: email,
-                plan: this.selectedPlan + ' Plan',
+                plan: (this.selectedPlan || 'Free').toLowerCase(),
                 memberSince: new Date().toLocaleDateString('en-US', { month: 'short', year: 'numeric' }),
                 tasksCompleted: 0,
                 hoursSaved: 0,

@@ -59,7 +59,7 @@ export default function RemoteDesktopViewer({ deviceId, className }: RemoteDeskt
 
   // Throttle helper
   const lastMoveTimeRef = useRef<number>(0);
-  const THROTTLE_MS = 50;
+  const THROTTLE_MS = 25;
 
   useEffect(() => {
     if (!deviceId) return;
@@ -96,14 +96,14 @@ export default function RemoteDesktopViewer({ deviceId, className }: RemoteDeskt
         if (isDesktopPresent) {
            setStatus(prev => prev === 'connecting' ? 'online' : prev);
            // Auto-request stream when desktop comes online
-           if (statusRef.current === 'connecting') {
+           if (statusRef.current === 'connecting' || statusRef.current === 'online') {
              setTimeout(() => {
                channel.send({
                  type: 'broadcast',
                  event: 'request_stream',
                  payload: { request_id: Date.now() }
                });
-             }, 500);
+             }, 100);
            }
         }
       })
@@ -128,14 +128,14 @@ export default function RemoteDesktopViewer({ deviceId, className }: RemoteDeskt
             user_id: 'web'
           });
 
-          // Request stream after a short delay
+          // Request stream immediately upon subscription
           setTimeout(() => {
             channel.send({
-                type: 'broadcast',
-                event: 'request_stream',
-                payload: { request_id: Date.now() }
+              type: 'broadcast',
+              event: 'request_stream',
+              payload: { request_id: Date.now() }
             });
-          }, 1500);
+          }, 200);
         }
       });
 
@@ -205,20 +205,20 @@ export default function RemoteDesktopViewer({ deviceId, className }: RemoteDeskt
 
   if (isMobile) {
     return (
-      <div className={cn("bg-zinc-950 flex flex-col items-center justify-center p-8 text-center gap-6 border border-white/5 rounded-3xl", className)}>
+      <div className={cn("bg-card flex flex-col items-center justify-center p-8 text-center gap-6 border border-border rounded-3xl", className)}>
         <div className="relative">
-          <div className="absolute -inset-4 bg-blue-500/10 blur-2xl rounded-full animate-pulse" />
-          <Monitor className="w-12 h-12 text-blue-500/50 relative z-10" />
+          <div className="absolute -inset-4 bg-accent-primary/10 blur-2xl rounded-full animate-pulse" />
+          <Monitor className="w-12 h-12 text-accent-primary/50 relative z-10" />
         </div>
         <div className="space-y-2">
-          <h3 className="text-sm font-black text-white uppercase tracking-widest">Mobile Monitor</h3>
-          <p className="text-[10px] text-zinc-500 max-w-[200px] leading-relaxed mx-auto">
+          <h3 className="text-sm font-black text-foreground uppercase tracking-widest">Mobile Monitor</h3>
+          <p className="text-[10px] text-text-muted max-w-[200px] leading-relaxed mx-auto">
             Interactive control is optimized for desktop. Open the dedicated monitor for the best mobile experience.
           </p>
         </div>
         <button 
           onClick={() => window.open(`/remote/${deviceId}`, '_blank')}
-          className="w-full max-w-[200px] py-3 bg-white text-black rounded-xl text-[10px] font-black uppercase tracking-widest transition-all active:scale-95 shadow-xl shadow-white/5"
+          className="w-full max-w-[200px] py-3 bg-accent-primary text-accent-foreground rounded-xl text-[10px] font-black uppercase tracking-widest transition-all active:scale-95 shadow-xl shadow-accent-primary/10"
         >
           Open Monitor Instance
         </button>
@@ -228,51 +228,51 @@ export default function RemoteDesktopViewer({ deviceId, className }: RemoteDeskt
 
   if (status === 'connecting' && !screen) {
     return (
-      <div className={`bg-zinc-950 flex flex-col items-center justify-center gap-4 ${className}`}>
-        <Loader2 className="w-8 h-8 animate-spin text-blue-500/50" />
-        <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Bridging Connection...</p>
+      <div className={cn("bg-background flex flex-col items-center justify-center gap-4", className)}>
+        <Loader2 className="w-8 h-8 animate-spin text-accent-primary/50" />
+        <p className="text-[10px] font-bold text-text-muted uppercase tracking-widest">Bridging Connection...</p>
       </div>
     );
   }
 
   return (
-    <div className={`relative bg-black flex flex-col overflow-hidden group ${className}`}>
+    <div className={cn("relative bg-background flex flex-col overflow-hidden group", className)}>
       {/* Header */}
-      <div className="h-10 bg-zinc-950 border-b border-white/5 flex items-center justify-between px-3 shrink-0 z-20">
+      <div className="h-10 bg-secondary border-b border-border flex items-center justify-between px-3 shrink-0 z-20">
         <div className="flex items-center gap-3">
-          <div className="flex items-center gap-1.5 text-blue-400">
+          <div className="flex items-center gap-1.5 text-accent-primary">
             <Zap size={14} className={status === 'streaming' ? 'animate-pulse' : 'opacity-50'} />
             <span className="text-[10px] font-bold uppercase tracking-widest">
               Live Desktop
             </span>
           </div>
-          <div className="h-4 w-px bg-white/5" />
-          <div className="flex items-center gap-2 text-[10px] text-zinc-600 bg-white/5 px-2 py-1 rounded border border-white/5">
-            <Monitor size={10} className="text-zinc-500" />
-            <span className="font-bold text-zinc-500 uppercase tracking-tighter">Signaling ID:</span>
-            <span className="font-mono text-zinc-400 select-all">{deviceId}</span>
+          <div className="h-4 w-px bg-border" />
+          <div className="flex items-center gap-2 text-[10px] text-text-muted bg-secondary px-2 py-1 rounded border border-border">
+            <Monitor size={10} className="text-text-muted" />
+            <span className="font-bold text-text-muted uppercase tracking-tighter">Signaling ID:</span>
+            <span className="font-mono text-text-secondary select-all">{deviceId}</span>
           </div>
         </div>
         <div className="flex items-center gap-2">
-            <div className="flex items-center gap-1.5 px-1.5 py-0.5 rounded bg-white/5 border border-white/10">
+            <div className="flex items-center gap-1.5 px-1.5 py-0.5 rounded bg-secondary border border-border">
                 <div className={cn(
                     "w-1.5 h-1.5 rounded-full animate-pulse",
-                    status === 'streaming' ? "bg-green-500 shadow-[0_0_5px_rgba(34,197,94,0.5)]" : 
-                    status === 'online' ? "bg-blue-400" : "bg-zinc-600"
+                    status === 'streaming' ? "bg-emerald-500 shadow-[0_0_5px_rgba(16,185,129,0.5)]" : 
+                    status === 'online' ? "bg-accent-primary" : "bg-text-muted"
                 )} />
-                <span className="text-[8px] font-bold text-zinc-500 uppercase tracking-tight">{status}</span>
+                <span className="text-[8px] font-bold text-text-muted uppercase tracking-tight">{status}</span>
             </div>
             {status === 'online' && !screen && (
                 <button 
                     onClick={startStream}
-                    className="px-2 py-1 bg-blue-500/10 border border-blue-500/20 rounded text-[9px] font-bold text-blue-400 hover:bg-blue-500/20 transition-all uppercase"
+                    className="px-2 py-1 bg-accent-primary/10 border border-accent-primary/20 rounded text-[9px] font-bold text-accent-primary hover:bg-accent-primary/20 transition-all uppercase"
                 >
                     Wake
                 </button>
             )}
             <button 
               onClick={() => window.open(`/remote/${deviceId}`, '_blank')}
-              className="p-1.5 hover:bg-white/5 rounded text-zinc-500 hover:text-white transition-colors"
+              className="p-1.5 hover:bg-card-hover rounded text-text-muted hover:text-foreground transition-colors"
               title="Open in new window"
             >
                 <Maximize2 size={14} />

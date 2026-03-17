@@ -552,8 +552,8 @@ class ChatWindow {
                     this.settings = settings;
                     this.autoSendEnabled = settings.autoSendAfterWakeWord || false;
 
-                    if (settings.userDetails && settings.userDetails.name) {
-                        this.userName = settings.userDetails.name;
+                    if (settings.userDetails) {
+                        this.userName = settings.userDetails.firstName || settings.userDetails.name;
                     }
 
                     // Update UI components that rely on settings
@@ -582,8 +582,8 @@ class ChatWindow {
                     if (this.settings) {
                         this.settings.userDetails = userData;
                     }
-                    if (userData && userData.name) {
-                        this.userName = userData.name;
+                    if (userData) {
+                        this.userName = userData.firstName || userData.name;
                     }
                     this.updateRateLimitDisplay();
                 });

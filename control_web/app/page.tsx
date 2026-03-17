@@ -1,283 +1,297 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
+import { motion, useScroll, useTransform, AnimatePresence } from 'framer-motion';
 import { useAuthStore } from '@/lib/store';
-import { Monitor, Shield, Globe, Cpu, Zap, ArrowRight, Command, Sparkles, ChevronRight } from 'lucide-react';
+import { 
+  Monitor, Shield, Globe, Cpu, Zap, ArrowRight, 
+  Command, Sparkles, ChevronRight, Lock, 
+  Layers, Database, Terminal, Smartphone
+} from 'lucide-react';
+import { clsx, type ClassValue } from 'clsx';
+import { twMerge } from 'tailwind-merge';
 
-const ROTATING_WORDS = ['Your Computer', 'Virtual Machines', 'Remote Teams', 'Everything'];
+function cn(...inputs: ClassValue[]) {
+  return twMerge(clsx(inputs));
+}
+
+const ROTATING_WORDS = ['Infrastructure', 'Virtual Nodes', 'Remote Bridges', 'Hyper-loops'];
 
 export default function LandingPage() {
   const { user } = useAuthStore();
   const [wordIndex, setWordIndex] = useState(0);
-  const [isVisible, setIsVisible] = useState(false);
-  const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
+  const containerRef = useRef<HTMLDivElement>(null);
+  const { scrollYProgress } = useScroll({
+    target: containerRef,
+    offset: ["start start", "end end"]
+  });
+
+  const opacity = useTransform(scrollYProgress, [0, 0.2], [1, 0]);
+  const scale = useTransform(scrollYProgress, [0, 0.2], [1, 0.95]);
 
   useEffect(() => {
-    setIsVisible(true);
     const interval = setInterval(() => {
       setWordIndex((prev) => (prev + 1) % ROTATING_WORDS.length);
-    }, 2500);
+    }, 3000);
     return () => clearInterval(interval);
   }, []);
 
-  const handleMouseMove = (e: React.MouseEvent) => {
-    setMousePos({ x: e.clientX, y: e.clientY });
-  };
-
   return (
-    <div className="min-h-screen bg-black text-white" onMouseMove={handleMouseMove}>
-      {/* Ambient Background */}
-      <div className="fixed inset-0 pointer-events-none overflow-hidden">
-        <div
-          className="absolute w-[800px] h-[800px] rounded-full opacity-[0.03]"
-          style={{
-            background: 'radial-gradient(circle, #3b82f6, transparent 70%)',
-            left: mousePos.x - 400,
-            top: mousePos.y - 400,
-            transition: 'left 0.5s ease-out, top 0.5s ease-out',
-          }}
+    <div ref={containerRef} className="min-h-screen bg-[#020202] text-white selection:bg-white selection:text-black overflow-x-hidden font-sans">
+      {/* Dynamic Background Noise/Glows */}
+      <div className="fixed inset-0 pointer-events-none overflow-hidden z-0">
+        <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] rounded-full bg-blue-600/10 blur-[120px] animate-pulse" />
+        <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] rounded-full bg-purple-600/10 blur-[120px] animate-pulse" style={{ animationDelay: '2s' }} />
+        <div 
+          className="absolute inset-0 opacity-[0.03]"
+          style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3 baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E")` }}
         />
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[600px] rounded-full bg-blue-500/5 blur-[120px]" />
-        <div className="absolute bottom-0 right-0 w-[400px] h-[400px] rounded-full bg-purple-500/5 blur-[100px]" />
+        <div className="absolute inset-0 bg-gradient-to-b from-transparent via-black/50 to-black" />
       </div>
 
       {/* Navigation */}
-      <nav className="relative z-50 border-b border-white/5">
-        <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 bg-white rounded-lg flex items-center justify-center">
-              <Command className="text-black w-4 h-4" />
+      <motion.nav 
+        initial={{ y: -20, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        className="fixed top-0 inset-x-0 z-[100] border-b border-white/5 backdrop-blur-2xl bg-black/40"
+      >
+        <div className="max-w-7xl mx-auto px-6 h-14 md:h-16 flex items-center justify-between">
+          <div className="flex items-center gap-4 group cursor-pointer">
+            <div className="w-8 h-8 md:w-9 md:h-9 border-2 border-white rounded-xl flex items-center justify-center transition-transform group-hover:scale-110 duration-500">
+              <Command className="text-white w-4 h-4 md:w-5 md:h-5" strokeWidth={3} />
             </div>
-            <span className="text-lg font-bold tracking-tight">CONTROL <span className="text-zinc-500">WEB</span></span>
+            <span className="text-lg md:text-xl font-black tracking-tighter">CONTROL <span className="text-zinc-500 font-medium">WEB</span></span>
           </div>
-          <div className="hidden md:flex items-center gap-8 text-sm text-zinc-400">
-            <a href="#features" className="hover:text-white transition-colors">Features</a>
-            <a href="#stats" className="hover:text-white transition-colors">Performance</a>
-            <a href="#cta" className="hover:text-white transition-colors">Get Started</a>
-          </div>
-          {user ? (
-            <Link
-              href="/dashboard"
-              className="flex items-center gap-2 px-4 py-2 bg-white/5 border border-white/10 rounded-lg text-sm font-medium hover:bg-white/10 transition-all"
-            >
-              Dashboard
-              <ArrowRight size={14} />
-            </Link>
-          ) : (
-            <Link
-              href="/auth/login"
-              className="flex items-center gap-2 px-4 py-2 bg-white text-black rounded-lg text-sm font-bold hover:bg-zinc-200 transition-all"
-            >
-              Sign In
-              <ArrowRight size={14} />
-            </Link>
-          )}
-        </div>
-      </nav>
-
-      {/* Hero Section */}
-      <section className="relative z-10 max-w-7xl mx-auto px-6 pt-24 pb-32">
-        <div className={`text-center transition-all duration-1000 ${isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
-          {/* Badge */}
-          <div className="inline-flex items-center gap-2 px-4 py-1.5 mb-8 text-xs font-medium tracking-wide uppercase bg-white/5 border border-white/10 rounded-full text-zinc-400">
-            <Sparkles size={12} className="text-blue-400" />
-            AI-Powered Remote Control
+          
+          <div className="hidden lg:flex items-center gap-12 text-[10px] font-black uppercase tracking-[0.3em] text-zinc-500">
+            <a href="#logic" className="hover:text-white transition-colors">Architecture</a>
+            <a href="#protocol" className="hover:text-white transition-colors">Protocol</a>
+            <a href="#vault" className="hover:text-white transition-colors">Security</a>
           </div>
 
-          {/* Headline */}
-          <h1 className="text-6xl md:text-8xl font-black tracking-tighter leading-[0.9] mb-4">
-            <span className="gradient-text-white">Control</span>
-          </h1>
-          <div className="h-20 md:h-24 flex items-center justify-center overflow-hidden mb-8">
-            <span
-              key={wordIndex}
-              className="text-4xl md:text-6xl font-black tracking-tighter gradient-text animate-fade-in-up"
-            >
-              {ROTATING_WORDS[wordIndex]}
-            </span>
-          </div>
-
-          {/* Subtitle */}
-          <p className="text-lg md:text-xl text-zinc-400 max-w-2xl mx-auto mb-12 leading-relaxed animate-fade-in-up animation-delay-200">
-            The ultimate command center for your computing resources.
-            Access local systems and virtual machines with AI-powered assistance — from anywhere.
-          </p>
-
-          {/* CTA Buttons */}
-          <div className="flex flex-col sm:flex-row gap-4 justify-center items-center animate-fade-in-up animation-delay-300">
-            <Link
-              href="/dashboard"
-              className="btn-glow px-8 py-4 text-base flex items-center gap-3 rounded-xl"
-            >
-              Get Started
-              <ArrowRight size={18} />
-            </Link>
-            <a
-              href="#features"
-              className="px-8 py-4 text-base border border-white/10 rounded-xl font-medium text-zinc-300 hover:bg-white/5 hover:border-white/20 transition-all flex items-center gap-2"
-            >
-              Learn More
-              <ChevronRight size={16} />
-            </a>
-          </div>
-        </div>
-
-        {/* Hero Visual — Dashboard Preview */}
-        <div className="mt-20 animate-fade-in-up animation-delay-500">
-          <div className="relative max-w-5xl mx-auto">
-            <div className="absolute -inset-1 bg-gradient-to-r from-blue-500/20 via-purple-500/20 to-cyan-500/20 rounded-2xl blur-xl opacity-50" />
-            <div className="relative bg-zinc-950 border border-white/10 rounded-2xl overflow-hidden shadow-2xl">
-              {/* Mock Browser Chrome */}
-              <div className="flex items-center gap-2 px-4 py-3 border-b border-white/5 bg-black/50">
-                <div className="flex gap-1.5">
-                  <div className="w-3 h-3 rounded-full bg-zinc-700" />
-                  <div className="w-3 h-3 rounded-full bg-zinc-700" />
-                  <div className="w-3 h-3 rounded-full bg-zinc-700" />
-                </div>
-                <div className="flex-1 mx-4">
-                  <div className="bg-zinc-900 rounded-md px-4 py-1.5 text-xs text-zinc-500 text-center">
-                    control-web.app/dashboard
-                  </div>
-                </div>
+          <div className="flex items-center gap-3 md:gap-4">
+            {user ? (
+              <Link
+                href="/workspace"
+                className="flex items-center gap-1.5 md:gap-2 px-4 md:px-5 py-2 bg-white text-black rounded-lg text-[9px] md:text-[10px] font-black uppercase tracking-widest hover:bg-zinc-200 transition-all shadow-xl shadow-white/10 active:scale-95"
+              >
+                <span className="hidden xs:inline">Workspace</span>
+                <span className="xs:hidden">Open</span>
+                <ArrowRight size={12} className="md:w-[14px] md:h-[14px]" />
+              </Link>
+            ) : (
+              <div className="flex items-center gap-2">
+                <Link href="/auth/login" className="hidden sm:inline px-4 py-2 text-[10px] font-black uppercase tracking-widest text-zinc-400 hover:text-white transition-all">
+                  Sign In
+                </Link>
+                <Link
+                  href="/auth/signup"
+                  className="px-4 md:px-5 py-2 bg-white text-black rounded-lg text-[9px] md:text-[10px] font-black uppercase tracking-widest hover:bg-zinc-200 transition-all shadow-xl shadow-white/10"
+                >
+                  Join
+                </Link>
               </div>
-              {/* Mock Dashboard Content */}
-              <div className="p-6 grid grid-cols-4 gap-4 h-64">
-                <div className="col-span-1 space-y-3">
-                  <div className="bg-white/5 rounded-lg p-3 border border-white/5">
-                    <div className="flex items-center gap-2 text-sm font-medium">
-                      <div className="w-2 h-2 rounded-full bg-green-500" />
-                      Ubuntu VM
-                    </div>
-                  </div>
-                  <div className="bg-white/[0.02] rounded-lg p-3 border border-white/5">
-                    <div className="flex items-center gap-2 text-xs text-zinc-500">
-                      <div className="w-2 h-2 rounded-full bg-zinc-600" />
-                      MacBook Pro
-                    </div>
-                  </div>
-                </div>
-                <div className="col-span-2 bg-zinc-900/50 rounded-xl border border-white/5 flex items-center justify-center">
-                  <div className="text-center">
-                    <Monitor size={32} className="mx-auto mb-2 text-zinc-600" />
-                    <p className="text-xs text-zinc-600">Remote Display</p>
-                  </div>
-                </div>
-                <div className="col-span-1 space-y-3">
-                  <div className="bg-white/[0.02] rounded-lg p-3 border border-white/5">
-                    <div className="text-[10px] text-zinc-600 uppercase font-bold mb-1">CPU</div>
-                    <div className="text-lg font-bold">12%</div>
-                  </div>
-                  <div className="bg-white/[0.02] rounded-lg p-3 border border-white/5">
-                    <div className="text-[10px] text-zinc-600 uppercase font-bold mb-1">Memory</div>
-                    <div className="text-lg font-bold">2.4 GB</div>
-                  </div>
-                  <div className="bg-white/[0.02] rounded-lg p-3 border border-white/5">
-                    <div className="text-[10px] text-zinc-600 uppercase font-bold mb-1">Latency</div>
-                    <div className="text-lg font-bold text-green-400">24ms</div>
-                  </div>
-                </div>
-              </div>
-            </div>
+            )}
           </div>
         </div>
-      </section>
+      </motion.nav>
 
-      {/* Features */}
-      <section id="features" className="relative z-10 py-32 border-t border-white/5">
-        <div className="max-w-7xl mx-auto px-6">
-          <div className="text-center mb-16">
-            <h2 className="text-4xl md:text-5xl font-bold tracking-tight mb-4 gradient-text-white">
-              Everything you need
-            </h2>
-            <p className="text-zinc-500 text-lg max-w-xl mx-auto">
-              Powerful tools for remote management, built for professionals.
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            <FeatureCard
-              icon={<Monitor />}
-              title="Remote Dashboard"
-              description="View and control your connected systems in real-time through high-performance WebRTC streaming."
-              gradient="from-blue-500/20 to-cyan-500/20"
-            />
-            <FeatureCard
-              icon={<Shield />}
-              title="Secure Pairing"
-              description="End-to-end encrypted connections between your local desktop app and the cloud dashboard."
-              gradient="from-purple-500/20 to-pink-500/20"
-            />
-            <FeatureCard
-              icon={<Globe />}
-              title="VM Management"
-              description="Spin up cloud virtual machines on demand for isolated testing and automation tasks."
-              gradient="from-green-500/20 to-emerald-500/20"
-            />
-            <FeatureCard
-              icon={<Cpu />}
-              title="AI Task Execution"
-              description="Instruct AI to handle tasks on remote machines — from file management to running scripts."
-              gradient="from-orange-500/20 to-amber-500/20"
-            />
-            <FeatureCard
-              icon={<Zap />}
-              title="Low Latency"
-              description="Optimized for sub-30ms response times with adaptive bitrate streaming and edge servers."
-              gradient="from-yellow-500/20 to-orange-500/20"
-            />
-            <FeatureCard
-              icon={<Sparkles />}
-              title="Smart Automation"
-              description="Build custom workflows that chain multiple AI actions across your fleet of machines."
-              gradient="from-indigo-500/20 to-violet-500/20"
-            />
-          </div>
-        </div>
-      </section>
-
-      {/* Stats */}
-      <section id="stats" className="relative z-10 py-24 border-t border-white/5">
-        <div className="max-w-7xl mx-auto px-6">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
-            <StatBlock value="99.9%" label="Uptime SLA" />
-            <StatBlock value="<30ms" label="Avg Latency" />
-            <StatBlock value="256-bit" label="Encryption" />
-            <StatBlock value="24/7" label="Monitoring" />
-          </div>
-        </div>
-      </section>
-
-      {/* CTA */}
-      <section id="cta" className="relative z-10 py-32 border-t border-white/5">
-        <div className="max-w-3xl mx-auto px-6 text-center">
-          <h2 className="text-4xl md:text-5xl font-bold tracking-tight mb-6 gradient-text-white">
-            Ready to take control?
-          </h2>
-          <p className="text-zinc-400 text-lg mb-10 max-w-xl mx-auto">
-            Set up your first remote session in under two minutes. No credit card required.
-          </p>
-          <Link
-            href="/dashboard"
-            className="btn-glow inline-flex items-center gap-3 px-10 py-5 text-lg rounded-2xl"
+      <main className="relative z-10 pt-32 md:pt-48">
+        {/* Hero Section */}
+        <section className="max-w-7xl mx-auto px-6 pb-32">
+          <motion.div 
+            style={{ opacity, scale }}
+            className="flex flex-col items-center text-center"
           >
-            Open Dashboard
-            <ArrowRight size={20} />
-          </Link>
-        </div>
-      </section>
+            {/* Alpha Badge */}
+            <motion.div 
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              transition={{ delay: 0.2 }}
+              className="inline-flex items-center gap-3 px-4 py-2 mb-12 text-[9px] font-black tracking-[0.4em] uppercase bg-white/5 border border-white/10 rounded-full text-zinc-400 backdrop-blur-sm"
+            >
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-500"></span>
+              </span>
+              Neural Signal: Connected
+            </motion.div>
+
+            <h1 className="text-[14vw] md:text-[10vw] font-black tracking-tighter leading-[0.8] mb-8 text-white">
+              CONTROL
+            </h1>
+
+            <div className="h-20 md:h-28 flex items-center justify-center overflow-hidden mb-12">
+              <AnimatePresence mode="wait">
+                <motion.span
+                  key={wordIndex}
+                  initial={{ y: 40, opacity: 0 }}
+                  animate={{ y: 0, opacity: 1 }}
+                  exit={{ y: -40, opacity: 0 }}
+                  transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
+                  className="text-3xl md:text-6xl font-black tracking-tighter uppercase text-transparent bg-clip-text bg-gradient-to-b from-white to-zinc-600"
+                >
+                  {ROTATING_WORDS[wordIndex]}
+                </motion.span>
+              </AnimatePresence>
+            </div>
+
+            <p className="text-base md:text-xl text-zinc-500 max-w-2xl mx-auto mb-16 font-medium leading-relaxed">
+              Orchestrate autonomous agent logic across distributed virtual environments. 
+              The most advanced command layer for LLM-driven remote system operations.
+            </p>
+
+            <div className="flex flex-col sm:flex-row gap-6">
+              <Link
+                href={user ? "/workspace" : "/auth/signup"}
+                className="group relative px-10 py-5 bg-white text-black rounded-2xl text-xs font-black uppercase tracking-[0.2em] transition-all hover:bg-zinc-200 shadow-[0_0_40px_-10px_rgba(255,255,255,0.3)] active:scale-95 flex items-center gap-4"
+              >
+                Launch Protocol
+                <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
+              </Link>
+              <Link
+                href="/pricing"
+                className="px-10 py-5 border border-white/10 rounded-2xl text-xs font-black uppercase tracking-[0.2em] text-white hover:bg-white/5 transition-all active:scale-95 flex items-center gap-4"
+              >
+                View Plans
+              </Link>
+            </div>
+          </motion.div>
+
+          <motion.div 
+            initial={{ y: 60, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            transition={{ delay: 0.6, duration: 1 }}
+            className="mt-32 relative group"
+          >
+            <div className="absolute -inset-0.5 bg-gradient-to-r from-blue-500 to-purple-600 rounded-[32px] blur opacity-20 group-hover:opacity-40 transition-opacity duration-1000" />
+            <div className="relative aspect-video rounded-[32px] bg-zinc-950 border border-white/5 overflow-hidden shadow-2xl">
+              <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent z-10" />
+              <img 
+                src="https://images.unsplash.com/photo-1550751827-4bd374c3f58b?auto=format&fit=crop&q=80&w=2070" 
+                className="w-full h-full object-cover opacity-50 grayscale hover:grayscale-0 transition-all duration-1000"
+                alt="Command Interface"
+              />
+              <div className="absolute inset-x-0 bottom-0 p-8 md:p-12 z-20">
+                <div className="flex items-center gap-6">
+                  <div className="w-16 h-16 rounded-2xl bg-white/5 backdrop-blur-xl border border-white/10 flex items-center justify-center">
+                    <Zap className="text-white" size={32} />
+                  </div>
+                  <div>
+                    <h3 className="text-2xl font-black tracking-tight mb-2">Zero-latency Execution</h3>
+                    <p className="text-zinc-500 text-sm font-medium">Native VNC bridge with integrated AI agent signaling.</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </motion.div>
+        </section>
+
+        {/* Bento Grid Features */}
+        <section id="logic" className="max-w-7xl mx-auto px-6 py-32 border-t border-white/5">
+          <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
+            <BentoCard 
+              className="md:col-span-8 md:h-[400px]"
+              icon={<Layers className="text-blue-500" />}
+              title="Hyper-layered Virtualization"
+              desc="Instant-on Linux containers optimized for agentic workflows. Deploy, execute, and destroy in milliseconds."
+              bg="bg-gradient-to-br from-blue-500/10 to-transparent"
+            />
+            <BentoCard 
+              className="md:col-span-4 md:h-[400px]"
+              icon={<Shield className="text-purple-500" />}
+              title="Secure Vault"
+              desc="Encrypted credential management. Feed logins to agents without exposing them."
+              bg="bg-gradient-to-br from-purple-500/10 to-transparent"
+            />
+            <BentoCard 
+              className="md:col-span-4 md:h-[350px]"
+              icon={<Smartphone className="text-emerald-500" />}
+              title="Remote Bridge"
+              desc="Connect physical devices to your cloud agent logic."
+              bg="bg-gradient-to-br from-emerald-500/10 to-transparent"
+            />
+            <BentoCard 
+              className="md:col-span-8 md:h-[350px]"
+              icon={<Terminal className="text-zinc-400" />}
+              title="Unified Signal Protocol"
+              desc="A single interface to rule every node. Shared memory, global clipboard, and low-level system access across all deployments."
+              bg="bg-gradient-to-br from-zinc-500/5 to-transparent"
+            />
+          </div>
+        </section>
+
+        {/* Technical Specification Section */}
+        <section id="protocol" className="max-w-7xl mx-auto px-6 py-32 bg-zinc-950/30 rounded-[64px] border border-white/5 mb-32 relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-blue-600/5 blur-[120px] rounded-full -translate-y-1/2 translate-x-1/2" />
+          
+          <div className="grid lg:grid-cols-2 gap-20 items-center">
+            <div>
+              <div className="inline-flex items-center gap-3 px-4 py-2 mb-8 text-[9px] font-black tracking-[0.4em] uppercase bg-white/5 border border-white/10 rounded-full text-zinc-400">
+                Advanced Protocol Specs
+              </div>
+              <h2 className="text-4xl md:text-6xl font-black tracking-tighter leading-[0.9] mb-8 text-white">
+                THE NEXT LAYER OF <br/> <span className="text-zinc-600">AGENTIC COMPUTE.</span>
+              </h2>
+              <div className="space-y-8">
+                <SpecItem icon={<Zap size={18}/>} title="32ms Latency" desc="Proprietary signaling protocol designed for zero-lag agent interactions." />
+                <SpecItem icon={<Lock size={18}/>} title="E2E Isolation" desc="Each session exists in a hardened sandbox with temporary storage." />
+                <SpecItem icon={<Database size={18}/>} title="Native Integration" desc="Works seamlessly with Gemini, GPT-4, and Claude via our agent SDK." />
+              </div>
+            </div>
+            <div className="bg-black/40 border border-white/5 p-1 rounded-[40px] shadow-2xl">
+              <div className="bg-zinc-900/50 rounded-[36px] p-8 aspect-square flex flex-col justify-center gap-10">
+                <div className="w-full h-px bg-gradient-to-r from-transparent via-white/20 to-transparent" />
+                <div className="flex justify-around items-end gap-4 h-48">
+                   {[40, 70, 45, 90, 60, 80, 55].map((h, i) => (
+                     <motion.div 
+                        initial={{ height: 0 }}
+                        whileInView={{ height: `${h}%` }}
+                        key={i} 
+                        className="w-8 md:w-12 bg-white/10 border border-white/20 rounded-t-xl hover:bg-white transition-all cursor-pointer" 
+                     />
+                   ))}
+                </div>
+                <div className="text-center">
+                  <p className="text-[10px] font-black text-zinc-600 uppercase tracking-[0.4em]">Signal Throughput Optimization</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+      </main>
 
       {/* Footer */}
-      <footer className="relative z-10 border-t border-white/5 py-12">
-        <div className="max-w-7xl mx-auto px-6 flex flex-col md:flex-row items-center justify-between gap-4">
-          <div className="flex items-center gap-2 text-zinc-500 text-sm">
-            <Command size={14} />
-            <span>&copy; {new Date().getFullYear()} Control AI. All rights reserved.</span>
+      <footer className="border-t border-white/5 py-32 bg-zinc-950/20">
+        <div className="max-w-7xl mx-auto px-6">
+          <div className="flex flex-col md:flex-row justify-between items-start gap-16 mb-32">
+            <div className="max-w-xs">
+              <div className="flex items-center gap-3 mb-8">
+                 <Command size={24} />
+                 <span className="text-2xl font-black tracking-tighter">CONTROL</span>
+              </div>
+              <p className="text-zinc-600 text-sm font-medium leading-relaxed">
+                Empowering the next generation of autonomous digital intelligence through robust, localized compute.
+              </p>
+            </div>
+            
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-12 md:gap-24">
+              <FooterColumn title="Protocol" links={['Architecture', 'Signals', 'Security', 'Pricing']} />
+              <FooterColumn title="Company" links={['About', 'Ventures', 'Careers', 'Contact']} />
+              <FooterColumn title="Social" links={['X / Twitter', 'GitHub', 'Discord']} />
+            </div>
           </div>
-          <div className="flex gap-6 text-xs text-zinc-600">
-            <a href="#" className="hover:text-zinc-400 transition-colors">Privacy</a>
-            <a href="#" className="hover:text-zinc-400 transition-colors">Terms</a>
-            <a href="#" className="hover:text-zinc-400 transition-colors">Documentation</a>
+          
+          <div className="flex flex-col md:flex-row justify-between items-center py-10 border-t border-white/5 gap-6">
+            <p className="text-[10px] font-black text-zinc-700 uppercase tracking-widest">© 2026 Advanced Agentic Coding Inc. — All Signal Reserved.</p>
+            <div className="flex items-center gap-8">
+               <div className="flex items-center gap-2">
+                 <div className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.5)]" />
+                 <span className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">Network Operational</span>
+               </div>
+               <span className="text-zinc-800 text-[10px] font-black">SATELLITE BRIDGE V4.2</span>
+            </div>
           </div>
         </div>
       </footer>
@@ -285,26 +299,57 @@ export default function LandingPage() {
   );
 }
 
-function FeatureCard({ icon, title, description, gradient }: { icon: React.ReactNode; title: string; description: string; gradient: string }) {
+function BentoCard({ title, desc, icon, className, bg }: any) {
   return (
-    <div className="glass-card p-6 group relative overflow-hidden">
-      <div className={`absolute inset-0 bg-gradient-to-br ${gradient} opacity-0 group-hover:opacity-100 transition-opacity duration-500`} />
-      <div className="relative z-10">
-        <div className="w-12 h-12 bg-white/5 border border-white/10 rounded-xl flex items-center justify-center mb-4 group-hover:border-white/20 transition-colors">
-          {React.cloneElement(icon as React.ReactElement, { size: 22, className: 'text-zinc-400 group-hover:text-white transition-colors' })}
+    <motion.div 
+      whileHover={{ y: -5 }}
+      className={cn(
+        "p-10 rounded-[40px] border border-white/5 bg-zinc-950/40 backdrop-blur-3xl overflow-hidden relative group transition-all duration-500",
+        className
+      )}
+    >
+      <div className={cn("absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-1000", bg)} />
+      <div className="relative z-10 flex flex-col h-full">
+        <div className="w-14 h-14 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center mb-10 group-hover:scale-110 group-hover:bg-white/10 transition-all duration-500 shadow-2xl">
+          {icon}
         </div>
-        <h3 className="text-lg font-bold mb-2">{title}</h3>
-        <p className="text-sm text-zinc-500 leading-relaxed group-hover:text-zinc-400 transition-colors">{description}</p>
+        <h3 className="text-2xl font-black tracking-tight text-white mb-4 leading-none">{title}</h3>
+        <p className="text-zinc-500 text-sm font-medium leading-relaxed max-w-xs">{desc}</p>
+        <div className="mt-auto pt-10">
+           <div className="w-8 h-8 rounded-full border border-white/10 flex items-center justify-center text-zinc-600 group-hover:text-white group-hover:border-white/30 transition-all">
+             <ChevronRight size={16} />
+           </div>
+        </div>
+      </div>
+    </motion.div>
+  );
+}
+
+function SpecItem({ icon, title, desc }: any) {
+  return (
+    <div className="flex gap-6 group">
+      <div className="mt-1 w-12 h-12 shrink-0 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center group-hover:text-white group-hover:bg-white/10 transition-all duration-500 text-zinc-500">
+        {icon}
+      </div>
+      <div>
+        <h4 className="text-lg font-bold text-white mb-1">{title}</h4>
+        <p className="text-zinc-500 text-sm font-medium">{desc}</p>
       </div>
     </div>
   );
 }
 
-function StatBlock({ value, label }: { value: string; label: string }) {
+function FooterColumn({ title, links }: any) {
   return (
-    <div className="text-center p-6">
-      <div className="text-3xl md:text-4xl font-black tracking-tight gradient-text mb-2">{value}</div>
-      <div className="text-sm text-zinc-500 font-medium uppercase tracking-wider">{label}</div>
+    <div className="space-y-6">
+      <h4 className="text-[10px] font-black text-white uppercase tracking-[0.4em]">{title}</h4>
+      <ul className="space-y-4">
+        {links.map((l: string) => (
+          <li key={l}>
+            <a href="#" className="text-zinc-600 text-xs font-bold hover:text-white transition-colors uppercase tracking-widest">{l}</a>
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }

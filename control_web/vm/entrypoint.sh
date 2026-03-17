@@ -10,9 +10,15 @@ export DISPLAY=:1
 startxfce4 &
 sleep 5
 
-# Disable screensaver and power management (just in case)
+# Disable screensaver, power management, and locking at multiple levels
+xset s off || true
+xset -dpms || true
+xset s noblank || true
 xfconf-query -c xfce4-screensaver -p /saver/enabled -n -t bool -s false || true
+xfconf-query -c xfce4-screensaver -p /lock-screen-status -n -t bool -s false || true
 xfconf-query -c xfce4-power-manager -p /xfce4-power-manager/lock-screen-suspend-hibernate -n -t bool -s false || true
+xfconf-query -c xfce4-power-manager -p /xfce4-power-manager/power-button-action -n -t int -s 3 || true
+gsettings set org.gnome.desktop.screensaver lock-enabled false || true
 
 # Mark desktop files as trusted
 gio set /home/controluser/Desktop/firefox.desktop metadata::trusted true || true

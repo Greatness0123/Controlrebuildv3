@@ -1526,7 +1526,7 @@ class ComputerUseAgent {
 
         // Add gemini model from cache
         const cachedKeys = dbService.getKeys();
-        settings.geminiModel = cachedKeys ? cachedKeys.gemini_model : (process.env.GEMINI_MODEL || "gemini-1.5-flash");
+        settings.geminiModel = cachedKeys ? cachedKeys.gemini_model : (process.env.GEMINI_MODEL || "gemini-2.5-flash");
 
         return settings;
     }

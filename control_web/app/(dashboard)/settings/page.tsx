@@ -1,115 +1,98 @@
 "use client";
 
 import { useEffect, useState, useCallback } from 'react';
-import { getSupabaseClient } from '@/lib/supabase';
 import { useAuthStore } from '@/lib/store';
-import { configApi } from '@/lib/api';
-import { 
-  User, Shield, Zap, Key, Database, Globe, 
-  ChevronRight, Save, Loader2, Sparkles, AlertTriangle, X, Command
+import { chatApi } from '@/lib/api';
+import {
+  User, Shield, Zap, Key, Database, Globe,
+  Save, Loader2, Sparkles, Command, Terminal
 } from 'lucide-react';
 
-interface Toast {
-  id: string;
-  message: string;
-}
+interface ToastItem { id: string; message: string; }
 
 export default function SettingsPage() {
   const { user } = useAuthStore();
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
-  const [toasts, setToasts] = useState<Toast[]>([]);
+  const [toasts, setToasts] = useState<ToastItem[]>([]);
 
   const showToast = useCallback((msg: string) => {
     const id = Date.now().toString();
-    setToasts((prev) => [...prev, { id, message: msg }]);
-    setTimeout(() => {
-      setToasts((prev) => prev.filter((t) => t.id !== id));
-    }, 3000);
+    setToasts(prev => [...prev, { id, message: msg }]);
+    setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), 3000);
   }, []);
-  
+
   const [settings, setSettings] = useState({
+    // Provider
+    provider: 'gemini',
     geminiModel: 'gemini-2.5-flash',
-    theme: 'dark',
-    agentConfirmActions: true,
-    remotePairingCode: '',
+    geminiApiKey: '',
+    openaiApiKey: '',
+    openaiModel: 'gpt-4o',
+    anthropicApiKey: '',
+    anthropicModel: 'claude-3-5-sonnet-20241022',
+    openrouterApiKey: '',
+    openrouterModel: 'anthropic/claude-3.5-sonnet',
+    xaiApiKey: '',
+    xaiModel: 'grok-2-vision-1212',
+    ollamaModel: 'llava',
+    // Terminal permission
+    terminalPermission: 'ask',
+    // Hotkeys
     hotkeyStop: 'ESCAPE',
     hotkeyScreenshot: 'CTRL + S',
     hotkeyTerminal: 'ALT + T',
-    customApiKey: '',
   });
 
+  // Load config
   useEffect(() => {
-    const loadConfig = async () => {
+    const load = async () => {
       try {
-        const res = await configApi.get('api_keys');
-        if (res.value) {
+        const [provRes, termRes] = await Promise.all([
+          chatApi.getProviderConfig().catch(() => ({ config: {} })),
+          chatApi.getTerminalPermission().catch(() => ({ permission: 'ask' })),
+        ]);
+        if (provRes.config) {
           setSettings(prev => ({
             ...prev,
-            geminiModel: res.value.gemini_model || 'gemini-2.5-flash',
-            customApiKey: res.value.custom_key || '',
+            provider: provRes.config.provider || 'gemini',
+            geminiModel: provRes.config.gemini_model || 'gemini-2.5-flash',
+            geminiApiKey: provRes.config.gemini_api_key || '',
+            openaiApiKey: provRes.config.openai_api_key || '',
+            openaiModel: provRes.config.openai_model || 'gpt-4o',
+            anthropicApiKey: provRes.config.anthropic_api_key || '',
+            anthropicModel: provRes.config.anthropic_model || 'claude-3-5-sonnet-20241022',
+            openrouterApiKey: provRes.config.openrouter_api_key || '',
+            openrouterModel: provRes.config.openrouter_model || 'anthropic/claude-3.5-sonnet',
+            xaiApiKey: provRes.config.xai_api_key || '',
+            xaiModel: provRes.config.xai_model || 'grok-2-vision-1212',
+            ollamaModel: provRes.config.ollama_model || 'llava',
+            terminalPermission: termRes.permission || 'ask',
           }));
         }
-      } catch (err) {
-        console.error('Failed to load AI config:', err);
-      }
+      } catch (e) { console.error(e); }
     };
-    loadConfig();
+    load();
   }, []);
-
-  const [recordingKey, setRecordingKey] = useState<{ id: keyof typeof settings, label: string } | null>(null);
-  const [currentKeys, setCurrentKeys] = useState('');
-
-  const openHotkeyModal = (id: keyof typeof settings) => {
-    const labelMapping: any = {
-      hotkeyStop: 'Stop AI Agent',
-      hotkeyScreenshot: 'Capture Screenshot',
-      hotkeyTerminal: 'Toggle Terminal'
-    };
-    setRecordingKey({ id, label: labelMapping[id] });
-    setCurrentKeys('');
-  };
-
-  useEffect(() => {
-    if (!recordingKey) return;
-
-    const handleKeyDown = (e: KeyboardEvent) => {
-      e.preventDefault();
-      const keys = [];
-      if (e.ctrlKey) keys.push('CTRL');
-      if (e.shiftKey) keys.push('SHIFT');
-      if (e.altKey) keys.push('ALT');
-      if (e.metaKey) keys.push('CMD');
-      
-      const keyName = e.key.toUpperCase();
-      if (!['CONTROL', 'SHIFT', 'ALT', 'META'].includes(keyName)) {
-        keys.push(keyName);
-      }
-      
-      setCurrentKeys(keys.join(' + '));
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [recordingKey]);
-
-  const saveHotkey = () => {
-    if (recordingKey && currentKeys) {
-      setSettings({ ...settings, [recordingKey.id]: currentKeys });
-      showToast(`Hotkey for ${recordingKey.label} updated`);
-      setRecordingKey(null);
-    }
-  };
 
   const handleSave = async () => {
     setLoading(true);
     try {
-      await configApi.set('api_keys', {
+      await chatApi.saveProviderConfig({
+        provider: settings.provider,
         gemini_model: settings.geminiModel,
-        custom_key: settings.customApiKey,
-        updated_at: new Date().toISOString(),
+        gemini_api_key: settings.geminiApiKey || undefined,
+        openai_api_key: settings.openaiApiKey || undefined,
+        openai_model: settings.openaiModel,
+        anthropic_api_key: settings.anthropicApiKey || undefined,
+        anthropic_model: settings.anthropicModel,
+        openrouter_api_key: settings.openrouterApiKey || undefined,
+        openrouter_model: settings.openrouterModel,
+        xai_api_key: settings.xaiApiKey || undefined,
+        xai_model: settings.xaiModel,
+        ollama_model: settings.ollamaModel,
       });
-      
+      await chatApi.setTerminalPermission(settings.terminalPermission);
       setSuccess(true);
       showToast('Settings saved successfully');
       setTimeout(() => setSuccess(false), 3000);
@@ -120,264 +103,300 @@ export default function SettingsPage() {
     }
   };
 
+  const set = (key: string, val: any) => setSettings(prev => ({ ...prev, [key]: val }));
+
+  const PROVIDERS = [
+    { id: 'gemini', name: 'Gemini', sub: 'Google' },
+    { id: 'openai', name: 'OpenAI', sub: 'GPT-4o' },
+    { id: 'anthropic', name: 'Claude', sub: 'Anthropic' },
+    { id: 'openrouter', name: 'Router', sub: 'OpenRouter' },
+    { id: 'xai', name: 'Grok', sub: 'xAI' },
+    { id: 'ollama', name: 'Local', sub: 'Ollama' },
+  ];
+
   return (
     <div className="flex-1 flex flex-col min-h-0 bg-black">
       {/* Header */}
       <header className="h-16 flex items-center justify-between px-8 border-b border-white/5 shrink-0">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-orange-500/10 rounded-xl flex items-center justify-center border border-orange-500/20">
-            <Zap size={20} className="text-orange-400" />
+          <div className="w-10 h-10 rounded-xl border border-white/10 flex items-center justify-center">
+            <Zap size={18} className="text-zinc-400" />
           </div>
           <div>
-            <h1 className="text-lg font-bold tracking-tight">Settings</h1>
-            <p className="text-[11px] text-zinc-500 font-medium">Configure your AI providers and account</p>
+            <h1 className="text-sm font-black tracking-tight">Settings</h1>
+            <p className="text-[10px] text-zinc-500 font-medium uppercase tracking-widest">Configure your environment</p>
           </div>
         </div>
         <button
           onClick={handleSave}
           disabled={loading}
-          className="flex items-center gap-2 px-6 py-2.5 bg-white text-black rounded-xl text-xs font-bold hover:bg-zinc-200 transition-all disabled:opacity-50"
+          className="flex items-center gap-2 px-5 py-2.5 bg-white text-black rounded-xl text-xs font-black hover:bg-zinc-200 transition-all disabled:opacity-50"
         >
-          {loading ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
+          {loading ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
           Save Changes
         </button>
       </header>
 
-      <div className="flex-1 overflow-y-auto p-8 flex flex-col items-center">
-        <div className="max-w-2xl w-full space-y-10">
-          
+      <div className="flex-1 overflow-y-auto p-6 sm:p-8">
+        <div className="max-w-2xl mx-auto space-y-10">
+
           {success && (
-            <div className="p-3 bg-green-500/10 border border-green-500/20 rounded-xl text-green-400 text-[11px] font-bold text-center uppercase tracking-widest animate-in fade-in slide-in-from-top-2">
-              Settings saved successfully
+            <div className="p-3 bg-green-500/10 border border-green-500/20 rounded-xl text-green-400 text-[10px] font-black text-center uppercase tracking-widest animate-in fade-in slide-in-from-top-2">
+              ✓ Settings saved successfully
             </div>
           )}
 
-          {/* Profile Section */}
-          <section className="space-y-4">
-            <div className="flex items-center gap-2 px-1">
-              <User size={14} className="text-zinc-500" />
-              <h2 className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest">Account Profile</h2>
-            </div>
-            <div className="glass-card p-6 space-y-6">
-              <div className="flex items-center gap-4">
-                <div className="w-16 h-16 rounded-2xl bg-white flex items-center justify-center text-black text-2xl font-bold">
-                  {user?.user_metadata?.name?.[0]?.toUpperCase() || 'U'}
-                </div>
-                <div>
-                  <h3 className="text-base font-bold text-white">
-                    {user?.user_metadata?.first_name 
-                      ? `${user.user_metadata.first_name}${user.user_metadata.last_name ? ' ' + user.user_metadata.last_name : ''}`
-                      : (user?.user_metadata?.name || 'User')}
-                  </h3>
-                  <p className="text-xs text-zinc-500">{user?.email}</p>
-                  <div className="inline-flex items-center gap-2 px-2 py-0.5 bg-zinc-900 border border-white/5 rounded-full text-[9px] font-bold text-zinc-500 uppercase tracking-widest mt-2">
-                    {user?.user_metadata?.plan || 'Free'} Plan
-                  </div>
-                </div>
+          {/* ── Profile ── */}
+          <Section icon={<User size={13} />} title="Account Profile">
+            <div className="glass-card p-6 flex items-center gap-5">
+              <div className="w-14 h-14 rounded-2xl border-2 border-white/10 flex items-center justify-center text-xl font-black text-white bg-zinc-900 shrink-0">
+                {user?.user_metadata?.name?.[0]?.toUpperCase() || user?.email?.[0]?.toUpperCase() || 'U'}
               </div>
-            </div>
-          </section>
-
-          {/* AI Configuration */}
-          <section className="space-y-4">
-            <div className="flex items-center gap-2 px-1">
-              <Sparkles size={14} className="text-zinc-500" />
-              <h2 className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest">AI Agent Configuration</h2>
-            </div>
-            <div className="glass-card p-6 space-y-6">
-              <div>
-                <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest block mb-2 px-1">Default Model</label>
-                <select 
-                  value={settings.geminiModel}
-                  onChange={(e) => setSettings({...settings, geminiModel: e.target.value})}
-                  className="w-full bg-white/[0.03] border border-white/10 rounded-xl py-3 px-4 text-sm text-white focus:outline-none focus:border-white/20 transition-all appearance-none cursor-pointer"
-                >
-                  <option value="gemini-2.5-flash">Gemini 2.5 Flash (Latest & Fastest)</option>
-                  <option value="gemini-2.0-flash">Gemini 2.0 Flash (Stable)</option>
-                  <option value="gemini-1.5-pro">Gemini 1.5 Pro (Reasoning & Complex Tasks)</option>
-                  <option value="claude-3-5-sonnet">Claude 3.5 Sonnet</option>
-                  <option value="gpt-4o">GPT-4o</option>
-                  <option value="moonshot-v1">Moonshot V1</option>
-                  <option value="azure-foundry">Azure Foundry (Enterprise)</option>
-                  <option value="nvidia-nim">NVIDIA NIM</option>
-                  <option value="openrouter">OpenRouter (Any Model)</option>
-                </select>
-              </div>
-
-              <div className="flex items-center justify-between py-2">
-                <div>
-                  <h4 className="text-sm font-bold text-white">Require confirmation</h4>
-                  <p className="text-[11px] text-zinc-600">AI will ask before clicking or typing on your machine</p>
-                </div>
-                <button 
-                  onClick={() => setSettings({...settings, agentConfirmActions: !settings.agentConfirmActions})}
-                  className={`w-10 h-6 rounded-full transition-all relative ${settings.agentConfirmActions ? 'bg-white' : 'bg-zinc-800'}`}
-                >
-                  <div className={`absolute top-1 w-4 h-4 rounded-full transition-all ${settings.agentConfirmActions ? 'right-1 bg-black' : 'left-1 bg-zinc-600'}`} />
-                </button>
-              </div>
-            </div>
-          </section>
-
-          {/* Security & API Keys */}
-          <section className="space-y-4">
-            <div className="flex items-center gap-2 px-1">
-              <Key size={14} className="text-zinc-500" />
-              <h2 className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest">API & Security</h2>
-            </div>
-            <div className="glass-card p-6 space-y-6">
-              <div className="p-4 bg-amber-500/5 border border-amber-500/20 rounded-xl flex items-start gap-3">
-                <AlertTriangle size={18} className="text-amber-500 shrink-0 mt-0.5" />
-                <div className="text-[11px] text-amber-200/60 leading-relaxed">
-                  You are currently using shared global API keys. To ensure reliability and higher limits, 
-                  you can provide your own Gemini API key below.
-                </div>
-              </div>
-
-              <div>
-                <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest block mb-2 px-1">Custom Gemini API Key</label>
-                <div className="relative">
-                  <input
-                    type="password"
-                    value={settings.customApiKey}
-                    onChange={(e) => setSettings({...settings, customApiKey: e.target.value})}
-                    placeholder="sk-..."
-                    className="w-full bg-white/[0.03] border border-white/10 rounded-xl py-3 px-4 text-sm text-white focus:outline-none focus:border-white/20 transition-all font-mono"
-                  />
-                  <div className="absolute right-3 top-1/2 -translate-y-1/2 flex gap-2">
-                    <button className="px-3 py-1 bg-white/5 hover:bg-white/10 rounded-md text-[10px] font-bold uppercase tracking-wider text-zinc-500 transition-colors">Apply</button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </section>
-
-          {/* Infrastructure */}
-          <section className="space-y-4">
-            <div className="flex items-center gap-2 px-1">
-              <Database size={14} className="text-zinc-500" />
-              <h2 className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest">Infrastructure</h2>
-            </div>
-            <div className="glass-card p-6 space-y-4">
-              <div className="flex justify-between items-center text-sm">
-                <span className="text-zinc-500">Database Engine</span>
-                <span className="font-mono text-zinc-300">Supabase PG / {process.env.NEXT_PUBLIC_SUPABASE_URL?.split('.')[0].split('/').pop()}</span>
-              </div>
-              <div className="flex justify-between items-center text-sm">
-                <span className="text-zinc-500">Compute Provider</span>
-                <span className="font-mono text-white flex items-center gap-2">
-                  <Globe size={12} className="text-blue-500" /> Local Docker SDK
+              <div className="min-w-0">
+                <h3 className="text-sm font-bold text-white truncate">
+                  {user?.user_metadata?.first_name
+                    ? `${user.user_metadata.first_name} ${user.user_metadata.last_name || ''}`
+                    : (user?.user_metadata?.name || user?.email?.split('@')[0] || 'User')}
+                </h3>
+                <p className="text-xs text-zinc-500 truncate">{user?.email}</p>
+                <span className="inline-flex items-center px-2 py-0.5 mt-2 bg-zinc-900 border border-white/5 rounded-full text-[9px] font-black text-zinc-500 uppercase tracking-widest">
+                  {user?.user_metadata?.plan || 'Free'} Plan
                 </span>
               </div>
-              <div className="flex justify-between items-center text-sm">
-                <span className="text-zinc-500">Signaling Protocol</span>
-                <span className="font-mono text-zinc-300">WebRTC / Supabase Realtime</span>
+            </div>
+          </Section>
+
+          {/* ── AI Provider ── */}
+          <Section icon={<Sparkles size={13} />} title="AI Agent Provider">
+            <div className="glass-card p-6 space-y-6">
+              {/* Provider Grid */}
+              <div>
+                <label className="label-xs">Active Provider</label>
+                <div className="grid grid-cols-3 gap-2 mt-2">
+                  {PROVIDERS.map(p => (
+                    <button
+                      key={p.id}
+                      onClick={() => set('provider', p.id)}
+                      className={`flex flex-col items-center py-3 px-2 rounded-xl border transition-all text-center ${
+                        settings.provider === p.id
+                          ? 'bg-white text-black border-white'
+                          : 'bg-white/[0.02] border-white/10 text-zinc-500 hover:text-white hover:border-white/20'
+                      }`}
+                    >
+                      <span className="text-[11px] font-black uppercase">{p.name}</span>
+                      <span className={`text-[9px] mt-0.5 ${settings.provider === p.id ? 'text-zinc-600' : 'text-zinc-700'}`}>{p.sub}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Provider-specific fields */}
+              <div className="border-t border-white/5 pt-6 space-y-4">
+                {settings.provider === 'gemini' && (
+                  <>
+                    <FieldGroup label="Gemini Model">
+                      <select value={settings.geminiModel} onChange={e => set('geminiModel', e.target.value)} className="select-field">
+                        <option value="gemini-2.5-flash">Gemini 2.5 Flash (Fastest)</option>
+                        <option value="gemini-2.0-flash">Gemini 2.0 Flash (Stable)</option>
+                        <option value="gemini-1.5-pro">Gemini 1.5 Pro (Max Context)</option>
+                      </select>
+                    </FieldGroup>
+                    <FieldGroup label="Gemini API Key" note="Optional — uses server key if empty">
+                      <input type="password" value={settings.geminiApiKey} onChange={e => set('geminiApiKey', e.target.value)} placeholder="AIza..." className="input-field" />
+                    </FieldGroup>
+                  </>
+                )}
+
+                {settings.provider === 'openai' && (
+                  <>
+                    <FieldGroup label="OpenAI Model">
+                      <select value={settings.openaiModel} onChange={e => set('openaiModel', e.target.value)} className="select-field">
+                        <option value="gpt-4o">GPT-4o (Vision)</option>
+                        <option value="gpt-4o-mini">GPT-4o Mini</option>
+                        <option value="gpt-4-turbo">GPT-4 Turbo</option>
+                      </select>
+                    </FieldGroup>
+                    <FieldGroup label="OpenAI API Key">
+                      <input type="password" value={settings.openaiApiKey} onChange={e => set('openaiApiKey', e.target.value)} placeholder="sk-..." className="input-field" />
+                    </FieldGroup>
+                  </>
+                )}
+
+                {settings.provider === 'anthropic' && (
+                  <>
+                    <FieldGroup label="Claude Model">
+                      <select value={settings.anthropicModel} onChange={e => set('anthropicModel', e.target.value)} className="select-field">
+                        <option value="claude-3-5-sonnet-20241022">Claude 3.5 Sonnet (Vision)</option>
+                        <option value="claude-3-opus-20240229">Claude 3 Opus</option>
+                        <option value="claude-3-haiku-20240307">Claude 3 Haiku (Fast)</option>
+                      </select>
+                    </FieldGroup>
+                    <FieldGroup label="Anthropic API Key">
+                      <input type="password" value={settings.anthropicApiKey} onChange={e => set('anthropicApiKey', e.target.value)} placeholder="sk-ant-..." className="input-field" />
+                    </FieldGroup>
+                  </>
+                )}
+
+                {settings.provider === 'openrouter' && (
+                  <>
+                    <FieldGroup label="OpenRouter Model">
+                      <input type="text" value={settings.openrouterModel} onChange={e => set('openrouterModel', e.target.value)} placeholder="anthropic/claude-3.5-sonnet" className="input-field font-mono" />
+                    </FieldGroup>
+                    <FieldGroup label="OpenRouter API Key">
+                      <input type="password" value={settings.openrouterApiKey} onChange={e => set('openrouterApiKey', e.target.value)} placeholder="sk-or-..." className="input-field" />
+                    </FieldGroup>
+                  </>
+                )}
+
+                {settings.provider === 'xai' && (
+                  <>
+                    <FieldGroup label="Grok Model">
+                      <select value={settings.xaiModel} onChange={e => set('xaiModel', e.target.value)} className="select-field">
+                        <option value="grok-2-vision-1212">Grok 2 Vision</option>
+                        <option value="grok-2-1212">Grok 2</option>
+                      </select>
+                    </FieldGroup>
+                    <FieldGroup label="xAI API Key">
+                      <input type="password" value={settings.xaiApiKey} onChange={e => set('xaiApiKey', e.target.value)} placeholder="xai-..." className="input-field" />
+                    </FieldGroup>
+                  </>
+                )}
+
+                {settings.provider === 'ollama' && (
+                  <FieldGroup label="Ollama Model (local)" note="Requires Ollama running on port 11434. Use a vision-capable model.">
+                    <input type="text" value={settings.ollamaModel} onChange={e => set('ollamaModel', e.target.value)} placeholder="llava" className="input-field font-mono" />
+                  </FieldGroup>
+                )}
               </div>
             </div>
-          </section>
+          </Section>
 
-          {/* Hotkeys Section */}
-          <section className="space-y-4">
-            <div className="flex items-center gap-2 px-1">
-              <Key size={14} className="text-zinc-500" />
-              <h2 className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest">Keyboard Shortcuts</h2>
-            </div>
+          {/* ── Terminal Permissions ── */}
+          <Section icon={<Terminal size={13} />} title="Terminal Permissions">
             <div className="glass-card p-6 space-y-4">
-              <HotkeyRow 
-                label="Stop AI Agent" 
-                shortcut={settings.hotkeyStop} 
-                onEdit={() => openHotkeyModal('hotkeyStop')} 
-              />
-              <HotkeyRow 
-                label="Capture Screenshot" 
-                shortcut={settings.hotkeyScreenshot} 
-                onEdit={() => openHotkeyModal('hotkeyScreenshot')} 
-              />
-              <HotkeyRow 
-                label="Toggle Terminal" 
-                shortcut={settings.hotkeyTerminal} 
-                onEdit={() => openHotkeyModal('hotkeyTerminal')} 
-              />
+              <p className="text-[11px] text-zinc-500 leading-relaxed">
+                When the AI needs to run terminal commands on your paired remote desktop, choose how to handle permission.
+              </p>
+              <div className="grid grid-cols-3 gap-2">
+                {[
+                  { id: 'always', label: 'Always Run', desc: 'Auto-execute all commands' },
+                  { id: 'ask', label: 'Ask Each Time', desc: 'Show approval prompt' },
+                  { id: 'never', label: 'Never Run', desc: 'Block all terminal access' },
+                ].map(opt => (
+                  <button
+                    key={opt.id}
+                    onClick={() => set('terminalPermission', opt.id)}
+                    className={`flex flex-col items-start p-3 rounded-xl border transition-all text-left ${
+                      settings.terminalPermission === opt.id
+                        ? opt.id === 'never'
+                          ? 'bg-red-500/10 border-red-500/30 text-red-400'
+                          : opt.id === 'always'
+                            ? 'bg-white text-black border-white'
+                            : 'bg-white/5 border-white/20 text-white'
+                        : 'bg-white/[0.02] border-white/5 text-zinc-600 hover:text-zinc-400 hover:border-white/10'
+                    }`}
+                  >
+                    <span className="text-xs font-black">{opt.label}</span>
+                    <span className="text-[9px] mt-1 opacity-60">{opt.desc}</span>
+                  </button>
+                ))}
+              </div>
             </div>
-          </section>
+          </Section>
 
-          <footer className="text-center pt-8">
-            <p className="text-[10px] font-bold text-zinc-800 uppercase tracking-widest mb-2">Control Web v0.1.0-alpha</p>
-            <p className="text-[10px] text-zinc-500">© 2026 Antigravity Labs. All rights reserved.</p>
+          {/* ── Infrastructure ── */}
+          <Section icon={<Database size={13} />} title="Infrastructure">
+            <div className="glass-card p-6 space-y-4">
+              <InfoRow label="Database Engine" value={`Supabase / ${process.env.NEXT_PUBLIC_SUPABASE_URL?.split('.')[0].split('//')[1] || 'local'}`} />
+              <InfoRow label="Compute Provider" value="Local Docker SDK" />
+              <InfoRow label="Signaling Protocol" value="Supabase Realtime" />
+            </div>
+          </Section>
+
+          {/* ── Shortcuts ── */}
+          <Section icon={<Key size={13} />} title="Keyboard Shortcuts">
+            <div className="glass-card p-6 space-y-4">
+              <HotkeyRow label="Stop AI Agent" shortcut="ESCAPE" />
+              <HotkeyRow label="New Session" shortcut="CTRL + K" />
+              <HotkeyRow label="Toggle Monitor" shortcut="CTRL + M" />
+            </div>
+          </Section>
+
+          <footer className="text-center pb-8">
+            <p className="text-[10px] font-black text-zinc-800 uppercase tracking-widest">Control Web v0.1.0-alpha</p>
           </footer>
-
         </div>
       </div>
 
-      {/* Hotkey Recording Modal */}
-      {recordingKey && (
-        <div 
-          onClick={() => setRecordingKey(null)}
-          className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md"
-        >
-          <div 
-            onClick={(e) => e.stopPropagation()}
-            className="bg-zinc-950 border border-white/10 rounded-3xl w-full max-w-sm overflow-hidden shadow-2xl animate-fade-in-up p-8 text-center"
-          >
-            <div className="w-16 h-16 bg-white/5 rounded-2xl flex items-center justify-center mx-auto mb-6 border border-white/10">
-              <Command size={32} className="text-white animate-pulse" />
-            </div>
-            <h3 className="text-xl font-bold mb-2">Recording Hotkey</h3>
-            <p className="text-zinc-500 text-sm mb-8 leading-relaxed">
-              Press any key combination to set as shortcut for <span className="text-white font-bold">{recordingKey.label}</span>
-            </p>
-            
-            <div className="bg-white/5 border border-white/10 rounded-2xl p-6 mb-8 min-h-[80px] flex items-center justify-center">
-              <span className="text-3xl font-mono font-bold tracking-widest text-white uppercase">
-                {currentKeys || 'Waiting...'}
-              </span>
-            </div>
-
-            <div className="flex gap-3">
-              <button 
-                onClick={() => setRecordingKey(null)}
-                className="flex-1 py-3 bg-zinc-900 text-white rounded-xl text-xs font-bold hover:bg-zinc-800 transition-all"
-              >
-                Cancel
-              </button>
-              <button 
-                onClick={saveHotkey}
-                disabled={!currentKeys}
-                className="flex-1 py-3 bg-white text-black rounded-xl text-xs font-bold hover:bg-zinc-200 transition-all disabled:opacity-20"
-              >
-                Save Hotkey
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Toast Notifications */}
+      {/* Toast */}
       <div className="fixed top-20 right-6 z-[200] space-y-2">
-        {toasts.map((toast) => (
-          <div
-            key={toast.id}
-            className="toast-enter flex items-center gap-3 px-4 py-3 bg-zinc-900 border border-white/10 rounded-xl text-sm shadow-2xl backdrop-blur-xl"
-          >
-            <Zap size={16} className="text-orange-400 shrink-0" />
-            {toast.message}
+        {toasts.map(t => (
+          <div key={t.id} className="toast-enter flex items-center gap-3 px-4 py-3 bg-zinc-900 border border-white/10 rounded-xl text-sm shadow-2xl">
+            <Zap size={14} className="text-white shrink-0" />
+            {t.message}
           </div>
         ))}
       </div>
+
+      {/* Scoped styles */}
+      <style jsx>{`
+        .label-xs { font-size: 10px; font-weight: 800; color: #71717a; text-transform: uppercase; letter-spacing: 0.1em; }
+        .input-field {
+          width: 100%; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.1);
+          border-radius: 12px; padding: 10px 16px; font-size: 13px; color: #fff;
+          outline: none; transition: border 0.2s;
+        }
+        .input-field:focus { border-color: rgba(255,255,255,0.25); }
+        .select-field {
+          width: 100%; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.1);
+          border-radius: 12px; padding: 10px 16px; font-size: 13px; color: #fff;
+          outline: none; appearance: none; cursor: pointer;
+        }
+        .select-field option { background: #09090b; }
+      `}</style>
     </div>
   );
 }
 
-function HotkeyRow({ label, shortcut, onEdit }: { label: string; shortcut: string; onEdit: () => void }) {
+function Section({ icon, title, children }: { icon: React.ReactNode; title: string; children: React.ReactNode }) {
   return (
-    <div className="flex justify-between items-center group">
-      <span className="text-sm text-zinc-500 group-hover:text-zinc-300 transition-colors">{label}</span>
-      <button 
-        onClick={onEdit}
-        className="px-3 py-1.5 bg-white/5 border border-white/5 rounded-lg text-xs font-bold font-mono text-zinc-300 hover:bg-white/10 hover:text-white hover:border-white/10 transition-all uppercase tracking-widest"
-      >
+    <section className="space-y-3">
+      <div className="flex items-center gap-2 px-1">
+        <span className="text-zinc-600">{icon}</span>
+        <h2 className="text-[10px] font-black text-zinc-600 uppercase tracking-widest">{title}</h2>
+      </div>
+      {children}
+    </section>
+  );
+}
+
+function FieldGroup({ label, note, children }: { label: string; note?: string; children: React.ReactNode }) {
+  return (
+    <div>
+      <label className="block text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-2 px-1">
+        {label}{note && <span className="text-zinc-700 normal-case ml-1">— {note}</span>}
+      </label>
+      {children}
+    </div>
+  );
+}
+
+function InfoRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex justify-between items-center text-sm border-b border-white/5 pb-3 last:border-0 last:pb-0">
+      <span className="text-zinc-500 text-xs">{label}</span>
+      <span className="font-mono text-xs text-zinc-300">{value}</span>
+    </div>
+  );
+}
+
+function HotkeyRow({ label, shortcut }: { label: string; shortcut: string }) {
+  return (
+    <div className="flex justify-between items-center">
+      <span className="text-xs text-zinc-500">{label}</span>
+      <span className="px-3 py-1.5 bg-white/5 border border-white/5 rounded-lg text-[10px] font-bold font-mono text-zinc-300 uppercase tracking-widest">
         {shortcut}
-      </button>
+      </span>
     </div>
   );
 }

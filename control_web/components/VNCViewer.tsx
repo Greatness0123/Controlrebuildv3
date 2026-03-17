@@ -43,10 +43,10 @@ export default function VNCViewer({ url, status = 'stopped', className }: VNCVie
 
   if (status === 'stopped') {
     return (
-      <div className={cn("bg-zinc-900 flex flex-col items-center justify-center text-zinc-600 gap-4", className)}>
-        <MonitorOff size={48} className="text-zinc-800" />
+      <div className={cn("bg-card flex flex-col items-center justify-center text-text-muted gap-4", className)}>
+        <MonitorOff size={48} className="text-secondary" />
         <div className="text-center">
-          <h3 className="font-bold text-sm text-zinc-400">Machine is offline</h3>
+          <h3 className="font-bold text-sm text-text-muted">Machine is offline</h3>
           <p className="text-[11px] mt-1">Start the machine to view the desktop</p>
         </div>
       </div>
@@ -55,10 +55,10 @@ export default function VNCViewer({ url, status = 'stopped', className }: VNCVie
 
   if (status === 'starting') {
     return (
-      <div className={cn("bg-zinc-900 flex flex-col items-center justify-center text-zinc-600 gap-4", className)}>
-        <Loader2 size={48} className="animate-spin text-blue-500/50" />
+      <div className={cn("bg-card flex flex-col items-center justify-center text-text-muted gap-4", className)}>
+        <Loader2 size={48} className="animate-spin text-accent-primary/50" />
         <div className="text-center">
-          <h3 className="font-bold text-sm text-zinc-400">Booting instance...</h3>
+          <h3 className="font-bold text-sm text-text-muted">Booting instance...</h3>
           <p className="text-[11px] mt-1">Starting display services</p>
         </div>
       </div>
@@ -66,16 +66,16 @@ export default function VNCViewer({ url, status = 'stopped', className }: VNCVie
   }
 
   return (
-    <div className={cn("relative group bg-black flex flex-col", className)}>
+    <div className={cn("relative group bg-background flex flex-col", className)}>
       {/* Toolbar */}
-      <div className="h-10 bg-zinc-950 border-b border-white/5 flex items-center justify-between px-3 shrink-0">
+      <div className="h-10 bg-secondary border-b border-border flex items-center justify-between px-3 shrink-0">
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-1.5">
-            <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-            <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Live Desktop</span>
+            <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+            <span className="text-[10px] font-bold text-text-muted uppercase tracking-widest">Live Desktop</span>
           </div>
-          <div className="h-4 w-px bg-white/5" />
-          <div className="flex items-center gap-2 text-[10px] text-zinc-600">
+          <div className="h-4 w-px bg-border" />
+          <div className="flex items-center gap-2 text-[10px] text-text-muted">
             <Shield size={10} />
             <span>Secure Stream (noVNC)</span>
           </div>
@@ -83,14 +83,14 @@ export default function VNCViewer({ url, status = 'stopped', className }: VNCVie
         <div className="flex items-center gap-1">
           <button 
             onClick={handleRefresh}
-            className="p-1.5 hover:bg-white/5 rounded text-zinc-500 hover:text-white transition-colors"
+            className="p-1.5 hover:bg-card-hover rounded text-text-muted hover:text-foreground transition-colors"
             title="Refresh View"
           >
             <RefreshCcw size={14} />
           </button>
           <button 
             onClick={toggleFullscreen}
-            className="p-1.5 hover:bg-white/5 rounded text-zinc-500 hover:text-white transition-colors"
+            className="p-1.5 hover:bg-card-hover rounded text-text-muted hover:text-foreground transition-colors"
             title="Fullscreen"
           >
             <Maximize2 size={14} />

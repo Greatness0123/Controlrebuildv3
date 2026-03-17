@@ -268,39 +268,127 @@ class RemoteDesktopManager {
         }, 30000); // Heartbeat every 30s
     }
 
+    async runPowershell(script) {
+        return new Promise((resolve, reject) => {
+            const { exec } = require('child_process');
+            // Use -NoProfile for speed and safety
+            const fullCommand = `powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "${script.replace(/"/g, '`"')}"`;
+            exec(fullCommand, (error, stdout, stderr) => {
+                if (error) {
+                    console.error('[Remote] PowerShell Error:', stderr);
+                    reject(error);
+                } else {
+                    resolve(stdout.trim());
+                }
+            });
+        });
+    }
+
     async handleRemoteAction(action) {
         console.log(`[Remote] Executing action: ${action.type}`);
         try {
             const primary = screen.getPrimaryDisplay();
-            const { width, height } = primary.bounds;
+            const { width, height, scaleFactor } = primary.bounds; 
+            // Note: Bounds is logical. display.size is physical? No, display.size is also logical usually.
+            // In Electron, to get physical pixels on Windows:
+            // physical = logical * scaleFactor
+            
+            const isWindows = process.platform === 'win32';
 
             switch (action.type) {
+                case 'move':
                 case 'mouse_move':
-                    const x = Math.round((action.x / 1000) * width);
-                    const y = Math.round((action.y / 1000) * height);
-                    await mouse.setPosition(new Point(x, y));
+                    {
+                        // Map 0-1000 to logical bounds
+                        const x = Math.round((action.x / 1000) * width);
+                        const y = Math.round((action.y / 1000) * height);
+                        
+                        if (isWindows) {
+                            // PowerShell System.Windows.Forms.Cursor.Position uses logical pixels on modern Windows 10/11 
+                            // IF the process is DPI aware. Electron is.
+                            // However, sometimes it requires physical. 
+                            // Let's use a more robust script that ensures DPI awareness or uses absolute scaling.
+                            await this.runPowershell(`
+                                Add-Type -AssemblyName System.Windows.Forms
+                                [System.Windows.Forms.Cursor]::Position = New-Object System.Drawing.Point(${x}, ${y})
+                            `);
+                        } else {
+                            await mouse.setPosition(new Point(x, y));
+                        }
+                    }
                     break;
                 case 'click':
-                    if (action.x !== undefined && action.y !== undefined) {
-                        const cx = Math.round((action.x / 1000) * width);
-                        const cy = Math.round((action.y / 1000) * height);
-                        await mouse.setPosition(new Point(cx, cy));
+                    {
+                        let x = action.x !== undefined ? Math.round((action.x / 1000) * width) : null;
+                        let y = action.y !== undefined ? Math.round((action.y / 1000) * height) : null;
+
+                        if (isWindows) {
+                            const clickType = action.button === 'right' ? 'RightClick' : 'Click';
+                            const posUpdate = (x !== null && y !== null) ? `[System.Windows.Forms.Cursor]::Position = New-Object System.Drawing.Point(${x}, ${y}); ` : '';
+                            
+                            await this.runPowershell(`
+                                Add-Type -AssemblyName System.Windows.Forms
+                                ${posUpdate}
+                                Add-Type @"
+                                using System;
+                                using System.Runtime.InteropServices;
+                                public class MouseOps {
+                                    [DllImport("user32.dll")]
+                                    public static extern void mouse_event(int dwFlags, int dx, int dy, int cButtons, int dwExtraInfo);
+                                    public const int MOUSEEVENTF_LEFTDOWN = 0x02;
+                                    public const int MOUSEEVENTF_LEFTUP = 0x04;
+                                    public const int MOUSEEVENTF_RIGHTDOWN = 0x08;
+                                    public const int MOUSEEVENTF_RIGHTUP = 0x10;
+                                }
+                                "@
+                                ${action.button === 'right'
+                                    ? '[MouseOps]::mouse_event([MouseOps]::MOUSEEVENTF_RIGHTDOWN, 0, 0, 0, 0); [MouseOps]::mouse_event([MouseOps]::MOUSEEVENTF_RIGHTUP, 0, 0, 0, 0)'
+                                    : '[MouseOps]::mouse_event([MouseOps]::MOUSEEVENTF_LEFTDOWN, 0, 0, 0, 0); [MouseOps]::mouse_event([MouseOps]::MOUSEEVENTF_LEFTUP, 0, 0, 0, 0)'}
+                            `);
+                        } else {
+                            if (x !== null && y !== null) await mouse.setPosition(new Point(x, y));
+                            if (action.button === 'right') await mouse.rightClick();
+                            else await mouse.leftClick();
+                        }
                     }
-                    if (action.button === 'right') await mouse.rightClick();
-                    else await mouse.leftClick();
                     break;
                 case 'double_click':
-                    if (action.x !== undefined && action.y !== undefined) {
-                        const dcx = Math.round((action.x / 1000) * width);
-                        const dcy = Math.round((action.y / 1000) * height);
-                        await mouse.setPosition(new Point(dcx, dcy));
+                    {
+                        const x = Math.round((action.x / 1000) * width);
+                        const y = Math.round((action.y / 1000) * height);
+                        
+                        if (isWindows) {
+                            await this.runPowershell(`
+                                Add-Type -AssemblyName System.Windows.Forms
+                                [System.Windows.Forms.Cursor]::Position = New-Object System.Drawing.Point(${x}, ${y})
+                                Add-Type @"
+                                using System;
+                                using System.Runtime.InteropServices;
+                                public class MouseOps2 {
+                                    [DllImport("user32.dll")]
+                                    public static extern void mouse_event(int dwFlags, int dx, int dy, int cButtons, int dwExtraInfo);
+                                    public const int MOUSEEVENTF_LEFTDOWN = 0x02;
+                                    public const int MOUSEEVENTF_LEFTUP = 0x04;
+                                }
+                                "@
+                                [MouseOps2]::mouse_event([MouseOps2]::MOUSEEVENTF_LEFTDOWN, 0, 0, 0, 0)
+                                [MouseOps2]::mouse_event([MouseOps2]::MOUSEEVENTF_LEFTUP, 0, 0, 0, 0)
+                                [System.Threading.Thread]::Sleep(50)
+                                [MouseOps2]::mouse_event([MouseOps2]::MOUSEEVENTF_LEFTDOWN, 0, 0, 0, 0)
+                                [MouseOps2]::mouse_event([MouseOps2]::MOUSEEVENTF_LEFTUP, 0, 0, 0, 0)
+                            `);
+                        } else {
+                            await mouse.setPosition(new Point(x, y));
+                            await mouse.doubleClick(Button.LEFT);
+                        }
                     }
-                    await mouse.doubleClick(Button.LEFT);
                     break;
                 case 'drag':
-                    const dx = Math.round((action.x / 1000) * width);
-                    const dy = Math.round((action.y / 1000) * height);
-                    await mouse.drag(new Point(dx, dy));
+                    {
+                        const dx = Math.round((action.x / 1000) * width);
+                        const dy = Math.round((action.y / 1000) * height);
+                        await mouse.drag(new Point(dx, dy));
+                    }
                     break;
                 case 'key_press':
                     if (action.key) {

@@ -4,15 +4,19 @@ import { create } from 'zustand';
 interface AuthState {
   user: any | null;
   loading: boolean;
+  theme: 'light' | 'dark';
   setUser: (user: any | null) => void;
   setLoading: (loading: boolean) => void;
+  setTheme: (theme: 'light' | 'dark') => void;
 }
 
 export const useAuthStore = create<AuthState>((set) => ({
   user: null,
   loading: true,
+  theme: 'dark',
   setUser: (user) => set({ user, loading: false }),
   setLoading: (loading) => set({ loading }),
+  setTheme: (theme) => set({ theme }),
 }));
 
 // ─── Chat Store ───
@@ -41,11 +45,15 @@ interface ChatState {
   activeSessionId: string | null;
   messages: ChatMessage[];
   isStreaming: boolean;
+  aiState: 'idle' | 'running' | 'paused';
+  mousePos: { x: number; y: number };
   setSessions: (sessions: ChatSession[]) => void;
   setActiveSession: (id: string | null) => void;
   setMessages: (messages: ChatMessage[]) => void;
   addMessage: (message: ChatMessage) => void;
   setStreaming: (streaming: boolean) => void;
+  setAiState: (state: 'idle' | 'running' | 'paused') => void;
+  setMousePos: (pos: { x: number; y: number }) => void;
 }
 
 export const useChatStore = create<ChatState>((set) => ({
@@ -53,11 +61,15 @@ export const useChatStore = create<ChatState>((set) => ({
   activeSessionId: null,
   messages: [],
   isStreaming: false,
+  aiState: 'idle',
+  mousePos: { x: 0, y: 0 },
   setSessions: (sessions) => set({ sessions }),
   setActiveSession: (id) => set({ activeSessionId: id }),
   setMessages: (messages) => set({ messages }),
   addMessage: (msg) => set((state) => ({ messages: [...state.messages, msg] })),
   setStreaming: (isStreaming) => set({ isStreaming }),
+  setAiState: (aiState) => set({ aiState }),
+  setMousePos: (mousePos) => set({ mousePos }),
 }));
 
 // ─── VM Store ───

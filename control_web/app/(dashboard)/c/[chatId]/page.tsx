@@ -1,18 +1,19 @@
 "use client";
 
 import { useEffect, useState, useMemo } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { chatApi, vmApi, pairApi } from '@/lib/api';
-import { useChatStore, useVMStore } from '@/lib/store';
+import { useChatStore, useVMStore, useDeviceStore, useAuthStore } from '@/lib/store';
 import { useModal } from '@/lib/useModal';
 import ChatPanel from '@/components/ChatPanel';
 import VNCViewer from '@/components/VNCViewer';
 import RemoteDesktopViewer from '@/components/RemoteDesktopViewer';
 import {
-  Loader2, Cpu, Settings, Trash2, ChevronRight,
-  Monitor, Layout, SplitSquareVertical, Maximize2, MessageSquare
+  Loader2, Monitor, Trash2, Command, ChevronDown, Server, Laptop,
+  PlayCircle, PauseCircle, Square, MousePointer, HandMetal, Cpu, Check
 } from 'lucide-react';
+import { toast } from 'sonner';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
@@ -23,15 +24,28 @@ function cn(...inputs: ClassValue[]) {
 export default function ChatSessionPage() {
   const { chatId } = useParams() as { chatId: string };
   const router = useRouter();
-  const { sessions, setActiveSession, setSessions } = useChatStore();
+  const searchParams = useSearchParams();
+  const { theme } = useAuthStore();
+  const { 
+    sessions, setActiveSession, setSessions,
+    aiState, setAiState, mousePos, setMousePos,
+    isStreaming, setStreaming
+  } = useChatStore();
   const { vms, setVMs } = useVMStore();
+  const { devices, setDevices } = useDeviceStore();
   const { modal, confirm } = useModal();
+  const [hitlRequired, setHitlRequired] = useState(false);
 
   const currentSession = useMemo(() => sessions.find(s => s.id === chatId), [sessions, chatId]);
   const [currentVm, setCurrentVm] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [splitRatio, setSplitRatio] = useState(40); // % for chat
-  const [showViewer, setShowViewer] = useState(false); // Closed by default as requested
+  const [splitRatio, setSplitRatio] = useState(42); // % for chat
+  const [showViewer, setShowViewer] = useState(false);
+
+  const monitor = searchParams.get('monitor');
+  useEffect(() => {
+    if (monitor === 'true') setShowViewer(true);
+  }, [monitor]);
 
   useEffect(() => {
     setActiveSession(chatId);
@@ -40,21 +54,16 @@ export default function ChatSessionPage() {
       try {
         const chatRes = await chatApi.list();
         const found = chatRes.sessions.find(s => s.id === chatId);
-        if (!found) {
-          router.push('/');
-          return;
-        }
+        if (!found) { router.push('/workspace'); return; }
         setSessions(chatRes.sessions);
 
-        const vmRes = await vmApi.list();
+        const [vmRes, pairRes] = await Promise.all([
+          vmApi.list().catch(() => ({ vms: [] })),
+          pairApi.devices().catch(() => ({ devices: [] })),
+        ]);
         setVMs(vmRes.vms);
+        setDevices(pairRes.devices);
         setCurrentVm(vmRes.vms.find(v => v.id === found.vm_id));
-
-        try {
-          const pairRes = await pairApi.devices();
-          const { useDeviceStore } = await import('@/lib/store');
-          useDeviceStore.getState().setDevices(pairRes.devices);
-        } catch { }
       } catch (err) {
         console.error(err);
       } finally {
@@ -63,21 +72,25 @@ export default function ChatSessionPage() {
     };
 
     loadSession();
-  }, [chatId, setActiveSession, router, setSessions, setVMs]);
+  }, [chatId]);
 
-  // Handle VM status updates
+  // Poll VM status every 15s
   useEffect(() => {
     const interval = setInterval(async () => {
       try {
         const res = await vmApi.list();
         setVMs(res.vms);
+        const session = useChatStore.getState().sessions.find(s => s.id === chatId);
+        if (session?.vm_id) {
+          setCurrentVm(res.vms.find(v => v.id === session.vm_id));
+        }
       } catch { }
-    }, 10000);
+    }, 15000);
     return () => clearInterval(interval);
-  }, [setVMs]);
+  }, [chatId]);
 
   const handleDelete = async () => {
-    const ok = await confirm('This will permanently delete this chat session and its history.', {
+    const ok = await confirm('This will permanently delete this chat session and all its history.', {
       title: 'Delete Session?',
       confirmLabel: 'Delete',
       cancelLabel: 'Cancel',
@@ -85,9 +98,16 @@ export default function ChatSessionPage() {
     if (!ok) return;
     try {
       await chatApi.delete(chatId);
-      router.push('/');
+      router.push('/workspace');
     } catch { }
   };
+
+  // Determine viewer target - use the current session's vm or device
+  const activeVmId = currentSession?.vm_id;
+  const activeDeviceId = currentSession?.device_id;
+  const activeVm = vms.find(v => v.id === activeVmId);
+  const activeDevice = devices.find(d => d.id === activeDeviceId);
+  const hasTarget = !!(activeVmId || activeDeviceId);
 
   if (loading) {
     return (
@@ -100,64 +120,183 @@ export default function ChatSessionPage() {
   return (
     <>
       {modal}
-      <div className="flex-1 flex flex-col min-h-0 bg-black">
+      <div className="flex-1 flex flex-col min-h-0 bg-background text-foreground">
         {/* Session Header */}
-        <header className="h-14 flex items-center justify-between px-4 border-b border-white/5 bg-zinc-950 shrink-0 relative z-20">
-          <div className="flex items-center gap-3 min-w-0">
-            <div className="min-w-0">
-              <h2 className="text-sm font-bold truncate text-white">{currentSession?.title || 'Active Session'}</h2>
-              <div className="flex items-center gap-2">
-                <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest truncate">
-                  Control: {currentVm?.name || currentSession?.device_id?.split('-')[0] || 'Cloud Node'}
-                </span>
-              </div>
+        <header className="h-14 flex items-center justify-between px-4 border-b border-border bg-secondary shrink-0 relative z-30 shadow-2xl">
+          <div className="flex items-center gap-4 min-w-0">
+            <div className="flex items-center gap-3">
+               <div
+                className={cn(
+                  "p-2.5 rounded-xl border transition-all",
+                  (!activeVmId && !activeDeviceId) ? "bg-red-500/10 text-red-500 border-red-500/20" : "bg-secondary border-border text-text-muted"
+                )}
+               >
+                  {activeDeviceId ? <Laptop size={20} /> : <Cpu size={20} />}
+               </div>
+               <div className="min-w-0">
+                  <h1 className="text-sm font-black text-foreground truncate uppercase tracking-tight">
+                    {activeVm?.name || activeDevice?.name || 'Unassigned Session'}
+                  </h1>
+                  <div className="flex items-center gap-2">
+                    <div className={cn(
+                      "w-1.5 h-1.5 rounded-full animate-pulse",
+                      (activeVm || activeDevice) ? "bg-emerald-500" : "bg-red-500"
+                    )} />
+                    <span className="text-[10px] text-text-muted font-bold uppercase tracking-widest truncate">
+                      {activeVm ? 'Cloud Machine Linked' : activeDevice ? 'Hardware Node Bridged' : 'No target selected'}
+                    </span>
+                  </div>
+               </div>
+            </div>
+
+            <div className="h-6 w-px bg-white/5 mx-2 hidden md:block" />
+
+            {/* AI Controls in Header */}
+            <div className="hidden lg:flex items-center gap-3 pr-4 border-r border-white/5">
+              {aiState !== 'idle' && (
+                <div className="flex items-center gap-1.5 bg-white/5 border border-white/10 rounded-full px-3 py-1 animate-in fade-in zoom-in duration-300">
+                  <button 
+                    onClick={async () => {
+                      const nextState = aiState === 'paused' ? 'running' : 'paused';
+                      setAiState(nextState);
+                      try {
+                        await chatApi.update(chatId, { ai_status: nextState } as any);
+                      } catch { toast.error("Failed to update AI status"); }
+                    }}
+                    className="hover:text-white text-zinc-400 transition-colors"
+                    title={aiState === 'paused' ? "Continue AI" : "Pause AI"}
+                  >
+                    {aiState === 'paused' ? <PlayCircle size={14} /> : <PauseCircle size={14} />}
+                  </button>
+                  <div className="w-[1px] h-3 bg-white/10" />
+                  <button 
+                    onClick={async () => { 
+                      setStreaming(false); 
+                      setAiState('idle'); 
+                      try { await chatApi.update(chatId, { ai_status: 'stopped' } as any); } catch {}
+                    }}
+                    className="text-red-500/70 hover:text-red-400 transition-colors"
+                    title="Stop AI"
+                  >
+                    <Square size={14} fill="currentColor" />
+                  </button>
+                </div>
+              )}
+              {aiState === 'running' && (
+                <div className="flex items-center gap-1.5 px-2.5 py-1 bg-white/5 rounded-lg border border-white/5 animate-pulse">
+                  <MousePointer size={10} className="text-blue-400" />
+                  <span className="text-[9px] font-mono text-zinc-500">{mousePos.x}, {mousePos.y}</span>
+                </div>
+              )}
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
-            {/* Mobile Launch Monitor Button (Both VM and Device) */}
-            {typeof window !== 'undefined' && (
-              <div className="flex md:hidden items-center gap-2">
-                {currentVm?.instance_url ? (
-                  <a
-                    href={currentVm.instance_url.includes('/vnc.html') ? currentVm.instance_url : `${currentVm.instance_url.endsWith('/') ? currentVm.instance_url : currentVm.instance_url + '/'}vnc.html?resize=scale&autoconnect=true`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center gap-2 px-3 py-1.5 bg-white text-black rounded-lg text-[10px] font-black uppercase tracking-widest hover:bg-zinc-200 transition-all shadow-lg shadow-white/5"
-                  >
-                    <Monitor size={12} /> Monitor
-                  </a>
-                ) : currentSession?.device_id ? (
-                  <Link
-                    href={`/remote/${currentSession.device_id}`}
-                    target="_blank"
-                    className="flex items-center gap-2 px-3 py-1.5 bg-white text-black rounded-lg text-[10px] font-black uppercase tracking-widest hover:bg-zinc-200 transition-all shadow-lg shadow-white/5"
-                  >
-                    <Monitor size={12} /> Monitor
-                  </Link>
-                ) : null}
-              </div>
-            )}
-
-            <div className="hidden md:flex items-center gap-1.5 ml-3 mr-1">
-              <button
-                onClick={() => setShowViewer(!showViewer)}
-                className={cn(
-                  "flex items-center gap-2 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all",
-                  showViewer ? "bg-white text-black shadow-lg shadow-white/10" : "bg-white/5 text-zinc-500 hover:bg-white/10"
-                )}
-                title={showViewer ? "Close Monitor" : "Open Monitor"}
-              >
-                <Monitor size={14} />
-              </button>
+          <div className="flex items-center gap-3">
+            {/* Mobile View Toggle */}
+            <div className="flex lg:hidden items-center gap-2">
+               {hasTarget && (
+                  <button 
+              onClick={() => setShowViewer(!showViewer)}
+              className={cn(
+                "w-10 h-10 flex items-center justify-center rounded-xl border transition-all",
+                showViewer ? "bg-accent-primary text-accent-foreground border-accent-primary shadow-lg shadow-accent-primary/20" : "bg-secondary text-text-muted border-border hover:border-text-muted/30"
+              )}
+            >
+              <Monitor size={18} />
+            </button>
+               )}
             </div>
 
-            <div className="hidden md:block h-6 w-px bg-white/5 mx-1" />
+            {/* Target Selector */}
+            <div className="relative group/selector">
+              <button className="flex items-center gap-2 px-4 py-2 bg-secondary border border-border rounded-xl text-[10px] font-black uppercase tracking-[0.2em] text-text-muted hover:text-foreground hover:bg-card-hover transition-all shadow-xl">
+                {activeVm?.name || activeDevice?.name || 'Assign Target'}
+                <ChevronDown size={12} className="opacity-50 transition-transform group-hover/selector:rotate-180" />
+              </button>
+              
+              <div className="absolute right-0 mt-2 w-72 bg-card border border-border rounded-2xl shadow-2xl p-2 opacity-0 invisible group-hover/selector:opacity-100 group-hover/selector:visible transition-all z-50">
+                <div className="p-3">
+                  <h4 className="text-[10px] font-black text-text-muted uppercase tracking-[0.2em] mb-3">Available Resources</h4>
+                  <div className="space-y-1">
+                    {vms.map((vm) => (
+                      <button
+                        key={vm.id}
+                        onClick={async () => {
+                          await chatApi.update(chatId, { vm_id: vm.id, device_id: null });
+                          // Update local store immediately
+                          const res = await chatApi.list();
+                          setSessions(res.sessions);
+                          setShowViewer(true);
+                          toast.success(`Connected to ${vm.name}`);
+                        }}
+                        className={cn(
+                          "w-full flex items-center justify-between p-3 rounded-xl transition-all",
+                          activeVmId === vm.id ? "bg-accent-primary text-accent-foreground" : "hover:bg-card-hover text-text-secondary"
+                        )}
+                      >
+                        <div className="flex items-center gap-3">
+                          <Cpu size={14} />
+                          <span className="text-[11px] font-bold uppercase">{vm.name}</span>
+                        </div>
+                        {activeVmId === vm.id && <Check size={12} />}
+                      </button>
+                    ))}
+                    {devices.map((device) => (
+                      <button
+                        key={device.id}
+                        onClick={async () => {
+                          await chatApi.update(chatId, { device_id: device.id, vm_id: null });
+                          // Update local store immediately
+                          const res = await chatApi.list();
+                          setSessions(res.sessions);
+                          setShowViewer(true);
+                          toast.success(`Connected to ${device.name}`);
+                        }}
+                        className={cn(
+                          "w-full flex items-center justify-between p-3 rounded-xl transition-all",
+                          activeDeviceId === device.id ? "bg-accent-primary text-accent-foreground" : "hover:bg-card-hover text-text-secondary"
+                        )}
+                      >
+                        <div className="flex items-center gap-3">
+                          <Laptop size={14} />
+                          <span className="text-[11px] font-bold uppercase">{device.name}</span>
+                        </div>
+                        {activeDeviceId === device.id && <Check size={12} />}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                {(vms.filter(v => v.status === 'running').length === 0 && devices.filter(d => d.status === 'paired').length === 0) && (
+                  <div className="px-3 py-6 text-[9px] text-zinc-800 font-bold uppercase tracking-[0.2em] text-center border border-dashed border-white/5 rounded-xl m-1">No Active Nodes</div>
+                )}
+                <div className="mt-2 pt-2 border-t border-white/5">
+                  <Link href="/machines" className="block w-full py-2 bg-white/5 hover:bg-white/10 rounded-xl text-center text-[9px] font-black text-zinc-500 hover:text-white transition-all uppercase tracking-widest">
+                    Manage Resources
+                  </Link>
+                </div>
+              </div>
+            </div>
+
+            <div className="h-6 w-px bg-white/5 mx-1" />
+
+            {/* Desktop monitor toggle */}
+            {hasTarget && (
+              <button 
+              onClick={() => setShowViewer(!showViewer)}
+              className={cn(
+                "p-2.5 rounded-xl border transition-all flex items-center gap-2",
+                showViewer ? "bg-accent-primary text-accent-foreground border-accent-primary" : "bg-card border-border text-text-muted hover:text-foreground"
+              )}
+              title="Toggle Viewer"
+            >
+              <Monitor size={15} />
+              <span className="text-[10px] font-black uppercase tracking-widest hidden sm:inline">Monitor</span>
+            </button>
+            )}
 
             <button
               onClick={handleDelete}
-              className="p-2 hover:bg-red-500/10 hover:text-red-400 rounded-xl text-zinc-600 transition-all"
+              className="w-10 h-10 flex items-center justify-center hover:bg-red-500/10 hover:text-red-400 rounded-xl text-zinc-700 transition-all border border-transparent hover:border-red-500/20"
               title="Delete Session"
             >
               <Trash2 size={16} />
@@ -166,28 +305,30 @@ export default function ChatSessionPage() {
         </header>
 
         {/* Split View */}
-        <div className="flex-1 flex flex-col md:flex-row min-h-0 bg-black">
-          {/* Chat Panel */}
+        <div className="flex-1 flex flex-col md:flex-row min-h-0">
+          {/* Chat Panel — fills full width when monitor is hidden */}
           <div
-            style={{ width: typeof window !== 'undefined' && window.innerWidth > 768 ? `${splitRatio}%` : '100%' }}
-            className="flex-[4] md:flex-none md:h-full md:min-w-[300px] flex flex-col border-b md:border-b-0 md:border-r border-white/5"
+            className={cn(
+              "flex flex-col min-h-0 border-white/5 transition-all duration-300",
+              showViewer ? "hidden md:flex md:border-r" : "flex flex-1"
+            )}
+            style={showViewer ? { width: `${splitRatio}%`, minWidth: '280px' } : {}}
           >
             <ChatPanel sessionId={chatId} />
           </div>
 
-          {/* VM or Remote Viewer Panel */}
+          {/* Viewer Panel */}
           {showViewer && (
             <>
               {/* Resizer */}
               <div
-                className="hidden md:flex w-1 bg-white/5 hover:bg-blue-500/50 cursor-col-resize transition-colors items-center justify-center group shrink-0"
+                className="hidden md:flex w-1 bg-white/5 hover:bg-blue-500/50 cursor-col-resize transition-colors items-center justify-center shrink-0"
                 onMouseDown={(e) => {
                   const startX = e.clientX;
                   const startRatio = splitRatio;
                   const onMouseMove = (moveE: MouseEvent) => {
-                    const deltaX = moveE.clientX - startX;
-                    const deltaRatio = (deltaX / window.innerWidth) * 100;
-                    setSplitRatio(Math.min(70, Math.max(20, startRatio + deltaRatio)));
+                    const delta = (moveE.clientX - startX) / window.innerWidth * 100;
+                    setSplitRatio(Math.min(70, Math.max(20, startRatio + delta)));
                   };
                   const onMouseUp = () => {
                     window.removeEventListener('mousemove', onMouseMove);
@@ -197,27 +338,28 @@ export default function ChatSessionPage() {
                   window.addEventListener('mouseup', onMouseUp);
                 }}
               >
-                <div className="w-1 h-8 bg-zinc-800 rounded-full group-hover:bg-blue-400 transition-colors" />
+                <div className="w-1 h-8 bg-zinc-800 rounded-full" />
               </div>
 
-              <div className="hidden md:flex flex-1 flex flex-col bg-zinc-900 overflow-hidden relative animate-in slide-in-from-right-10 duration-500 border-l border-white/5">
-                {currentSession?.device_id ? (
+              <div className="flex-1 flex flex-col bg-zinc-900 overflow-hidden relative animate-in slide-in-from-right-10 duration-300">
+                {activeDeviceId ? (
                   <RemoteDesktopViewer
-                    key={`device-${currentSession.device_id}`}
-                    deviceId={currentSession.device_id}
+                    key={`device-${activeDeviceId}`}
+                    deviceId={activeDeviceId}
                     className="flex-1"
                   />
-                ) : currentSession?.vm_id ? (
+                ) : activeVmId ? (
                   <VNCViewer
-                    key={`vm-${currentSession.vm_id}`}
-                    url={currentVm?.instance_url}
-                    status={currentVm?.status}
+                    key={`vm-${activeVmId}`}
+                    url={activeVm?.instance_url}
+                    status={activeVm?.status}
                     className="flex-1"
                   />
                 ) : (
-                  <div className="flex-1 flex flex-col items-center justify-center text-center p-8 text-zinc-500 gap-4">
-                    <Monitor size={48} className="opacity-10" />
-                    <p className="text-xs uppercase tracking-widest font-bold">No Resource Selected</p>
+                  <div className="flex-1 flex flex-col items-center justify-center text-center p-8 text-zinc-700 gap-4">
+                    <Monitor size={40} className="opacity-20" />
+                    <p className="text-[10px] uppercase tracking-widest font-bold">No Resource Selected</p>
+                    <p className="text-[9px] text-zinc-700">Select a VM or paired device in the chat header</p>
                   </div>
                 )}
               </div>

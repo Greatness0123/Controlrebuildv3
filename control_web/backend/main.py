@@ -1,10 +1,13 @@
 """Control Web Backend — FastAPI entry point."""
 import logging
+import asyncio
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.config import FRONTEND_URL, HOST, PORT
-from app.routes import vm_routes, chat_routes, pair_routes
+from app.routes import vm_routes, chat_routes, pair_routes, secret_routes, payment_routes
+from app.services.vm_service import vm_service
+from app.auth import get_service_client
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
 logger = logging.getLogger(__name__)
@@ -13,7 +16,22 @@ logger = logging.getLogger(__name__)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     logger.info("Control Web Backend starting...")
+    
+    # Background task for auto-shutdown
+    async def cleanup_loop():
+        db = get_service_client()
+        while True:
+            try:
+                await vm_service.cleanup_inactive_vms(db)
+            except Exception as e:
+                logger.error(f"Cleanup loop error: {e}")
+            await asyncio.sleep(600)  # Check every 10 minutes
+
+    task = asyncio.create_task(cleanup_loop())
+    
     yield
+    
+    task.cancel()
     logger.info("Control Web Backend shutting down...")
 
 
@@ -43,6 +61,8 @@ app.add_middleware(
 app.include_router(vm_routes.router)
 app.include_router(chat_routes.router)
 app.include_router(pair_routes.router)
+app.include_router(secret_routes.router)
+app.include_router(payment_routes.router)
 
 
 @app.get("/")

@@ -76,6 +76,8 @@ module.exports = {
             const userData = {
                 id: data.id,
                 name: data.name,
+                firstName: data.first_name,
+                lastName: data.last_name,
                 email: data.email,
                 plan: data.plan,
                 tasksCompleted: data.tasks_completed,
@@ -121,6 +123,8 @@ module.exports = {
             const mappedUser = {
                 id: userData.id,
                 name: userData.name,
+                firstName: userData.first_name,
+                lastName: userData.last_name,
                 email: userData.email,
                 plan: userData.plan,
                 tasksCompleted: userData.tasks_completed,

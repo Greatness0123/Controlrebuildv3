@@ -1,28 +1,36 @@
 "use client";
 
 import { useEffect, useState } from 'react';
-import { vmApi } from '@/lib/api';
-import { useVMStore } from '@/lib/store';
+import { vmApi, pairApi } from '@/lib/api';
+import { useVMStore, useDeviceStore, useAuthStore } from '@/lib/store';
 import VMCard from '@/components/VMCard';
 import { useModal } from '@/lib/useModal';
-import { Plus, Cpu, Loader2, AlertCircle, RefreshCw } from 'lucide-react';
+import { Cpu, Loader2, AlertCircle, RefreshCw, Monitor, Link as LinkIcon, Plus } from 'lucide-react';
 import Link from 'next/link';
-import { useAuthStore } from '@/lib/store';
+
+function cn(...classes: (string | boolean | undefined)[]) {
+  return classes.filter(Boolean).join(' ');
+}
 
 export default function MachinesPage() {
   const { user } = useAuthStore();
   const { vms, setVMs } = useVMStore();
+  const { devices, setDevices } = useDeviceStore();
   const { modal, alert, prompt } = useModal();
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState('');
 
-  const loadVMs = async () => {
+  const loadData = async () => {
     setLoading(true);
     setError('');
     try {
-      const res = await vmApi.list();
-      setVMs(res.vms);
+      const [vmRes, pairRes] = await Promise.all([
+        vmApi.list().catch(() => ({ vms: [] })),
+        pairApi.devices().catch(() => ({ devices: [] })),
+      ]);
+      setVMs(vmRes.vms);
+      setDevices(pairRes.devices);
     } catch (err: any) {
       setError(err.message || 'Failed to load machines');
     } finally {
@@ -31,7 +39,7 @@ export default function MachinesPage() {
   };
 
   useEffect(() => {
-    loadVMs();
+    loadData();
   }, []);
 
   const handleCreate = async () => {
@@ -49,93 +57,157 @@ export default function MachinesPage() {
     }
   };
 
+  const getPlanLimits = () => {
+    const plan = user?.user_metadata?.plan?.toLowerCase() || 'free';
+    if (plan === 'master') return 10;
+    if (plan === 'pro') return 5;
+    return 1; 
+  };
+
+  const pairedDevices = devices.filter(d => d.status === 'paired');
+
   return (
     <>
       {modal}
-      <div className="flex-1 flex flex-col min-h-0 bg-black">
-      {/* Header */}
-      <header className="min-h-16 flex flex-col sm:flex-row items-start sm:items-center justify-between px-4 sm:px-8 py-3 sm:py-0 border-b border-white/5 gap-3 sm:gap-0 shrink-0">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-purple-500/10 rounded-xl flex items-center justify-center border border-purple-500/20">
-            <Cpu size={20} className="text-purple-400" />
-          </div>
-          <div>
-            <h1 className="text-lg font-bold tracking-tight">Virtual Machines</h1>
-            <p className="text-[11px] text-zinc-500 font-medium">Manage your isolated computer instances</p>
-          </div>
-        </div>
-        <div className="flex items-center gap-3">
-          <button 
-            onClick={loadVMs}
-            className="p-2.5 bg-white/5 border border-white/5 rounded-xl text-zinc-500 hover:text-white transition-all"
-            title="Refresh"
-          >
-            <RefreshCw size={16} />
-          </button>
-          <button
-            onClick={handleCreate}
-            disabled={creating}
-            className="flex items-center gap-2 px-4 py-2.5 bg-white text-black rounded-xl text-xs font-bold hover:bg-zinc-200 transition-all disabled:opacity-50 shadow-lg shadow-white/10"
-          >
-            {creating ? <Loader2 size={16} className="animate-spin" /> : <Plus size={16} />}
-            Create Machine
-          </button>
-        </div>
-      </header>
-
-      {/* Main Content */}
-      <div className="flex-1 overflow-y-auto p-4 sm:p-8">
-        {error && (
-          <div className="max-w-4xl mx-auto mb-6 flex items-center gap-3 p-4 bg-red-500/10 border border-red-500/20 rounded-2xl text-red-400 text-sm">
-            <AlertCircle size={20} />
-            {error}
-          </div>
-        )}
-
-        {loading ? (
-          <div className="flex-1 flex items-center justify-center py-40">
-            <Loader2 className="w-8 h-8 animate-spin text-zinc-700" />
-          </div>
-        ) : vms.length === 0 ? (
-          <div className="flex-1 flex flex-col items-center justify-center py-40 text-center">
-            <div className="w-20 h-20 bg-zinc-900 rounded-3xl flex items-center justify-center mb-6">
-              <Cpu size={40} className="text-zinc-700" />
+      <div className="flex-1 flex flex-col min-h-0 bg-background">
+        {/* Header */}
+        <header className="h-16 flex items-center justify-between px-8 border-b border-border shrink-0">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-purple-500/10 rounded-xl flex items-center justify-center border border-purple-500/20">
+              <Cpu size={18} className="text-purple-400" />
             </div>
-            <h2 className="text-xl font-bold mb-2">No machines found</h2>
-            <p className="text-zinc-500 text-sm max-w-xs mb-8">Create your first virtual machine to start using AI agents on a desktop environment.</p>
+            <div>
+              <h1 className="text-sm font-black tracking-tight text-foreground">Machines</h1>
+              <p className="text-[10px] text-text-muted font-medium uppercase tracking-widest">Manage your compute resources</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-3">
+            <button 
+              onClick={loadData}
+              className="p-2.5 bg-card border border-border rounded-xl text-text-muted hover:text-foreground transition-all"
+              title="Refresh"
+            >
+              <RefreshCw size={14} />
+            </button>
             <button
               onClick={handleCreate}
-              className="px-6 py-3 bg-white text-black rounded-xl text-sm font-bold hover:bg-zinc-200 transition-all"
+              disabled={creating}
+              className="flex items-center gap-2 px-4 py-2 bg-accent-primary text-accent-foreground rounded-xl text-[11px] font-black uppercase tracking-widest hover:bg-opacity-90 transition-all disabled:opacity-50 shadow-lg"
             >
-              Get Started
+              {creating ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}
+              New Machine
             </button>
           </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-screen-2xl mx-auto">
-            {vms.map((vm) => (
-              <VMCard key={vm.id} vm={vm} />
-            ))}
-          </div>
-        )}
-      </div>
+        </header>
 
-      {/* Footer Info */}
-      <div className="px-8 py-4 border-t border-white/5 bg-zinc-950/50 flex items-center justify-between text-[11px] text-zinc-600">
-        <div className="flex items-center gap-6">
-          <div className="flex items-center gap-2">
-            <div className="w-2 h-2 rounded-full bg-green-500 shadow-sm shadow-green-500/50" />
-            <span>Docker Engine Connected</span>
+        {/* Main Content */}
+        <div className="flex-1 overflow-y-auto p-8">
+          <div className="max-w-7xl mx-auto space-y-12">
+            {error && (
+              <div className="flex items-center gap-3 p-4 bg-red-500/10 border border-red-500/20 rounded-2xl text-red-400 text-xs">
+                <AlertCircle size={16} />
+                {error}
+              </div>
+            )}
+
+            {loading ? (
+              <div className="py-40 flex items-center justify-center">
+                <Loader2 className="w-8 h-8 animate-spin text-zinc-800" />
+              </div>
+            ) : (
+              <>
+                {/* Virtual Machines Section */}
+                <section>
+                  <div className="flex items-center justify-between mb-6 px-1">
+                    <div className="flex items-center gap-2">
+                       <Cpu size={14} className="text-text-muted" />
+                      <h2 className="text-[11px] font-black text-text-muted uppercase tracking-widest">Virtual Machines</h2>
+                    </div>
+                  </div>
+                  {vms.length === 0 ? (
+                    <div className="p-12 flex flex-col items-center text-center border border-dashed border-border rounded-3xl bg-card">
+                      <Cpu size={32} className="text-text-muted mb-4 opacity-20" />
+                      <h3 className="text-sm font-bold mb-1">No Virtual Machines</h3>
+                      <p className="text-[10px] text-text-secondary max-w-[240px] mb-6">Spin up an isolated cloud environment to run your AI agents.</p>
+                      <button onClick={handleCreate} className="px-6 py-2 bg-accent-primary text-accent-foreground rounded-lg text-[10px] font-black uppercase tracking-widest hover:bg-opacity-90 transition-all">
+                        Create Machine
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                      {vms.map((vm) => (
+                        <VMCard key={vm.id} vm={vm} />
+                      ))}
+                    </div>
+                  )}
+                </section>
+
+                {/* Paired / Remote Machines Section */}
+                <section>
+                  <div className="flex items-center justify-between mb-6 px-1 pt-6 border-t border-border">
+                    <div className="flex items-center gap-2">
+                      <Monitor size={14} className="text-text-muted" />
+                      <h2 className="text-[11px] font-black text-text-muted uppercase tracking-widest">Remote Machines</h2>
+                    </div>
+                  </div>
+                  {pairedDevices.length === 0 ? (
+                    <div className="p-12 flex flex-col items-center text-center border border-dashed border-border rounded-3xl bg-card">
+                      <LinkIcon size={32} className="text-text-muted mb-4 opacity-20" />
+                      <h3 className="text-sm font-bold mb-1">No Paired Devices</h3>
+                      <p className="text-[10px] text-text-secondary max-w-[240px] mb-6">Pair your local computer to control it remotely with the AI.</p>
+                      <Link href="/pair" className="px-6 py-2 bg-accent-primary text-accent-foreground rounded-lg text-[10px] font-black uppercase tracking-widest hover:bg-opacity-90 transition-all">
+                        Pair a Device
+                      </Link>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                      {pairedDevices.map((device) => (
+                        <div key={device.id} className="glass-card p-6 group">
+                          <div className="flex items-start justify-between mb-6">
+                            <div className="w-10 h-10 bg-blue-500/10 rounded-xl flex items-center justify-center border border-blue-500/20">
+                              <Monitor size={18} className="text-blue-500" />
+                            </div>
+                            <div className="flex items-center gap-1.5 px-2 py-1 bg-card rounded-full border border-border">
+                              <div className="w-1 h-1 rounded-full bg-blue-500" />
+                              <span className="text-[9px] font-black text-blue-500 uppercase tracking-widest">Remote</span>
+                            </div>
+                          </div>
+                          <div className="space-y-1 mb-6">
+                            <h3 className="text-sm font-bold group-hover:text-blue-400 transition-colors">{device.name}</h3>
+                            <p className="text-[10px] text-zinc-500 font-medium font-mono uppercase tracking-tighter opacity-60">
+                              {device.status.toUpperCase()} • ID: {device.id.split('-')[0]}
+                            </p>
+                          </div>
+                          <Link
+                            href={`/remote/${device.id}`}
+                            className="w-full flex items-center justify-center gap-2 py-2.5 bg-card border border-border rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-card-hover transition-all text-foreground"
+                          >
+                            Access Console
+                          </Link>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </section>
+              </>
+            )}
           </div>
-          <div>{vms.length} / {(() => {
-            const plan = user?.user_metadata?.plan?.toLowerCase() || 'free';
-            if (plan === 'master') return 10;
-            if (plan === 'pro') return 5;
-            return 11;
-          })()} Machines used</div>
         </div>
-        <Link href="/settings" className="hover:text-white transition-colors">View Plan Usage</Link>
+
+        {/* Footer Stats */}
+        <div className="px-8 py-3 border-t border-border bg-secondary/50 flex items-center justify-between text-[10px] font-black uppercase tracking-widest text-text-muted">
+          <div className="flex items-center gap-6">
+            <div className="flex items-center gap-2">
+              <div className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+              <span>Network Active</span>
+            </div>
+            <div>{vms.length} / {getPlanLimits()} VM UTILIZATION • {pairedDevices.length} REMOTE NODES</div>
+          </div>
+          <div className="flex items-center gap-4">
+            <span className="opacity-50">Local Docker Engine V24.0.0</span>
+          </div>
+        </div>
       </div>
-    </div>
     </>
   );
 }

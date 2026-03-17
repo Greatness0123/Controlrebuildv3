@@ -1,7 +1,8 @@
-"""VM management service using Docker SDK."""
 import docker
 import random
 import logging
+import asyncio
+from datetime import datetime, timezone
 from typing import Optional
 from supabase import Client
 from app.config import VM_IMAGE_NAME, VM_BASE_NOVNC_PORT, PLAN_LIMITS, PUBLIC_IP
@@ -58,6 +59,9 @@ class VMService:
                 },
                 environment={
                     "RESOLUTION": "1920x1080x24",
+                    "VNC_PASSWORD": "",
+                    "AUTOLOGIN": "yes",
+                    "USER": "controluser",
                 },
                 mem_limit="2g",
                 cpu_period=100000,
@@ -79,8 +83,23 @@ class VMService:
                 "novnc_port": novnc_port,
                 "agent_port": agent_port,
                 "instance_url": f"http://{PUBLIC_IP}:{novnc_port}",
+                "last_active_at": datetime.now(timezone.utc).isoformat(),
             }
             result = db.table("virtual_machines").insert(vm_data).execute()
+            
+            # Disable screensaver and power management in background
+            async def _disable_power_mgmt(cont):
+                await asyncio.sleep(10) # wait for X server
+                try:
+                    # DISPLAY :1 is standard for this image
+                    cont.exec_run("xset s off", user="controluser", environment={"DISPLAY": ":1"})
+                    cont.exec_run("xset -dpms", user="controluser", environment={"DISPLAY": ":1"})
+                    cont.exec_run("pkill xscreensaver", user="controluser")
+                except Exception as e:
+                    logger.warning(f"Failed to disable power mgmt on VM: {e}")
+            
+            asyncio.create_task(_disable_power_mgmt(container))
+
             return result.data[0]
 
         except docker.errors.ImageNotFound:
@@ -185,7 +204,7 @@ class VMService:
                             vm["status"] = "stopped"
 
         return vms
-
+    
     async def get_vm_stats(self, vm_id: str, container_id: str) -> dict:
         """Get live resource stats from a running container."""
         if not self.docker_client:
@@ -204,13 +223,74 @@ class VMService:
             mem_usage = stats["memory_stats"].get("usage", 0)
             mem_limit = stats["memory_stats"].get("limit", 0)
 
+            # Storage (Approximate via container filesystem)
+            storage_used = 0
+            storage_limit = 20 * 1024 # default 20GB in MB
+            try:
+                # Run df -m / inside container
+                df_res = container.exec_run("df -m /")
+                if df_res.exit_code == 0:
+                    lines = df_res.output.decode().split('\n')
+                    if len(lines) > 1:
+                        parts = lines[1].split()
+                        if len(parts) >= 3:
+                            storage_limit = float(parts[1])
+                            storage_used = float(parts[2])
+            except:
+                pass
+
             return {
                 "cpu": round(cpu_percent, 1),
                 "memory": round(mem_usage / (1024 * 1024), 1),  # MB
                 "memory_limit": round(mem_limit / (1024 * 1024), 1),
+                "storage_used": round(float(storage_used or 0) / 1024, 1),
+                "storage_limit": round(float(storage_limit or 0) / 1024, 1),
             }
         except Exception:
             return {"cpu": 0, "memory": 0, "memory_limit": 0}
+
+    async def update_activity(self, db: Client, vm_id: str):
+        """Update last active timestamp for a VM."""
+        try:
+            db.table("virtual_machines").update({
+                "last_active_at": datetime.now(timezone.utc).isoformat()
+            }).eq("id", vm_id).execute()
+        except Exception as e:
+            logger.error(f"Failed to update VM activity: {e}")
+
+    async def cleanup_inactive_vms(self, db: Client):
+        """Shutdown VMs that have been inactive for more than 30 minutes."""
+        try:
+            # Get all running VMs
+            result = db.table("virtual_machines").select("*").eq("status", "running").execute()
+            vms = result.data
+            
+            now = datetime.now(timezone.utc)
+            for vm in vms:
+                last_active_str = vm.get("last_active_at")
+                if not last_active_str:
+                    continue
+                
+                last_active = datetime.fromisoformat(last_active_str.replace("Z", "+00:00"))
+                inactive_seconds = (now - last_active).total_seconds()
+                
+                if inactive_seconds > 1800: # 30 minutes
+                    logger.info(f"Auto-shutting down inactive VM {vm['id']} (Inactive for {inactive_seconds}s)")
+                    try:
+                        await self.stop_vm(db, vm["id"], vm["user_id"])
+                    except Exception as e:
+                        logger.error(f"Failed to auto-stop VM {vm['id']}: {e}")
+        except Exception as e:
+            logger.error(f"Error during VM cleanup: {e}")
+
+    def get_vm_password_info(self):
+        """Research/utility: how to check password from console."""
+        return {
+            "method": "Check environment variables OR VNC config files",
+            "console_command": "env | grep VNC_PASSWORD",
+            "config_file": "/home/ubuntu/.vnc/config",
+            "note": "Control VMs are now configured with VNC_PASSWORD='' for passwordless access."
+        }
 
 
 # Singleton

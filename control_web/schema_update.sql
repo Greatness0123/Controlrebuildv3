@@ -23,7 +23,7 @@ CREATE TABLE IF NOT EXISTS public.chat_sessions (
     vm_id UUID REFERENCES public.virtual_machines(id) ON DELETE SET NULL,
     device_id UUID, -- for paired device sessions
     title TEXT DEFAULT 'New Chat',
-    model TEXT DEFAULT 'gemini-2.0-flash',
+    model TEXT DEFAULT 'gemini-2.5-flash',
     is_active BOOLEAN DEFAULT true,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()

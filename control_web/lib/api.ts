@@ -45,7 +45,7 @@ export const chatApi = {
     }),
   messages: (sessionId: string) =>
     apiFetch<{ messages: any[] }>(`/api/chat/${sessionId}/messages`),
-  update: (sessionId: string, data: { vm_id?: string | null; device_id?: string | null; title?: string }) =>
+  update: (sessionId: string, data: { vm_id?: string | null; device_id?: string | null; title?: string; ai_status?: string }) =>
     apiFetch<{ session: any }>(`/api/chat/${sessionId}`, {
       method: 'PATCH',
       body: JSON.stringify(data),
@@ -53,8 +53,42 @@ export const chatApi = {
   delete: (sessionId: string) =>
     apiFetch<{ success: boolean }>(`/api/chat/${sessionId}`, { method: 'DELETE' }),
 
-  // SSE stream
-  sendMessage: async function* (sessionId: string, message: string) {
+  // File upload
+  uploadFile: async (sessionId: string, file: File): Promise<{ file_url: string; file_type: string; filename: string }> => {
+    const token = await getAccessToken();
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const res = await fetch(`${BACKEND_URL}/api/chat/${sessionId}/upload`, {
+      method: 'POST',
+      headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+      body: formData,
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ detail: 'Upload failed' }));
+      throw new Error(err.detail || 'File upload failed');
+    }
+    return res.json();
+  },
+
+  // Provider config
+  getProviderConfig: () => apiFetch<{ config: any }>('/api/chat/provider-config'),
+  saveProviderConfig: (config: any) =>
+    apiFetch<{ success: boolean }>('/api/chat/provider-config', {
+      method: 'POST',
+      body: JSON.stringify(config),
+    }),
+
+  // Terminal permissions
+  getTerminalPermission: () => apiFetch<{ permission: string }>('/api/chat/terminal-permission'),
+  setTerminalPermission: (permission: string) =>
+    apiFetch<{ success: boolean; permission: string }>('/api/chat/terminal-permission', {
+      method: 'POST',
+      body: JSON.stringify(permission),
+    }),
+
+  // SSE stream with optional file
+  sendMessage: async function* (sessionId: string, message: string, fileUrl?: string) {
     const token = await getAccessToken();
     const res = await fetch(`${BACKEND_URL}/api/chat/${sessionId}/send`, {
       method: 'POST',
@@ -62,7 +96,7 @@ export const chatApi = {
         'Content-Type': 'application/json',
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
       },
-      body: JSON.stringify({ message }),
+      body: JSON.stringify({ message, file_url: fileUrl }),
     });
     if (!res.ok) throw new Error('Failed to send message');
     if (!res.body) return;
@@ -108,6 +142,18 @@ export const pairApi = {
     }),
   revoke: (deviceId: string) =>
     apiFetch<{ success: boolean }>(`/api/pair/${deviceId}`, { method: 'DELETE' }),
+};
+
+// ─── Vault API ───
+export const vaultApi = {
+  list: () => apiFetch<any[]>('/api/secrets/list'),
+  create: (data: any) => apiFetch<any>('/api/secrets/', {
+    method: 'POST', body: JSON.stringify(data),
+  }),
+  update: (id: string, data: any) => apiFetch<any>(`/api/secrets/${id}`, {
+    method: 'PATCH', body: JSON.stringify(data),
+  }),
+  delete: (id: string) => apiFetch<{ success: boolean }>(`/api/secrets/${id}`, { method: 'DELETE' }),
 };
 
 // ─── Config API ───
