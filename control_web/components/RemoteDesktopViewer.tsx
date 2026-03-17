@@ -203,28 +203,6 @@ export default function RemoteDesktopViewer({ deviceId, className }: RemoteDeskt
     handleAction(type, { x, y, button: e.button === 2 ? 'right' : 'left' });
   };
 
-  if (isMobile) {
-    return (
-      <div className={cn("bg-card flex flex-col items-center justify-center p-8 text-center gap-6 border border-border rounded-3xl", className)}>
-        <div className="relative">
-          <div className="absolute -inset-4 bg-accent-primary/10 blur-2xl rounded-full animate-pulse" />
-          <Monitor className="w-12 h-12 text-accent-primary/50 relative z-10" />
-        </div>
-        <div className="space-y-2">
-          <h3 className="text-sm font-black text-foreground uppercase tracking-widest">Mobile Monitor</h3>
-          <p className="text-[10px] text-text-muted max-w-[200px] leading-relaxed mx-auto">
-            Interactive control is optimized for desktop. Open the dedicated monitor for the best mobile experience.
-          </p>
-        </div>
-        <button 
-          onClick={() => window.open(`/remote/${deviceId}`, '_blank')}
-          className="w-full max-w-[200px] py-3 bg-accent-primary text-accent-foreground rounded-xl text-[10px] font-black uppercase tracking-widest transition-all active:scale-95 shadow-xl shadow-accent-primary/10"
-        >
-          Open Monitor Instance
-        </button>
-      </div>
-    );
-  }
 
   if (status === 'connecting' && !screen) {
     return (

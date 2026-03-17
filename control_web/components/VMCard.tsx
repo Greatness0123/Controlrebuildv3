@@ -163,7 +163,7 @@ export default function VMCard({ vm }: { vm: any }) {
             <div className="space-y-2">
               <div className="flex justify-between items-end">
                 <span className="text-[8px] font-black text-text-muted uppercase tracking-widest flex items-center gap-1.5">
-                    <Cpu size={10} /> Processor
+                    <Cpu size={10} /> CPU
                 </span>
                 <span className="text-[9px] font-mono text-text-secondary">{stats?.cpu || 0}%</span>
               </div>
@@ -177,7 +177,7 @@ export default function VMCard({ vm }: { vm: any }) {
             <div className="space-y-2">
               <div className="flex justify-between items-end">
                 <span className="text-[8px] font-black text-text-muted uppercase tracking-widest flex items-center gap-1.5">
-                    <Activity size={10} /> Volatile
+                    <Activity size={10} /> Memory
                 </span>
                 <span className="text-[9px] font-mono text-text-secondary">{stats?.memory ? `${(stats.memory / 1024).toFixed(1)}GB` : '0GB'}</span>
               </div>
@@ -193,7 +193,7 @@ export default function VMCard({ vm }: { vm: any }) {
           <div className="space-y-2">
             <div className="flex justify-between items-end">
                 <span className="text-[8px] font-black text-text-muted uppercase tracking-widest flex items-center gap-1.5">
-                    <HardDrive size={10} /> Solid State Storage
+                    <HardDrive size={10} /> Storage
                 </span>
                 <span className="text-[9px] font-mono text-text-secondary">{stats?.storage_used || '0.0'}GB <span className="text-border">/</span> {stats?.storage_limit || '20'}GB</span>
             </div>
@@ -232,7 +232,7 @@ export default function VMCard({ vm }: { vm: any }) {
                         className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-accent-primary text-accent-foreground text-[9px] font-black uppercase tracking-widest rounded-xl hover:bg-opacity-90 transition-all disabled:opacity-50"
                     >
                         {loading ? <Loader2 size={12} className="animate-spin" /> : null}
-                        Initialize Node
+                        Start Machine
                     </button>
                 ) : (
                     <button
@@ -241,7 +241,7 @@ export default function VMCard({ vm }: { vm: any }) {
                         className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-accent-primary text-accent-foreground text-[9px] font-black uppercase tracking-widest rounded-xl hover:bg-opacity-90 transition-all disabled:opacity-50 shadow-lg"
                     >
                         {connecting ? <Loader2 size={12} className="animate-spin" /> : <Monitor size={12} />}
-                        Establish Bridge
+                        Connect
                     </button>
                 )}
                 
@@ -260,7 +260,7 @@ export default function VMCard({ vm }: { vm: any }) {
                         onClick={handleDelete}
                         disabled={loading}
                         className="w-8 h-8 flex items-center justify-center text-text-muted hover:text-red-500 transition-all disabled:opacity-50"
-                        title="Purge Node"
+                        title="Delete"
                     >
                         <Trash2 size={12} />
                     </button>

@@ -177,11 +177,10 @@ export default function SettingsPage() {
                     <button
                       key={p.id}
                       onClick={() => set('provider', p.id)}
-                      className={`flex flex-col items-center py-3 px-2 rounded-xl border transition-all text-center ${
-                        settings.provider === p.id
+                      className={`flex flex-col items-center py-3 px-2 rounded-xl border transition-all text-center ${settings.provider === p.id
                           ? 'bg-white text-black border-white'
                           : 'bg-white/[0.02] border-white/10 text-zinc-500 hover:text-white hover:border-white/20'
-                      }`}
+                        }`}
                     >
                       <span className="text-[11px] font-black uppercase">{p.name}</span>
                       <span className={`text-[9px] mt-0.5 ${settings.provider === p.id ? 'text-zinc-600' : 'text-zinc-700'}`}>{p.sub}</span>
@@ -198,7 +197,7 @@ export default function SettingsPage() {
                       <select value={settings.geminiModel} onChange={e => set('geminiModel', e.target.value)} className="select-field">
                         <option value="gemini-2.5-flash">Gemini 2.5 Flash (Fastest)</option>
                         <option value="gemini-2.0-flash">Gemini 2.0 Flash (Stable)</option>
-                        <option value="gemini-1.5-pro">Gemini 1.5 Pro (Max Context)</option>
+                        <option value="gemini-2.5-pro">Gemini 1.5 Pro (Max Context)</option>
                       </select>
                     </FieldGroup>
                     <FieldGroup label="Gemini API Key" note="Optional — uses server key if empty">
@@ -286,15 +285,14 @@ export default function SettingsPage() {
                   <button
                     key={opt.id}
                     onClick={() => set('terminalPermission', opt.id)}
-                    className={`flex flex-col items-start p-3 rounded-xl border transition-all text-left ${
-                      settings.terminalPermission === opt.id
+                    className={`flex flex-col items-start p-3 rounded-xl border transition-all text-left ${settings.terminalPermission === opt.id
                         ? opt.id === 'never'
                           ? 'bg-red-500/10 border-red-500/30 text-red-400'
                           : opt.id === 'always'
                             ? 'bg-white text-black border-white'
                             : 'bg-white/5 border-white/20 text-white'
                         : 'bg-white/[0.02] border-white/5 text-zinc-600 hover:text-zinc-400 hover:border-white/10'
-                    }`}
+                      }`}
                   >
                     <span className="text-xs font-black">{opt.label}</span>
                     <span className="text-[9px] mt-1 opacity-60">{opt.desc}</span>

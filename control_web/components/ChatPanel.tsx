@@ -12,6 +12,8 @@ import {
   X, FileText, Image as ImageIcon, ShieldAlert, Command, ChevronRight, ChevronLeft,
   Mic, MicOff
 } from 'lucide-react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
@@ -365,11 +367,7 @@ export default function ChatPanel({ sessionId }: ChatPanelProps) {
       {/* Input */}
       <div className="p-4 border-t border-border bg-secondary pb-[calc(1rem+env(safe-area-inset-bottom))]">
         <div className="max-w-4xl mx-auto">
-          {error && (
-            <div className="flex items-center gap-2 mb-3 text-[11px] text-red-500 bg-red-500/10 border border-red-500/20 rounded-xl px-3 py-2">
-              <AlertCircle size={12} /> {error}
-            </div>
-          )}
+
           <form 
             onSubmit={handleSend}
             className="relative flex items-end gap-2 bg-background border border-border rounded-2xl p-1.5 focus-within:border-primary/20 transition-all shadow-xl"
@@ -469,12 +467,14 @@ function MessageBubble({ msg }: { msg: any }) {
           {isUser ? 'You' : 'Control AI'}
         </div>
         <div className={cn(
-          "text-sm p-4 rounded-2xl transition-all duration-200 break-words whitespace-pre-wrap overflow-y-visible",
+          "text-sm p-4 rounded-2xl transition-all duration-200 break-words overflow-visible",
           isUser 
             ? "bg-zinc-900 text-white border border-white/5 rounded-tr-none shadow-sm" 
             : "bg-white/5 text-zinc-300 border border-white/[0.02] rounded-tl-none leading-relaxed"
         )}>
-          {msg.content}
+          <div className={cn("prose prose-sm max-w-none", isUser ? "prose-invert" : "dark:prose-invert")}>
+             <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.content}</ReactMarkdown>
+          </div>
         </div>
       </div>
     </div>
