@@ -923,6 +923,62 @@ class ComputerUseAgent {
             return { success: false };
         });
 
+        ipcMain.handle('upload-skill-folder', async (event) => {
+            const { dialog } = require('electron');
+            const window = BrowserWindow.fromWebContents(event.sender);
+
+            const result = await dialog.showOpenDialog(window, {
+                title: 'Import Skill Folder',
+                properties: ['openDirectory']
+            });
+
+            if (!result.canceled && result.filePaths.length > 0) {
+                const storageManager = require('./storage-manager');
+                let totalCount = 0;
+                const folderPath = result.filePaths[0];
+
+                try {
+                    const files = fs.readdirSync(folderPath);
+                    for (const file of files) {
+                        const filePath = path.join(folderPath, file);
+                        if (fs.statSync(filePath).isFile()) {
+                            const ext = path.extname(filePath).toLowerCase();
+                            if (ext === '.json') {
+                                const skillData = fs.readJsonSync(filePath);
+                                const skills = Array.isArray(skillData) ? skillData : [skillData];
+                                for (const skill of skills) {
+                                    if (storageManager.addBehavior(skill)) totalCount++;
+                                }
+                            } else if (['.md', '.txt', '.markdown'].includes(ext)) {
+                                const content = fs.readFileSync(filePath, 'utf8');
+                                const name = path.basename(filePath, ext)
+                                    .replace(/[^a-zA-Z0-9]/g, ' ')
+                                    .split(' ')
+                                    .map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+                                    .join('');
+
+                                const skill = {
+                                    name: name,
+                                    description: `Imported from ${path.basename(filePath)}`,
+                                    pattern: content.trim()
+                                };
+                                if (storageManager.addBehavior(skill)) totalCount++;
+                            }
+                        }
+                    }
+                } catch (err) {
+                    console.error('Error reading skill folder:', err);
+                    return { success: false, error: 'Failed to read folder contents' };
+                }
+
+                if (totalCount > 0) {
+                    this.windowManager.broadcast('skills-updated');
+                }
+                return { success: totalCount > 0, count: totalCount };
+            }
+            return { success: false };
+        });
+
         ipcMain.handle('delete-skill', async (event, name) => {
             const storageManager = require('./storage-manager');
             const success = storageManager.deleteBehavior(name);
@@ -1135,14 +1191,21 @@ class ComputerUseAgent {
                 throw new Error(rateResult.error || 'Rate limit exceeded');
             }
 
-            // 3. Get API Key based on Plan
-            let apiKey = await dbService.getGeminiKey(currentUser.plan);
+            // 3. Get API Key with multiple fallbacks
+            let apiKey = this.appSettings.geminiApiKey; // Priority 1: User's manually entered key
+            
             if (!apiKey) {
-                // Try from local keys cache
+                // Priority 2: Key from database/plan
+                apiKey = await dbService.getGeminiKey(currentUser.plan);
+            }
+            
+            if (!apiKey) {
+                // Priority 3: Local keys cache (Supabase fetch)
                 const cachedKeys = dbService.getKeys();
                 if (cachedKeys && cachedKeys.gemini) {
                     apiKey = cachedKeys.gemini;
                 } else {
+                    // Priority 4: Environment variables as last resort
                     console.log('Using default env API key');
                     apiKey = process.env.GEMINI_API_KEY || process.env.GEMINI_FREE_KEY;
                 }
@@ -1450,20 +1513,31 @@ class ComputerUseAgent {
             return { success: true };
         });
 
+        ipcMain.handle('set-modal-active', (event, active) => {
+            const win = electron.BrowserWindow.fromWebContents(event.sender);
+            if (win) win.isModalActive = active;
+            return { success: true };
+        });
+
         // UI Modal Handlers
         ipcMain.handle('show-confirm-modal', async (event, options) => {
             const { dialog } = require('electron');
             const win = electron.BrowserWindow.fromWebContents(event.sender);
-            const result = await dialog.showMessageBox(win, {
-                type: options.type || 'question',
-                buttons: [options.confirmText || 'Yes', options.cancelText || 'No'],
-                defaultId: 0,
-                cancelId: 1,
-                title: options.title || 'Confirm',
-                message: options.message || 'Are you sure?',
-                detail: options.detail || ''
-            });
-            return result.response === 0;
+            if (win) win.isModalActive = true;
+            try {
+                const result = await dialog.showMessageBox(win, {
+                    type: options.type || 'question',
+                    buttons: [options.confirmText || 'Yes', options.cancelText || 'No'],
+                    defaultId: 0,
+                    cancelId: 1,
+                    title: options.title || 'Confirm',
+                    message: options.message || 'Are you sure?',
+                    detail: options.detail || ''
+                });
+                return result.response === 0;
+            } finally {
+                if (win && !win.isDestroyed()) win.isModalActive = false;
+            }
         });
 
         ipcMain.handle('show-prompt-modal', async (event, message, defaultValue, options) => {
@@ -1524,10 +1598,11 @@ class ComputerUseAgent {
         settings.ttsRate = this.appSettings.ttsRate !== undefined ? this.appSettings.ttsRate : 1.0;
         settings.ttsVolume = this.appSettings.ttsVolume !== undefined ? this.appSettings.ttsVolume : 1.0;
 
-        // Add gemini model from cache
+        // Add gemini settings with fallbacks
         const cachedKeys = dbService.getKeys();
-        settings.geminiModel = cachedKeys ? cachedKeys.gemini_model : (process.env.GEMINI_MODEL || "gemini-2.5-flash");
-
+        settings.geminiApiKey = this.appSettings.geminiApiKey || (cachedKeys ? cachedKeys.gemini : '');
+        settings.geminiModel = this.appSettings.geminiModel || (cachedKeys ? cachedKeys.gemini_model : (process.env.GEMINI_MODEL || "gemini-2.5-flash"));
+        
         return settings;
     }
 

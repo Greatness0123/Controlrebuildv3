@@ -375,7 +375,10 @@ module.exports = {
             const { data: user } = await supabase.from('users').select(column).eq('id', userId).single();
             if (user) {
                 const newVal = (user[column] || 0) + 1;
-                await supabase.from('users').update({ [column]: newVal }).eq('id', userId);
+                await supabase.from('users').update({ 
+                    [column]: newVal,
+                    last_task_date: new Date().toISOString()
+                }).eq('id', userId);
             }
         } catch (e) {
             console.error('Error incrementing task count:', e);
@@ -385,11 +388,32 @@ module.exports = {
     async updateTokenUsage(userId, mode, usage) {
         try {
             if (!supabase || !usage) return;
-            const { totalTokenCount } = usage;
-            const { data: user } = await supabase.from('users').select('token_usage').eq('id', userId).single();
-            const currentUsage = user?.token_usage || {};
-            currentUsage[mode] = (currentUsage[mode] || 0) + (totalTokenCount || 0);
-            await supabase.from('users').update({ token_usage: currentUsage }).eq('id', userId);
+            const { promptTokenCount, candidatesTokenCount, totalTokenCount } = usage;
+            
+            const { data: user } = await supabase.from('users').select('token_usage, daily_token_usage, total_token_usage').eq('id', userId).single();
+            if (!user) return;
+            
+            const currentUsage = user.token_usage || {};
+            if (!currentUsage[mode]) currentUsage[mode] = { prompt: 0, candidates: 0, total: 0 };
+            currentUsage[mode].prompt = (currentUsage[mode].prompt || 0) + (promptTokenCount || 0);
+            currentUsage[mode].candidates = (currentUsage[mode].candidates || 0) + (candidatesTokenCount || 0);
+            currentUsage[mode].total = (currentUsage[mode].total || 0) + (totalTokenCount || 0);
+
+            const dailyUsage = user.daily_token_usage || {};
+            const today = new Date().toISOString().split('T')[0];
+            if (!dailyUsage[today]) dailyUsage[today] = { prompt: 0, candidates: 0, total: 0 };
+            dailyUsage[today].prompt += (promptTokenCount || 0);
+            dailyUsage[today].candidates += (candidatesTokenCount || 0);
+            dailyUsage[today].total += (totalTokenCount || 0);
+
+            const totalUsage = (user.total_token_usage || 0) + (totalTokenCount || 0);
+
+            await supabase.from('users').update({ 
+                token_usage: currentUsage,
+                daily_token_usage: dailyUsage,
+                total_token_usage: totalUsage,
+                last_token_update: new Date().toISOString()
+            }).eq('id', userId);
         } catch (e) {
             console.error('Error updating token usage:', e);
         }

@@ -98,7 +98,6 @@ class WindowManager {
             y: screen.getPrimaryDisplay().workAreaSize.height - 520,
             frame: false,
             transparent: true,
-            backgroundColor: '#00000000',
             alwaysOnTop: true,
             skipTaskbar: true,
             icon: iconPath,
@@ -209,6 +208,12 @@ class WindowManager {
             setTimeout(() => {
                 try {
                     if (!settingsWindow.isDestroyed() && !settingsWindow.isFocused()) {
+                        // NEW: Don't close if a modal is active (flag set by renderer or main)
+                        if (settingsWindow.isModalActive) {
+                            console.log('[WindowManager] Settings window blurred but modal is active, not hiding');
+                            return;
+                        }
+
                         // Check if another window we manage just gained focus
                         const focusedWindow = BrowserWindow.getFocusedWindow();
                         const isOtherManagedWindowFocused = Array.from(this.windows.values()).some(w => w === focusedWindow);
@@ -565,8 +570,9 @@ class WindowManager {
 
     updateAllWindowVisibility(visible) {
         console.log(`[WindowManager] updateAllWindowVisibility: ${visible}`);
-        this.windows.forEach((window) => {
+        this.windows.forEach((window, name) => {
             if (window && !window.isDestroyed()) {
+                if (name === 'entry') return;
                 try {
                     window.setContentProtection(!visible);
                     window.setVisibleOnAllWorkspaces(visible, { visibleOnFullScreen: true });

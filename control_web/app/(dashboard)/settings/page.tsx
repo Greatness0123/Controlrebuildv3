@@ -56,7 +56,7 @@ export default function SettingsPage() {
           setSettings(prev => ({
             ...prev,
             provider: provRes.config.provider || 'gemini',
-            geminiModel: provRes.config.gemini_model || 'gemini-2.5-flash',
+            geminiModel: (provRes.config.gemini_model === 'gemini-1.5-flash' || provRes.config.gemini_model === 'gemini-1.5-pro' ? provRes.config.gemini_model.replace('1.5', '2.5') : provRes.config.gemini_model) || 'gemini-2.5-flash',
             geminiApiKey: provRes.config.gemini_api_key || '',
             openaiApiKey: provRes.config.openai_api_key || '',
             openaiModel: provRes.config.openai_model || 'gpt-4o',
@@ -197,7 +197,7 @@ export default function SettingsPage() {
                       <select value={settings.geminiModel} onChange={e => set('geminiModel', e.target.value)} className="select-field">
                         <option value="gemini-2.5-flash">Gemini 2.5 Flash (Fastest)</option>
                         <option value="gemini-2.0-flash">Gemini 2.0 Flash (Stable)</option>
-                        <option value="gemini-2.5-pro">Gemini 1.5 Pro (Max Context)</option>
+                        <option value="gemini-2.5-pro">Gemini 2.5 Pro (Max Context)</option>
                       </select>
                     </FieldGroup>
                     <FieldGroup label="Gemini API Key" note="Optional — uses server key if empty">

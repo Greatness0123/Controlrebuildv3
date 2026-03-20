@@ -232,7 +232,7 @@ export default function VMCard({ vm }: { vm: any }) {
                         className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-accent-primary text-accent-foreground text-[9px] font-black uppercase tracking-widest rounded-xl hover:bg-opacity-90 transition-all disabled:opacity-50"
                     >
                         {loading ? <Loader2 size={12} className="animate-spin" /> : null}
-                        Start Machine
+                        <span className="hidden sm:inline">Start Machine</span>
                     </button>
                 ) : (
                     <button
@@ -241,7 +241,7 @@ export default function VMCard({ vm }: { vm: any }) {
                         className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-accent-primary text-accent-foreground text-[9px] font-black uppercase tracking-widest rounded-xl hover:bg-opacity-90 transition-all disabled:opacity-50 shadow-lg"
                     >
                         {connecting ? <Loader2 size={12} className="animate-spin" /> : <Monitor size={12} />}
-                        Connect
+                        <span className="hidden sm:inline">Connect</span>
                     </button>
                 )}
                 

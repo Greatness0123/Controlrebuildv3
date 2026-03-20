@@ -6,7 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Control - Settings</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <script src="https://unpkg.com/lucide@latest" defer></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         * {
             margin: 0;
@@ -134,6 +134,7 @@
             min-width: 24px;
             display: flex;
             justify-content: center;
+            font-size: 18px;
         }
 
         .sidebar-label {
@@ -236,6 +237,9 @@
             font-size: 14px;
             font-weight: 600;
             margin-bottom: 4px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
         }
 
         .setting-desc {
@@ -475,9 +479,20 @@
             transform: translateX(-50%) translateY(0);
         }
 
-        #toast.success { background: #10b981; color: white; }
-        #toast.error { background: #ef4444; color: white; }
-        #toast.info { background: #3b82f6; color: white; }
+        #toast.success {
+            background: #10b981;
+            color: white;
+        }
+
+        #toast.error {
+            background: #ef4444;
+            color: white;
+        }
+
+        #toast.info {
+            background: #3b82f6;
+            color: white;
+        }
 
         /* Hotkey Modal */
         .modal-overlay {
@@ -506,8 +521,15 @@
         }
 
         @keyframes modalIn {
-            from { transform: scale(0.9) translateY(20px); opacity: 0; }
-            to { transform: scale(1) translateY(0); opacity: 1; }
+            from {
+                transform: scale(0.9) translateY(20px);
+                opacity: 0;
+            }
+
+            to {
+                transform: scale(1) translateY(0);
+                opacity: 1;
+            }
         }
 
         .hotkey-recording-display {
@@ -560,39 +582,43 @@
     </style>
 </head>
 
-<body>
+<body class="dark-mode">
     <div class="settings-window">
         <aside class="sidebar">
             <div class="sidebar-item active" data-tab="account">
-                <div class="sidebar-icon"><i data-lucide="user"></i></div>
+                <div class="sidebar-icon"><i class="fas fa-user-circle"></i></div>
                 <div class="sidebar-label">Account</div>
             </div>
             <div class="sidebar-item" data-tab="appearance">
-                <div class="sidebar-icon"><i data-lucide="palette"></i></div>
+                <div class="sidebar-icon"><i class="fas fa-palette"></i></div>
                 <div class="sidebar-label">Appearance</div>
             </div>
             <div class="sidebar-item" data-tab="providers">
-                <div class="sidebar-icon"><i data-lucide="brain"></i></div>
+                <div class="sidebar-icon"><i class="fas fa-brain"></i></div>
                 <div class="sidebar-label">AI Providers</div>
             </div>
             <div class="sidebar-item" data-tab="voice">
-                <div class="sidebar-icon"><i data-lucide="mic"></i></div>
+                <div class="sidebar-icon"><i class="fas fa-microphone"></i></div>
                 <div class="sidebar-label">Voice & Audio</div>
             </div>
             <div class="sidebar-item" data-tab="security">
-                <div class="sidebar-icon"><i data-lucide="shield"></i></div>
+                <div class="sidebar-icon"><i class="fas fa-shield-alt"></i></div>
                 <div class="sidebar-label">Security</div>
             </div>
             <div class="sidebar-item" data-tab="remote">
-                <div class="sidebar-icon"><i data-lucide="monitor"></i></div>
+                <div class="sidebar-icon"><i class="fas fa-desktop"></i></div>
                 <div class="sidebar-label">Remote Access</div>
             </div>
             <div class="sidebar-item" data-tab="shortcuts">
-                <div class="sidebar-icon"><i data-lucide="keyboard"></i></div>
+                <div class="sidebar-icon"><i class="fas fa-keyboard"></i></div>
                 <div class="sidebar-label">Shortcuts</div>
             </div>
+            <div class="sidebar-item" data-tab="skills">
+                <div class="sidebar-icon"><i class="fas fa-book"></i></div>
+                <div class="sidebar-label">Skills</div>
+            </div>
             <div class="sidebar-item" data-tab="system">
-                <div class="sidebar-icon"><i data-lucide="settings"></i></div>
+                <div class="sidebar-icon"><i class="fas fa-cog"></i></div>
                 <div class="sidebar-label">System</div>
             </div>
         </aside>
@@ -621,14 +647,14 @@
                     </div>
                     <div class="setting-row">
                         <div class="setting-info">
-                            <div class="setting-name">Log Out</div>
+                            <div class="setting-name"><i class="fas fa-sign-out-alt"></i> Log Out</div>
                             <div class="setting-desc">Sign out of your account on this device</div>
                         </div>
                         <button class="btn btn-secondary" id="logoutButton">Log Out</button>
                     </div>
                 </div>
 
-                <div class="section-title"><i data-lucide="activity"></i> Account Usage & Limits</div>
+                <div class="section-title"><i class="fas fa-chart-line"></i> Account Usage & Limits</div>
                 <div style="display: flex; flex-wrap: wrap; gap: 60px; padding: 20px 0;">
                     <div class="stat-group">
                         <div
@@ -645,21 +671,21 @@
                     <div class="stat-group">
                         <div
                             style="font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(--text-secondary); margin-bottom: 8px;">
-                            Tasks Run</div>
-                        <div style="font-size: 28px; font-weight: 700;" id="statTasks">0</div>
+                            Total Tokens Used</div>
+                        <div style="font-size: 28px; font-weight: 700;" id="statTotalTokens">0</div>
                     </div>
                     <div class="stat-group">
                         <div
                             style="font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(--text-secondary); margin-bottom: 8px;">
-                            Hours Saved</div>
-                        <div style="font-size: 28px; font-weight: 700;" id="statHours">0</div>
+                            Daily Tokens Used</div>
+                        <div style="font-size: 28px; font-weight: 700;" id="statDailyTokens">0</div>
                     </div>
                 </div>
             </div>
 
             <!-- Appearance Tab -->
             <div class="tab-content" id="appearance">
-                <div class="section-title">Theme</div>
+                <div class="section-title"><i class="fas fa-moon"></i> Theme</div>
                 <div class="setting-card">
                     <div class="setting-row">
                         <div class="setting-info">
@@ -805,11 +831,15 @@
                     <div class="section-title">Gemini Settings</div>
                     <div class="form-group">
                         <label class="form-label">Model Name</label>
-                        <select id="geminiModel" style="width: 100%;">
-                            <option value="gemini-1.5-flash">Gemini 1.5 Flash (Fast)</option>
-                            <option value="gemini-1.5-pro">Gemini 1.5 Pro (Powerful)</option>
-                            <option value="gemini-2.0-flash-exp">Gemini 2.0 Flash (Experimental)</option>
-                        </select>
+                        <input type="text" id="geminiModel" placeholder="e.g. gemini-2.5-flash" list="geminiModelList" style="width: 100%;">
+                        <datalist id="geminiModelList">
+                            <option value="gemini-2.5-flash">
+                            <option value="gemini-2.5-pro">
+                            <option value="gemini-2.0-flash">
+                            <option value="gemini-2.0-pro">
+                            <option value="gemini-1.5-flash">
+                            <option value="gemini-1.5-pro">
+                        </datalist>
                     </div>
                     <div class="form-group">
                         <label class="form-label">API Key</label>
@@ -885,7 +915,7 @@
 
             <!-- Voice Tab -->
             <div class="tab-content" id="voice">
-                <div class="section-title">Text-to-Speech</div>
+                <div class="section-title"><i class="fas fa-volume-up"></i> Text-to-Speech</div>
                 <div class="setting-card">
                     <div class="setting-row">
                         <div class="setting-info">
@@ -941,7 +971,7 @@
 
             <!-- Security Tab -->
             <div class="tab-content" id="security">
-                <div class="section-title">Application Lock</div>
+                <div class="section-title"><i class="fas fa-lock"></i> Application Lock</div>
                 <div class="setting-card">
                     <div class="setting-row">
                         <div class="setting-info">
@@ -962,7 +992,7 @@
                     </div>
                 </div>
 
-                <div class="section-title">System Safety</div>
+                <div class="section-title"><i class="fas fa-shield-alt"></i> System Safety</div>
                 <div class="setting-card">
                     <div class="setting-row">
                         <div class="setting-info">
@@ -1015,16 +1045,31 @@
 
             <!-- Remote Access Tab -->
             <div class="tab-content" id="remote">
-                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; padding: 12px 16px; background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 12px;">
+                <div
+                    style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; padding: 12px 16px; background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 12px;">
                     <div style="display: flex; align-items: center; gap: 12px;">
-                        <div id="remoteHeaderIndicator" class="status-dot offline" style="width: 10px; height: 10px; border-radius: 50%;"></div>
-                        <span style="font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Live Signaling Status</span>
+                        <div id="remoteHeaderIndicator" class="status-dot offline"
+                            style="width: 10px; height: 10px; border-radius: 50%;"></div>
+                        <span
+                            style="font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Live
+                            Signaling Status</span>
                     </div>
-                    <span id="remoteBadgeText" style="font-size: 10px; font-weight: 700; background: var(--bg-tertiary); color: var(--text-secondary); padding: 4px 10px; border-radius: 20px; text-transform: uppercase;">Idle</span>
+                    <span id="remoteBadgeText"
+                        style="font-size: 10px; font-weight: 700; background: var(--bg-tertiary); color: var(--text-secondary); padding: 4px 10px; border-radius: 20px; text-transform: uppercase;">Idle</span>
                 </div>
 
                 <div class="section-title">Remote Control (View and Control)</div>
                 <p class="setting-desc" style="margin-bottom: 20px;">Control this computer from the Control Web app.</p>
+
+                <div class="setting-card">
+                    <div class="setting-row">
+                        <div class="setting-info">
+                            <div class="setting-name">Connection Status</div>
+                            <div class="setting-desc" id="remoteStatusText">Checking connection...</div>
+                        </div>
+                        <div id="remoteStatusIndicator" class="status-dot offline"></div>
+                    </div>
+                </div>
 
                 <div class="setting-card">
                     <div class="setting-row">
@@ -1048,128 +1093,142 @@
                                         style="flex: 1; background: var(--bg-tertiary); padding: 12px; border-radius: 8px; font-family: 'JetBrains Mono', monospace; font-size: 20px; letter-spacing: 2px; text-align: center; border: 1px dashed var(--border-color);">
                                         ---- ----
                                     </div>
-                                    <button class="btn btn-secondary" id="copyPairingBtn" title="Copy code" style="position: absolute; right: 8px; padding: 6px; display: none;">
+                                    <button class="btn btn-secondary" id="copyPairingBtn" title="Copy code"
+                                        style="position: absolute; right: 8px; padding: 6px; display: none;">
                                         <i data-lucide="copy" style="width: 16px; height: 16px;"></i>
                                     </button>
                                 </div>
                                 <button class="btn btn-primary" id="generatePairingBtn">
                                     <span id="generateBtnText">Pair Machine</span>
-                                    <div id="generateBtnLoader" style="display: none; width: 16px; height: 16px; border: 2px solid rgba(255,255,255,0.3); border-radius: 50%; border-top-color: #fff; animation: spin 0.8s linear infinite;"></div>
+                                    <div id="generateBtnLoader"
+                                        style="display: none; width: 16px; height: 16px; border: 2px solid rgba(255,255,255,0.3); border-radius: 50%; border-top-color: #fff; animation: spin 0.8s linear infinite;">
+                                    </div>
                                 </button>
                             </div>
                             <style>
-                                @keyframes spin { to { transform: rotate(360deg); } }
+                                @keyframes spin {
+                                    to {
+                                        transform: rotate(360deg);
+                                    }
+                                }
                             </style>
-                            <div style="margin-top: 12px; padding: 10px; background: rgba(245, 158, 11, 0.05); border: 1px solid rgba(245, 158, 11, 0.1); border-radius: 8px;">
+                            <div
+                                style="margin-top: 12px; padding: 10px; background: rgba(245, 158, 11, 0.05); border: 1px solid rgba(245, 158, 11, 0.1); border-radius: 8px;">
                                 <p style="font-size: 11px; color: #f59e0b; margin: 0; font-weight: 600;">
                                     <i class="fas fa-exclamation-triangle" style="margin-right: 6px;"></i>
-                                    Regenerating this code will immediately invalidate all existing pairings and disable remote access for any web sessions currently using the old code.
+                                    Regenerating this code will immediately invalidate all existing pairings and disable
+                                    remote access for any web sessions currently using the old code.
                                 </p>
                             </div>
                         </div>
                     </div>
                 </div>
-
-                <div class="section-title">Connection Status</div>
-                <div class="setting-card">
-                    <div class="setting-row">
-                        <div class="setting-info">
-                            <div class="setting-name">Status</div>
-                            <div id="remoteStatusText" class="setting-desc">Disconnected</div>
-                        </div>
-                        <div id="remoteStatusIndicator" class="status-dot offline"
-                            style="width: 12px; height: 12px; border-radius: 50%;"></div>
-                        <style>
-                            .status-dot.online { background: #10b981; box-shadow: 0 0 8px rgba(16, 185, 129, 0.5); }
-                            .status-dot.connecting { background: #f59e0b; animation: statusPulse 1.5s infinite; }
-                            .status-dot.offline { background: var(--text-secondary); opacity: 0.5; }
-                            @keyframes statusPulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
-                        </style>
-                    </div>
-                </div>
             </div>
 
-            <!-- System Tab -->
-            <div class="tab-content" id="system">
-                <div class="section-title">System Settings</div>
-                <div class="setting-card">
-                    <div class="setting-row">
-                        <div class="setting-info">
-                            <div class="setting-name">Launch on Startup</div>
-                            <div class="setting-desc">Start Control when your computer boots up</div>
+            <!-- Skills Tab -->
+                <div class="tab-content" id="skills">
+                    <div class="section-title"><i class="fas fa-bolt"></i> Skills & Behaviors</div>
+                    <div class="setting-card">
+                        <p class="setting-desc" style="margin-bottom: 20px;">Upload text, markdown, or PDF
+                            files
+                            to
+                            teach
+                            the AI new
+                            task workflows and behaviors.</p>
+                        <div style="display: flex; gap: 10px; margin-bottom: 24px;">
+                            <button class="btn btn-primary" id="uploadSkillBtn"><i class="fas fa-upload"></i>
+                                Upload
+                                Skill
+                                File</button>
                         </div>
-                        <label class="switch">
-                            <input type="checkbox" id="autoStartToggle">
-                            <span class="slider"></span>
-                        </label>
-                    </div>
-                    <div class="setting-row">
-                        <div class="setting-info">
-                            <div class="setting-name">Floating Overlay Button</div>
-                            <div class="setting-desc">Show the small floating toggle button</div>
+
+                        <div class="skills-list" id="skillsListContainer"
+                            style="display: flex; flex-direction: column; gap: 12px;">
+                            <div class="setting-desc">No skills installed.</div>
                         </div>
-                        <label class="switch">
-                            <input type="checkbox" id="floatingButtonToggle">
-                            <span class="slider"></span>
-                        </label>
                     </div>
                 </div>
 
-                <div class="section-title" style="color: var(--danger);">Danger Zone</div>
-                <div class="setting-card" style="border-color: rgba(239, 68, 68, 0.2);">
-                    <div class="setting-row">
-                        <div class="setting-info">
-                            <div class="setting-name">Wipe All Local Data</div>
-                            <div class="setting-desc">Clears all settings, sessions, and history</div>
+                <!-- System Tab -->
+                <div class="tab-content" id="system">
+                    <div class="section-title"><i class="fas fa-cog"></i> System Settings</div>
+                    <div class="setting-card">
+                        <div class="setting-row">
+                            <div class="setting-info">
+                                <div class="setting-name">Launch on Startup</div>
+                                <div class="setting-desc">Start Control when your computer boots up</div>
+                            </div>
+                            <label class="switch">
+                                <input type="checkbox" id="autoStartToggle">
+                                <span class="slider"></span>
+                            </label>
                         </div>
-                        <button class="btn btn-danger" id="deleteAllDataBtn">Delete Everything</button>
+                        <div class="setting-row">
+                            <div class="setting-info">
+                                <div class="setting-name">Floating Overlay Button</div>
+                                <div class="setting-desc">Show the small floating toggle button</div>
+                            </div>
+                            <label class="switch">
+                                <input type="checkbox" id="floatingButtonToggle">
+                                <span class="slider"></span>
+                            </label>
+                        </div>
                     </div>
-                    <div class="setting-row">
-                        <div class="setting-info">
-                            <div class="setting-name">Quit Application</div>
-                            <div class="setting-desc">Completely exit Control assistant</div>
+
+                    <div class="section-title" style="color: var(--danger);"><i class="fas fa-exclamation-triangle"></i>
+                        Danger Zone
+                    </div>
+                    <div class="setting-card" style="border-color: rgba(239, 68, 68, 0.2);">
+                        <div class="setting-row">
+                            <div class="setting-info">
+                                <div class="setting-name">Wipe All Local Data</div>
+                                <div class="setting-desc">Clears all settings, sessions, and history</div>
+                            </div>
+                            <button class="btn btn-danger" id="deleteAllDataBtn">Delete Everything</button>
                         </div>
-                        <button class="btn btn-danger" id="quitButton">Quit App</button>
+                        <div class="setting-row">
+                            <div class="setting-info">
+                                <div class="setting-name">Quit Application</div>
+                                <div class="setting-desc">Completely exit Control assistant</div>
+                            </div>
+                            <button class="btn btn-danger" id="quitButton">Quit App</button>
+                        </div>
                     </div>
                 </div>
-            </div>
         </main>
     </div>
 
-    <!-- Hotkey Recording Modal -->
-    <div id="hotkeyModal" class="modal-overlay">
-        <div class="modal-content">
-            <h2 style="font-size: 18px; font-weight: 700; margin-bottom: 12px;">Recording Hotkey</h2>
-            <p style="color: var(--text-secondary); font-size: 13px;">Press the key combination you want to use</p>
-            
-            <div id="hotkeyDisplay" class="hotkey-recording-display">...</div>
-            
-            <div style="display: flex; gap: 10px; justify-content: center; margin-top: 20px;">
-                <button class="btn btn-secondary" id="cancelHotkeyBtn">Cancel</button>
-                <button class="btn btn-primary" id="saveHotkeyBtn" disabled>Save Hotkey</button>
-            </div>
-            <p style="margin-top: 15px; font-size: 11px; color: var(--text-secondary);">ESC to cancel</p>
-        </div>
-    </div>
+    <!-- Toast -->
+    <div id="toast"></div>
 
-    <!-- PIN Modal -->
+    <!-- Modals -->
     <div id="pinModal" class="modal-overlay">
         <div class="modal-content">
-            <h3 id="pinTitle" style="font-size: 20px; font-weight: 700; margin-bottom: 8px;">Set Security PIN</h3>
-            <p id="pinDescription" style="font-size: 13px; color: var(--text-secondary); margin-bottom: 24px;">Enter a 4-digit code</p>
-            
-            <input type="password" id="pinInput" maxlength="4" 
-                   style="width: 100%; font-size: 32px; text-align: center; letter-spacing: 10px; margin-bottom: 24px; background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 8px; padding: 10px;">
-            
-            <div style="display: flex; gap: 12px;">
-                <button class="btn btn-secondary" style="flex: 1" id="pinCancelButton">Cancel</button>
-                <button class="btn btn-primary" style="flex: 1" id="pinConfirmButton">Confirm</button>
+            <h2 id="pinTitle" style="margin-bottom: 12px; font-size: 18px;">Set Security PIN</h2>
+            <p id="pinDescription" style="font-size: 13px; color: var(--text-secondary); margin-bottom: 24px;">Enter a 4-digit code to secure your application.</p>
+            <div class="form-group" style="margin-bottom: 24px;">
+                <input type="password" id="pinInput" maxlength="4" placeholder="••••" style="font-size: 24px; text-align: center; letter-spacing: 12px; height: 50px; background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 12px; color: var(--text-primary);">
+            </div>
+            <div style="display: flex; gap: 12px; justify-content: stretch;">
+                <button class="btn btn-secondary" id="pinCancelButton" style="flex: 1; justify-content: center;">Cancel</button>
+                <button class="btn btn-primary" id="pinConfirmButton" style="flex: 1; justify-content: center;">Confirm</button>
             </div>
         </div>
     </div>
 
-    <div id="toast"></div>
+    <div id="hotkeyModal" class="modal-overlay">
+        <div class="modal-content">
+            <h2 style="margin-bottom: 12px; font-size: 18px;">Record Hotkey</h2>
+            <p style="font-size: 13px; color: var(--text-secondary); margin-bottom: 24px;">Press the key combination you'd like to use.</p>
+            <div id="hotkeyDisplay" class="hotkey-recording-display">Press keys...</div>
+            <div style="display: flex; gap: 12px; justify-content: stretch; margin-top: 24px;">
+                <button class="btn btn-secondary" id="cancelHotkeyBtn" style="flex: 1; justify-content: center;">Cancel</button>
+                <button class="btn btn-primary" id="saveHotkeyBtn" style="flex: 1; justify-content: center;" disabled>Save Shortcut</button>
+            </div>
+        </div>
+    </div>
 
     <script src="settings-modal.js"></script>
 </body>
+
 </html>

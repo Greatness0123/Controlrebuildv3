@@ -134,7 +134,7 @@ export default function ChatSessionPage() {
                   {activeDeviceId ? <Laptop size={20} /> : <Cpu size={20} />}
                </div>
                <div className="min-w-0">
-                  <h1 className="text-sm font-black text-foreground truncate uppercase tracking-tight">
+                  <h1 className="text-xs sm:text-sm font-black text-foreground truncate uppercase tracking-tight">
                     {activeVm?.name || activeDevice?.name || 'Unassigned Session'}
                   </h1>
                   <div className="flex items-center gap-2">
@@ -142,7 +142,7 @@ export default function ChatSessionPage() {
                       "w-1.5 h-1.5 rounded-full animate-pulse",
                       (activeVm || activeDevice) ? "bg-emerald-500" : "bg-red-500"
                     )} />
-                    <span className="text-[10px] text-text-muted font-bold uppercase tracking-widest truncate">
+                    <span className="text-[10px] text-text-muted font-bold uppercase tracking-widest truncate hidden sm:inline">
                       {activeVm ? 'Cloud Machine Linked' : activeDevice ? 'Hardware Node Bridged' : 'No target selected'}
                     </span>
                   </div>
@@ -192,33 +192,21 @@ export default function ChatSessionPage() {
           </div>
 
           <div className="flex items-center gap-3">
-            {/* Mobile View Toggle */}
-            <div className="flex lg:hidden items-center gap-2">
-               {hasTarget && (
-                  <button 
-              onClick={() => setShowViewer(!showViewer)}
-              className={cn(
-                "w-10 h-10 flex items-center justify-center rounded-xl border transition-all",
-                showViewer ? "bg-accent-primary text-accent-foreground border-accent-primary shadow-lg shadow-accent-primary/20" : "bg-secondary text-text-muted border-border hover:border-text-muted/30"
-              )}
-            >
-              <Monitor size={18} />
-            </button>
-               )}
-            </div>
-
             {/* Target Selector */}
             <div className="relative group/selector">
-              <button className="flex items-center gap-2 px-4 py-2 bg-secondary border border-border rounded-xl text-[10px] font-black uppercase tracking-[0.2em] text-text-muted hover:text-foreground hover:bg-card-hover transition-all shadow-xl">
-                {activeVm?.name || activeDevice?.name || 'Assign Target'}
+              <button className="flex items-center gap-2 px-3 sm:px-4 py-2 bg-secondary border border-border rounded-xl text-[10px] font-black uppercase tracking-[0.2em] text-text-muted hover:text-foreground hover:bg-card-hover transition-all shadow-xl">
+                <span className="hidden sm:inline">{activeVm?.name || activeDevice?.name || 'Assign Target'}</span>
+                <Server size={14} className="sm:hidden" />
                 <ChevronDown size={12} className="opacity-50 transition-transform group-hover/selector:rotate-180" />
               </button>
               
-              <div className="absolute right-0 mt-2 w-72 bg-card border border-border rounded-2xl shadow-2xl p-2 opacity-0 invisible group-hover/selector:opacity-100 group-hover/selector:visible transition-all z-50">
+              <div className="absolute right-0 mt-2 w-72 bg-zinc-950 border border-border rounded-2xl shadow-2xl p-2 opacity-0 invisible group-hover/selector:opacity-100 group-hover/selector:visible transition-all z-50">
                 <div className="p-3">
                   <h4 className="text-[10px] font-black text-text-muted uppercase tracking-[0.2em] mb-3">Available Resources</h4>
                   <div className="space-y-1">
-                    {vms.map((vm) => (
+                    {vms.map((vm) => {
+                      const isSelected = activeVmId === vm.id && !activeDeviceId;
+                      return (
                       <button
                         key={vm.id}
                         onClick={async () => {
@@ -231,17 +219,19 @@ export default function ChatSessionPage() {
                         }}
                         className={cn(
                           "w-full flex items-center justify-between p-3 rounded-xl transition-all",
-                          activeVmId === vm.id ? "bg-accent-primary text-accent-foreground" : "hover:bg-card-hover text-text-secondary"
+                          isSelected ? "bg-accent-primary text-accent-foreground" : "hover:bg-card-hover text-text-secondary"
                         )}
                       >
                         <div className="flex items-center gap-3">
                           <Cpu size={14} />
                           <span className="text-[11px] font-bold uppercase">{vm.name}</span>
                         </div>
-                        {activeVmId === vm.id && <Check size={12} />}
+                        {isSelected && <Check size={12} />}
                       </button>
-                    ))}
-                    {devices.map((device) => (
+                    )})}
+                    {devices.map((device) => {
+                      const isSelected = activeDeviceId === device.id;
+                      return (
                       <button
                         key={device.id}
                         onClick={async () => {
@@ -254,16 +244,16 @@ export default function ChatSessionPage() {
                         }}
                         className={cn(
                           "w-full flex items-center justify-between p-3 rounded-xl transition-all",
-                          activeDeviceId === device.id ? "bg-accent-primary text-accent-foreground" : "hover:bg-card-hover text-text-secondary"
+                          isSelected ? "bg-accent-primary text-accent-foreground" : "hover:bg-card-hover text-text-secondary"
                         )}
                       >
                         <div className="flex items-center gap-3">
                           <Laptop size={14} />
                           <span className="text-[11px] font-bold uppercase">{device.name}</span>
                         </div>
-                        {activeDeviceId === device.id && <Check size={12} />}
+                        {isSelected && <Check size={12} />}
                       </button>
-                    ))}
+                    )})}
                   </div>
                 </div>
                 {(vms.filter(v => v.status === 'running').length === 0 && devices.filter(d => d.status === 'paired').length === 0) && (

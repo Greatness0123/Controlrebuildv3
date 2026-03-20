@@ -7,13 +7,13 @@
   --bg-primary: #ffffff;
   --bg-secondary: #fafafa;
   --bg-tertiary: #f4f4f5;
-  --bg-card: rgba(0, 0, 0, 0.03);
-  --bg-card-hover: rgba(0, 0, 0, 0.05);
+  --bg-card: #f4f4f5;
+  --bg-card-hover: #e4e4e7;
   --text-primary: #000000;
   --text-secondary: #3f3f46;
   --text-muted: #71717a;
-  --border-primary: rgba(0, 0, 0, 0.08);
-  --border-hover: rgba(0, 0, 0, 0.15);
+  --border-primary: #e4e4e7;
+  --border-hover: #d4d4d8;
   --accent-primary: #000000;
   --accent-foreground: #ffffff;
   --radius: 1rem;
@@ -23,13 +23,13 @@
   --bg-primary: #000000;
   --bg-secondary: #09090b;
   --bg-tertiary: #18181b;
-  --bg-card: rgba(255, 255, 255, 0.03);
-  --bg-card-hover: rgba(255, 255, 255, 0.06);
+  --bg-card: #18181b;
+  --bg-card-hover: #27272a;
   --text-primary: #ffffff;
   --text-secondary: #a1a1aa;
   --text-muted: #52525b;
-  --border-primary: rgba(255, 255, 255, 0.1);
-  --border-hover: rgba(255, 255, 255, 0.2);
+  --border-primary: #27272a;
+  --border-hover: #3f3f46;
   --accent-primary: #ffffff;
   --accent-foreground: #000000;
 }
@@ -154,9 +154,24 @@ body {
 
 /* Typography refinement */
 h1, h2, h3, h4, h5, h6 {
-  letter-spacing: -0.02em;
+  letter-spacing: normal;
 }
 
-.tracking-tighter { letter-spacing: -0.05em !important; }
-.tracking-tight { letter-spacing: -0.02em !important; }
-.tracking-widest { letter-spacing: 0.2em !important; }
+.tracking-tighter { letter-spacing: normal !important; }
+.tracking-tight { letter-spacing: normal !important; }
+.tracking-widest { letter-spacing: 0.05em !important; }
+
+/* ─── Transparency Nullifier ─── */
+/* Removes transparent glass backing so text remains totally solid and legible */
+* {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+.bg-white\/5, .bg-white\/10, .bg-white\/20, .bg-black\/5, .bg-black\/10, .bg-black\/20, .bg-black\/40, .bg-black\/60, .bg-black\/80, .bg-secondary\/10, .bg-secondary\/20, .bg-secondary\/30, .bg-secondary\/40, .bg-secondary\/50, .bg-secondary\/90 {
+  background-color: var(--bg-card) !important;
+}
+
+.border-white\/5, .border-white\/10, .border-white\/20, .border-black\/5, .border-black\/10, .border-white\/\[0\.02\] {
+  border-color: var(--border-primary) !important;
+}

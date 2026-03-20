@@ -100,13 +100,6 @@ export default function VNCViewer({ url, status = 'stopped', className }: VNCVie
 
       {/* Viewer */}
       <div className="flex-1 relative overflow-hidden">
-        {loading && (
-          <div className="absolute inset-0 bg-black/80 backdrop-blur-sm z-10 flex flex-col items-center justify-center gap-3">
-            <Loader2 className="w-8 h-8 animate-spin text-white/20" />
-            <span className="text-[10px] font-bold text-white/50 uppercase tracking-widest">Connecting...</span>
-          </div>
-        )}
-        
         {url ? (
           <iframe
             ref={iframeRef}

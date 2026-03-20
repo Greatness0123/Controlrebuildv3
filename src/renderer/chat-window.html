@@ -5,7 +5,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Control - Chat</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono&display=swap"
+        rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         * {
@@ -23,13 +24,13 @@
             --text-secondary: #6b7280;
             --accent: #000000;
             --accent-rgb: 0, 0, 0;
-            --border: rgba(0,0,0,0.06);
+            --border: rgba(0, 0, 0, 0.06);
             --user-bubble: #000000;
             --user-text: #ffffff;
             --ai-bubble: #ffffff;
             --ai-text: #111111;
             --input-bg: #ffffff;
-            --card-shadow: 0 2px 10px rgba(0,0,0,0.04);
+            --card-shadow: 0 2px 10px rgba(0, 0, 0, 0.04);
         }
 
         body.dark-mode {
@@ -41,13 +42,13 @@
             --text-secondary: #9ca3af;
             --accent: #ffffff;
             --accent-rgb: 255, 255, 255;
-            --border: rgba(255,255,255,0.08);
+            --border: rgba(255, 255, 255, 0.08);
             --user-bubble: #ffffff;
             --user-text: #000000;
             --ai-bubble: #1a1a1a;
             --ai-text: #f2f2f2;
             --input-bg: #1a1a1a;
-            --card-shadow: 0 4px 20px rgba(0,0,0,0.4);
+            --card-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
         }
 
         body {
@@ -145,8 +146,15 @@
         }
 
         @keyframes messageFadeIn {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
         }
 
         .message.user {
@@ -230,13 +238,44 @@
             color: var(--user-text);
             border-bottom-right-radius: 4px;
             font-weight: 500;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
         }
 
         .ai .message-content {
             background: transparent;
             color: var(--ai-text);
             padding: 0;
+            position: relative;
+        }
+
+        /* Message Actions - Hidden until hover */
+        .message-actions {
+            display: flex;
+            gap: 4px;
+            margin-top: 8px;
+            opacity: 0;
+            transition: opacity 0.2s ease;
+        }
+
+        .message:hover .message-actions {
+            opacity: 1;
+        }
+
+        .action-btn {
+            background: transparent;
+            border: none;
+            color: var(--text-secondary);
+            cursor: pointer;
+            padding: 4px;
+            font-size: 14px;
+            transition: color 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .action-btn:hover {
+            color: var(--accent);
         }
 
         /* AI Message Styling - Professional Agent Vibe */
@@ -266,14 +305,14 @@
             align-items: center;
             gap: 14px;
             font-size: 13.5px;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.03);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.03);
             transition: all 0.2s ease;
             margin: 8px 0;
         }
 
         body.dark-mode .action-card {
             background: var(--bg-secondary);
-            box-shadow: 0 8px 24px rgba(0,0,0,0.2);
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
         }
 
         .action-card:hover {
@@ -292,6 +331,28 @@
             border-radius: 10px;
             border: 1px solid var(--border);
             flex-shrink: 0;
+            position: relative;
+        }
+
+        .action-spinner {
+            position: absolute;
+            top: -2px;
+            left: -2px;
+            right: -2px;
+            bottom: -2px;
+            border: 2px solid transparent;
+            border-top-color: var(--accent);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            display: none;
+        }
+
+        .action-card.running .action-spinner {
+            display: block;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
         }
 
         .action-title {
@@ -313,12 +374,12 @@
         .text-block.final-response {
             border-top: 2px solid var(--accent);
             background: var(--bg-primary);
-            box-shadow: 0 10px 40px rgba(0,0,0,0.05);
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.05);
         }
 
         body.dark-mode .text-block.final-response {
             background: #1a1a1a;
-            box-shadow: 0 10px 40px rgba(0,0,0,0.4);
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.4);
         }
 
         /* Premium Skill Suggestion Popup */
@@ -327,12 +388,12 @@
             backdrop-filter: blur(20px) saturate(160%);
             -webkit-backdrop-filter: blur(20px) saturate(160%);
             border: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: 20px;
-            box-shadow: 0 12px 40px rgba(0,0,0,0.25), 0 0 0 1px rgba(255, 255, 255, 0.05);
+            border-radius: 16px;
+            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.25), 0 0 0 1px rgba(255, 255, 255, 0.05);
             position: absolute;
-            bottom: calc(100% + 14px);
-            left: 10px;
-            right: 10px;
+            bottom: calc(100% + 8px); /* Relative to wrapper container */
+            left: 0;
+            right: 0;
             z-index: 1000;
             overflow: hidden;
             display: none;
@@ -341,23 +402,36 @@
         }
 
         @keyframes popupReveal {
-            from { opacity: 0; transform: translateY(12px) scale(0.98); }
-            to { opacity: 1; transform: translateY(0) scale(1); }
+            from {
+                opacity: 0;
+                transform: translateY(12px) scale(0.98);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
         }
 
         .suggestion-item {
-            padding: 10px 14px;
+            padding: 6px 12px;
             display: flex;
             align-items: center;
             gap: 12px;
             cursor: pointer;
             transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
             border: 1px solid transparent;
-            margin: 4px 8px;
             border-radius: 12px;
+            margin: 0;
+            border-bottom: 1px solid var(--border);
         }
 
-        .suggestion-item.selected, .suggestion-item:hover {
+        .suggestion-item:last-child {
+            border-bottom: none;
+        }
+
+        .suggestion-item.selected,
+        .suggestion-item:hover {
             background: rgba(var(--accent-rgb), 0.1);
             border-color: rgba(var(--accent-rgb), 0.2);
             transform: translateX(4px);
@@ -437,8 +511,15 @@
         }
 
         @keyframes attachmentIn {
-            from { opacity: 0; transform: translateY(10px) scale(0.95); }
-            to { opacity: 1; transform: translateY(0) scale(1); }
+            from {
+                opacity: 0;
+                transform: translateY(10px) scale(0.95);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
         }
 
         .attachment-thumb {
@@ -448,7 +529,7 @@
             border-radius: 6px;
             background: #000;
             flex-shrink: 0;
-            border: 1px solid rgba(255,255,255,0.05);
+            border: 1px solid rgba(255, 255, 255, 0.05);
         }
 
         .attachment-icon {
@@ -462,7 +543,7 @@
             color: var(--accent);
             font-size: 14px;
             flex-shrink: 0;
-            border: 1px solid rgba(255,255,255,0.05);
+            border: 1px solid rgba(255, 255, 255, 0.05);
         }
 
         .attachment-info {
@@ -510,6 +591,7 @@
 
         /* Input Area */
         .input-area {
+            position: relative;
             padding: 20px;
             background: var(--bg-primary);
         }
@@ -528,29 +610,28 @@
         .input-wrapper:focus-within {
             border-color: var(--border);
             background: var(--bg-primary);
-            box-shadow: 0 0 0 4px rgba(0,0,0,0.02);
+            box-shadow: 0 0 0 4px rgba(0, 0, 0, 0.02);
         }
 
         .input-backdrop {
             position: absolute;
-            top: 8px;
-            left: 16px;
-            right: 16px;
-            bottom: 8px;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
             padding: 8px 0;
-            margin-left: 44px; /* Space for attach icon */
-            margin-right: 88px; /* Space for voice and send buttons */
             font-family: inherit;
             font-size: 14px;
-            line-height: inherit; /* MUST MATCH TEXTAREA */
-            color: transparent;
+            /* MIRROR TEXTAREA PROPERTIES */
+            color: var(--text-primary);
             white-space: pre-wrap;
             word-wrap: break-word;
             pointer-events: none;
             z-index: 1;
-            overflow: hidden;
-            display: flex;
-            align-items: flex-start;
+            overflow-y: hidden;
+            display: block;
+            line-height: 1.5;
+            box-sizing: border-box;
         }
 
         .chat-input {
@@ -558,28 +639,35 @@
             background: transparent;
             border: none;
             outline: none;
-            color: var(--text-primary);
+            color: transparent; /* Text is shown in backdrop for highlighting */
+            caret-color: var(--text-primary); /* Show cursor */
             font-family: inherit;
             font-size: 14px;
-            line-height: inherit; /* MUST MATCH BACKDROP */
+            line-height: 1.5; /* MUST MATCH BACKDROP */
+            white-space: pre-wrap;
+            word-wrap: break-word;
             padding: 8px 0;
             resize: none;
-            max-height: 200px;
+            max-height: 120px; /* Limit expansion to 120px */
             min-height: 24px;
+            box-sizing: border-box;
+            overflow-y: auto;
+            width: 100%;
+            display: block;
             z-index: 2;
             position: relative;
         }
 
         .input-backdrop .highlight {
-            color: transparent; /* Text is already visible in the textarea */
-            background: rgba(var(--accent-rgb), 0.1);
+            color: #A855F7; /* Purple accent */
+            background: none;
             border-radius: 4px;
-            box-shadow: 0 0 0 1px rgba(var(--accent-rgb), 0.1);
+            box-shadow: none;
         }
 
         body.dark-mode .input-backdrop .highlight {
-            background: rgba(var(--accent-rgb), 0.2);
-            box-shadow: 0 0 0 1px rgba(var(--accent-rgb), 0.1);
+            background: none;
+            box-shadow: none;
         }
 
         .icon-btn {
@@ -654,7 +742,7 @@
             max-height: 60vh;
             background: var(--bg-primary);
             border-radius: 16px;
-            box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
             border: 1px solid var(--border);
             display: none;
             z-index: 100;
@@ -676,7 +764,7 @@
 
         .lite-mode .input-wrapper {
             background: var(--bg-primary);
-            box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
             border: 1px solid var(--border);
             border-radius: 30px;
             padding: 10px 20px;
@@ -709,7 +797,7 @@
             align-items: center;
             justify-content: center;
             cursor: pointer;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
             transition: all 0.2s;
         }
 
@@ -754,8 +842,14 @@
         }
 
         /* Scrollbar */
-        ::-webkit-scrollbar { width: 6px; }
-        ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 10px; }
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: var(--border);
+            border-radius: 10px;
+        }
     </style>
 </head>
 
@@ -768,7 +862,8 @@
                     <button class="icon-btn" id="newChatBtn" title="New Chat"><i class="fas fa-plus"></i></button>
                 </div>
                 <div class="header-right" style="display: flex; gap: 4px; -webkit-app-region: no-drag;">
-                    <button class="icon-btn" id="workflowButton" title="Workflows"><i class="fas fa-project-diagram"></i></button>
+                    <button class="icon-btn" id="workflowButton" title="Workflows"><i
+                            class="fas fa-project-diagram"></i></button>
                     <button class="icon-btn" id="settingsBtn" title="Settings"><i class="fas fa-cog"></i></button>
                 </div>
             </header>
@@ -777,31 +872,40 @@
                 <div class="welcome-screen" id="welcomeScreen">
                     <img src="./assets/icons/icon-removebg-preview.png" class="welcome-logo">
                     <h1 class="welcome-title" id="welcomeGreeting">Control</h1>
-                    <p style="color: var(--text-secondary);">How can I assist you today?</p>
                 </div>
             </div>
 
-            <div id="commandSuggestions" class="command-suggestions" style="display: none;"></div>
-
             <div class="input-area">
                 <div class="lite-controls">
-                    <button class="lite-control-btn" id="liteHistoryBtn" title="History"><i class="fas fa-history"></i></button>
-                    <button class="lite-control-btn" id="liteWorkflowBtn" title="Workflows"><i class="fas fa-project-diagram"></i></button>
-                    <button class="lite-control-btn" id="liteNewChatBtn" title="New Chat"><i class="fas fa-plus"></i></button>
-                    <button class="lite-control-btn" id="liteSettingsBtn" title="Settings"><i class="fas fa-cog"></i></button>
-                    <button class="lite-control-btn" id="liteMessagesToggle" title="Show/Hide Messages"><i class="fas fa-chevron-up"></i></button>
+                    <button class="lite-control-btn" id="liteHistoryBtn" title="History"><i
+                            class="fas fa-history"></i></button>
+                    <button class="lite-control-btn" id="liteWorkflowBtn" title="Workflows"><i
+                            class="fas fa-project-diagram"></i></button>
+                    <button class="lite-control-btn" id="liteNewChatBtn" title="New Chat"><i
+                            class="fas fa-plus"></i></button>
+                    <button class="lite-control-btn" id="liteSettingsBtn" title="Settings"><i
+                            class="fas fa-cog"></i></button>
+                    <button class="lite-control-btn" id="liteMessagesToggle" title="Show/Hide Messages"><i
+                            class="fas fa-chevron-up"></i></button>
                 </div>
-                <div id="attachmentsContainer" class="attachments-container"></div>
-                <div class="input-wrapper">
-                    <div id="inputBackdrop" class="input-backdrop"></div>
+                <div style="position: relative; width: 100%;">
+                    <div id="commandSuggestions" class="command-suggestions" style="display: none;"></div>
+                    <div id="attachmentsContainer" class="attachments-container"></div>
+                    <div class="input-wrapper">
                     <button class="icon-btn" id="attachBtn"><i class="fas fa-paperclip"></i></button>
-                    <textarea class="chat-input" id="chatInput" placeholder="Describe a task..." rows="1"></textarea>
+                    <div style="flex: 1; position: relative;">
+                        <div id="inputBackdrop" class="input-backdrop"></div>
+                        <textarea class="chat-input" id="chatInput" placeholder="Describe a task..." rows="1" spellcheck="false"></textarea>
+                    </div>
                     <div id="voiceIndicator" class="voice-indicator"></div>
                     <button class="icon-btn" id="voiceBtn"><i class="fas fa-microphone"></i></button>
                     <button class="icon-btn send-btn" id="sendBtn" disabled><i class="fas fa-arrow-up"></i></button>
                 </div>
-                <div class="status-bar" id="statusBar" style="border: none; background: transparent; padding: 12px 20px; display: flex; align-items: center; justify-content: space-between;">
-                    <div class="mode-switcher" style="background: var(--bg-secondary); border: 1px solid var(--border);">
+                </div>
+                <div class="status-bar" id="statusBar"
+                    style="border: none; background: transparent; padding: 12px 20px; display: flex; align-items: center; justify-content: space-between;">
+                    <div class="mode-switcher"
+                        style="background: var(--bg-secondary); border: 1px solid var(--border);">
                         <button class="mode-btn active" id="modeAct">ACT</button>
                         <button class="mode-btn" id="modeAsk">ASK</button>
                     </div>

@@ -38,7 +38,7 @@ class ActBackend {
 
   setupGeminiAPI(apiKey, modelName) {
     const key = apiKey || process.env.GEMINI_API_KEY || process.env.GEMINI_FREE_KEY || "test_api_key";
-    const finalModelName = modelName || process.env.GEMINI_MODEL || "gemini-1.5-flash";
+    const finalModelName = modelName || process.env.GEMINI_MODEL || "gemini-2.5-flash";
 
     if (key === this.currentApiKey && this.model && this.currentModelName === finalModelName) return;
 
@@ -106,8 +106,8 @@ class ActBackend {
         const logicalHeight = primaryDisplay.bounds.height;
 
         if (cursorX <= logicalWidth && cursorY <= logicalHeight && (logicalWidth !== image.bitmap.width)) {
-           markX = Math.round(cursorX * (image.bitmap.width / logicalWidth));
-           markY = Math.round(cursorY * (image.bitmap.height / logicalHeight));
+          markX = Math.round(cursorX * (image.bitmap.width / logicalWidth));
+          markY = Math.round(cursorY * (image.bitmap.height / logicalHeight));
         }
 
         for (let i = -radius; i <= radius; i++) {
@@ -129,7 +129,7 @@ class ActBackend {
     const result = { success: false, message: "", action: actionType };
 
     if (params.confidence !== undefined) {
-        console.log(`[ACT JS] Action: ${actionType}, Confidence: ${params.confidence}%`);
+      console.log(`[ACT JS] Action: ${actionType}, Confidence: ${params.confidence}%`);
     }
 
     try {
@@ -146,9 +146,9 @@ class ActBackend {
           if (params.box2d && Array.isArray(params.box2d) && params.box2d.length === 4) {
             let xmin, ymin, xmax, ymax;
             if (this.currentProvider === 'gemini') {
-                [ymin, xmin, ymax, xmax] = params.box2d;
+              [ymin, xmin, ymax, xmax] = params.box2d;
             } else {
-                [xmin, ymin, xmax, ymax] = params.box2d;
+              [xmin, ymin, xmax, ymax] = params.box2d;
             }
             const centerX = xmin + (xmax - xmin) / 2;
             const centerY = ymin + (ymax - ymin) / 2;
@@ -180,9 +180,9 @@ class ActBackend {
             if (params.box2d && Array.isArray(params.box2d) && params.box2d.length === 4) {
               let xmin, ymin, xmax, ymax;
               if (this.currentProvider === 'gemini') {
-                  [ymin, xmin, ymax, xmax] = params.box2d;
+                [ymin, xmin, ymax, xmax] = params.box2d;
               } else {
-                  [xmin, ymin, xmax, ymax] = params.box2d;
+                [xmin, ymin, xmax, ymax] = params.box2d;
               }
               const centerX = xmin + (xmax - xmin) / 2;
               const centerY = ymin + (ymax - ymin) / 2;
@@ -248,11 +248,11 @@ class ActBackend {
           if (params.box2d && params.end_box2d) {
             let x1_n, y1_n, x1_m, y1_m, x2_n, y2_n, x2_m, y2_m;
             if (this.currentProvider === 'gemini') {
-                [y1_n, x1_n, y1_m, x1_m] = params.box2d;
-                [y2_n, x2_n, y2_m, x2_m] = params.end_box2d;
+              [y1_n, x1_n, y1_m, x1_m] = params.box2d;
+              [y2_n, x2_n, y2_m, x2_m] = params.end_box2d;
             } else {
-                [x1_n, y1_n, x1_m, y1_m] = params.box2d;
-                [x2_n, y2_n, x2_m, y2_m] = params.end_box2d;
+              [x1_n, y1_n, x1_m, y1_m] = params.box2d;
+              [x2_n, y2_n, x2_m, y2_m] = params.end_box2d;
             }
 
             const x1 = Math.round(((x1_n + (x1_m - x1_n) / 2) / 1000) * this.screenSize.width) + this.screenSize.x;
@@ -280,15 +280,15 @@ class ActBackend {
         case "scroll":
           if (params.direction) {
             if (params.box2d) {
-               let xmin, ymin, xmax, ymax;
-               if (this.currentProvider === 'gemini') {
-                   [ymin, xmin, ymax, xmax] = params.box2d;
-               } else {
-                   [xmin, ymin, xmax, ymax] = params.box2d;
-               }
-               const x = Math.round(((xmin + (xmax - xmin) / 2) / 1000) * this.screenSize.width) + this.screenSize.x;
-               const y = Math.round(((ymin + (ymax - ymin) / 2) / 1000) * this.screenSize.height) + this.screenSize.y;
-               await mouse.setPosition(new Point(x, y));
+              let xmin, ymin, xmax, ymax;
+              if (this.currentProvider === 'gemini') {
+                [ymin, xmin, ymax, xmax] = params.box2d;
+              } else {
+                [xmin, ymin, xmax, ymax] = params.box2d;
+              }
+              const x = Math.round(((xmin + (xmax - xmin) / 2) / 1000) * this.screenSize.width) + this.screenSize.x;
+              const y = Math.round(((ymin + (ymax - ymin) / 2) / 1000) * this.screenSize.height) + this.screenSize.y;
+              await mouse.setPosition(new Point(x, y));
             } else if (params.x !== undefined && params.y !== undefined) {
               const x = Math.round((params.x / 1000) * this.screenSize.width) + this.screenSize.x;
               const y = Math.round((params.y / 1000) * this.screenSize.height) + this.screenSize.y;
@@ -377,29 +377,29 @@ class ActBackend {
             // Try SearchManager (API-based) first
             const searchResults = await searchManager.search(params.query);
             if (searchResults && searchResults.length > 0) {
-                result.success = true;
-                result.message = `Search results for "${params.query}":\n` +
-                                 searchResults.map((r, i) => `${i+1}. ${r.title} (${r.link})\n${r.snippet}`).join('\n\n');
-                return result;
+              result.success = true;
+              result.message = `Search results for "${params.query}":\n` +
+                searchResults.map((r, i) => `${i + 1}. ${r.title} (${r.link})\n${r.snippet}`).join('\n\n');
+              return result;
             }
 
             // Fallback to Agentic Browser if native tools (gemini) are unavailable
             if (this.currentProvider !== 'gemini') {
-                console.log(`[ACT JS] Web search fallback to agentic browser for: ${params.query}`);
-                await electronBrowserManager.open(searchUrl);
-                result.success = true;
-                result.message = `Web search for "${params.query}" performed using agentic browser (native tool fallback).`;
-                return result;
+              console.log(`[ACT JS] Web search fallback to agentic browser for: ${params.query}`);
+              await electronBrowserManager.open(searchUrl);
+              result.success = true;
+              result.message = `Web search for "${params.query}" performed using agentic browser (native tool fallback).`;
+              return result;
             }
 
             console.log(`[ACT JS] Web search requested for: ${params.query}`);
             let command = "";
             if (process.platform === "win32") {
-                command = `start ${searchUrl}`;
+              command = `start ${searchUrl}`;
             } else if (process.platform === "darwin") {
-                command = `open "${searchUrl}"`;
+              command = `open "${searchUrl}"`;
             } else {
-                command = `xdg-open "${searchUrl}"`;
+              command = `xdg-open "${searchUrl}"`;
             }
 
             await new Promise(resolve => exec(command, resolve));
@@ -551,11 +551,11 @@ Analyze the state and determine if the action was successful. Respond ONLY with 
 
   formatCitations(response) {
     try {
-        // Citations disabled per user request to minimize space and remove unclickable links
-        return response.text();
+      // Citations disabled per user request to minimize space and remove unclickable links
+      return response.text();
     } catch (e) {
-        console.error("[ACT JS] Error getting text from response:", e);
-        return "";
+      console.error("[ACT JS] Error getting text from response:", e);
+      return "";
     }
   }
 
@@ -600,7 +600,7 @@ Analyze the state and determine if the action was successful. Respond ONLY with 
               fullResponse += data.response;
               onChunk(data.response);
             }
-          } catch (e) {}
+          } catch (e) { }
         }
       }
       return fullResponse;
@@ -652,7 +652,8 @@ Analyze the state and determine if the action was successful. Respond ONLY with 
 
     const messages = [
       { role: "system", content: systemPrompt },
-      { role: "user", content: [
+      {
+        role: "user", content: [
           { type: "text", text: prompt },
           ...images.map(img => ({ type: "image_url", image_url: { url: `data:image/png;base64,${img}` } }))
         ]
@@ -684,8 +685,8 @@ Analyze the state and determine if the action was successful. Respond ONLY with 
     });
 
     if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(`${provider} error: ${errorData.error?.message || response.statusText}`);
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(`${provider} error: ${errorData.error?.message || response.statusText}`);
     }
 
     if (onChunk) {
@@ -711,7 +712,7 @@ Analyze the state and determine if the action was successful. Respond ONLY with 
                 fullText += content;
                 onChunk(content);
               }
-            } catch (e) {}
+            } catch (e) { }
           }
         }
       }
@@ -729,7 +730,8 @@ Analyze the state and determine if the action was successful. Respond ONLY with 
     if (!apiKey) throw new Error("Anthropic API key is missing.");
 
     const messages = [
-      { role: "user", content: [
+      {
+        role: "user", content: [
           ...images.map(img => ({
             type: "image",
             source: { type: "base64", media_type: "image/png", data: img }
@@ -781,7 +783,7 @@ Analyze the state and determine if the action was successful. Respond ONLY with 
                 fullText += data.delta.text;
                 onChunk(data.delta.text);
               }
-            } catch (e) {}
+            } catch (e) { }
           }
         }
       }
@@ -798,12 +800,12 @@ Analyze the state and determine if the action was successful. Respond ONLY with 
     const provider = settings.modelProvider || 'gemini';
     let effectiveProvider = provider;
     if (provider === 'openrouter' && (settings.openrouterModel === 'google/gemini-flash-1.5-sdk' || settings.openrouterModel === 'gemini-native')) {
-        effectiveProvider = 'gemini';
+      effectiveProvider = 'gemini';
     }
     this.currentProvider = effectiveProvider;
 
     const cachedKeys = supabaseService.getKeys();
-    const defaultGeminiModel = cachedKeys ? cachedKeys.gemini_model : "gemini-1.5-flash";
+    const defaultGeminiModel = cachedKeys ? cachedKeys.gemini_model : "gemini-2.5-flash";
     const geminiModel = settings.selectedModel || defaultGeminiModel;
 
     if (effectiveProvider === 'gemini') {
@@ -831,11 +833,11 @@ Analyze the state and determine if the action was successful. Respond ONLY with 
 
         let browserStatus = "";
         try {
-            const status = await electronBrowserManager.getStatus();
-            if (status.success && status.isVisible) {
-                browserStatus = `\nAgentic Browser Status: URL=${status.url}, Title=${status.title}`;
-            }
-        } catch(e) {}
+          const status = await electronBrowserManager.getStatus();
+          if (status.success && status.isVisible) {
+            browserStatus = `\nAgentic Browser Status: URL=${status.url}, Title=${status.title}`;
+          }
+        } catch (e) { }
 
         const prompt = `User Request: ${userRequest}
 User Preferences: ${JSON.stringify(prefs)}
@@ -852,21 +854,21 @@ Analyze screen and provide IMMEDIATE ACTIONS. Respond with JSON.`;
         ];
 
         if (attachments && attachments.length > 0) {
-            for (const att of attachments) {
-                if (att.path && fs.existsSync(att.path)) {
-                    const ext = path.extname(att.path).toLowerCase();
-                    const mimeMap = {
-                        '.png': 'image/png',
-                        '.jpg': 'image/jpeg',
-                        '.jpeg': 'image/jpeg',
-                        '.webp': 'image/webp',
-                        '.pdf': 'application/pdf'
-                    };
-                    if (mimeMap[ext]) {
-                        content.push({ inlineData: { mimeType: mimeMap[ext], data: fs.readFileSync(att.path).toString("base64") } });
-                    }
-                }
+          for (const att of attachments) {
+            if (att.path && fs.existsSync(att.path)) {
+              const ext = path.extname(att.path).toLowerCase();
+              const mimeMap = {
+                '.png': 'image/png',
+                '.jpg': 'image/jpeg',
+                '.jpeg': 'image/jpeg',
+                '.webp': 'image/webp',
+                '.pdf': 'application/pdf'
+              };
+              if (mimeMap[ext]) {
+                content.push({ inlineData: { mimeType: mimeMap[ext], data: fs.readFileSync(att.path).toString("base64") } });
+              }
             }
+          }
         }
 
         // Place text prompt after images as per best practices
@@ -903,9 +905,9 @@ Analyze screen and provide IMMEDIATE ACTIONS. Respond with JSON.`;
           if (!skipStreaming && onEvent && typeof onEvent === 'function') {
             // Check for JSON start in middle of chunk if not already skipped
             if (chunk.includes('{')) {
-                // If we hit JSON, we stop streaming to the UI to avoid showing raw code
-                skipStreaming = true;
-                return;
+              // If we hit JSON, we stop streaming to the UI to avoid showing raw code
+              skipStreaming = true;
+              return;
             }
             onEvent('ai_stream', { chunk });
           }
@@ -935,15 +937,15 @@ Analyze screen and provide IMMEDIATE ACTIONS. Respond with JSON.`;
 
         // If no JSON found, it might be a pure research response or grounding metadata
         if (!jsonMatch) {
-            const cleanMarkdown = fullText.trim();
-            if (cleanMarkdown) {
-                onEvent("ai_response", { text: cleanMarkdown, is_action: false });
-            }
-            // If it's the last loop or no content, we should probably stop
-            if (loopCount >= maxLoops) break;
-            // Otherwise, we continue to the next loop which will re-take screenshot and re-prompt
-            // This allows the model to "think" via search before acting
-            continue;
+          const cleanMarkdown = fullText.trim();
+          if (cleanMarkdown) {
+            onEvent("ai_response", { text: cleanMarkdown, is_action: false });
+          }
+          // If it's the last loop or no content, we should probably stop
+          if (loopCount >= maxLoops) break;
+          // Otherwise, we continue to the next loop which will re-take screenshot and re-prompt
+          // This allows the model to "think" via search before acting
+          continue;
         }
 
         const plan = JSON.parse(jsonMatch[0]);
@@ -959,57 +961,57 @@ Analyze screen and provide IMMEDIATE ACTIONS. Respond with JSON.`;
 
         const actions = plan.actions || [];
         if (actions.length === 0) {
-            onEvent("task_complete", { task: userRequest, success: true });
-            taskFinished = true;
-            // For the final message, use the clean markdown if thought is empty
-            const finalMessage = plan.after_message || (plan.thought ? "" : cleanMarkdown);
-            if (finalMessage) onEvent("after_message", { text: finalMessage });
-            break;
+          onEvent("task_complete", { task: userRequest, success: true });
+          taskFinished = true;
+          // For the final message, use the clean markdown if thought is empty
+          const finalMessage = plan.after_message || (plan.thought ? "" : cleanMarkdown);
+          if (finalMessage) onEvent("after_message", { text: finalMessage });
+          break;
         }
 
         for (const action of actions) {
-            if (this.stopRequested) break;
+          if (this.stopRequested) break;
 
-            const isHighRisk = ["terminal", "write_preferences", "write_libraries"].includes(action.action.toLowerCase());
-            const proceedWithoutConfirmation = settings.proceedWithoutConfirmation || prefs.proceedWithoutConfirmation;
+          const isHighRisk = ["terminal", "write_preferences", "write_libraries"].includes(action.action.toLowerCase());
+          const proceedWithoutConfirmation = settings.proceedWithoutConfirmation || prefs.proceedWithoutConfirmation;
 
-            if (!proceedWithoutConfirmation && isHighRisk) {
-                onEvent("request_confirmation", {
-                    description: action.description,
-                    action: action.action,
-                    parameters: action.parameters
-                });
-
-                const confirmed = await new Promise((resolve) => {
-                    this.confirmationResolver = resolve;
-                    setTimeout(() => {
-                        if (this.confirmationResolver === resolve) {
-                            this.confirmationResolver = null;
-                            resolve(false);
-                        }
-                    }, 60000);
-                });
-
-                if (!confirmed) {
-                    onEvent("ai_response", { text: "Task paused. High-risk action was not confirmed by user.", is_action: false });
-                    this.stopRequested = true;
-                    break;
-                }
-            }
-
-            onEvent("action_start", { description: action.description });
-            const execResult = await this.executeAction(action, onEvent);
-            const verification = await this.verifyAction(action, execResult);
-            lastResultContext = `Action: ${action.action}, Success: ${verification.verified}, Notes: ${verification.message}`;
-            onEvent("action_complete", {
-                description: action.description,
-                success: verification.verified,
-                details: verification.message,
-                confidence: action.parameters?.confidence,
-                code: execResult.code,
-                language: execResult.language
+          if (!proceedWithoutConfirmation && isHighRisk) {
+            onEvent("request_confirmation", {
+              description: action.description,
+              action: action.action,
+              parameters: action.parameters
             });
-            if (!verification.verified) break;
+
+            const confirmed = await new Promise((resolve) => {
+              this.confirmationResolver = resolve;
+              setTimeout(() => {
+                if (this.confirmationResolver === resolve) {
+                  this.confirmationResolver = null;
+                  resolve(false);
+                }
+              }, 60000);
+            });
+
+            if (!confirmed) {
+              onEvent("ai_response", { text: "Task paused. High-risk action was not confirmed by user.", is_action: false });
+              this.stopRequested = true;
+              break;
+            }
+          }
+
+          onEvent("action_start", { description: action.description });
+          const execResult = await this.executeAction(action, onEvent);
+          const verification = await this.verifyAction(action, execResult);
+          lastResultContext = `Action: ${action.action}, Success: ${verification.verified}, Notes: ${verification.message}`;
+          onEvent("action_complete", {
+            description: action.description,
+            success: verification.verified,
+            details: verification.message,
+            confidence: action.parameters?.confidence,
+            code: execResult.code,
+            language: execResult.language
+          });
+          if (!verification.verified) break;
         }
       }
       if (!taskFinished) onEvent("task_complete", { task: userRequest, success: !this.stopRequested });
@@ -1035,8 +1037,8 @@ Analyze screen and provide IMMEDIATE ACTIONS. Respond with JSON.`;
 
   handleConfirmation(confirmed) {
     if (this.confirmationResolver) {
-        this.confirmationResolver(confirmed);
-        this.confirmationResolver = null;
+      this.confirmationResolver(confirmed);
+      this.confirmationResolver = null;
     }
   }
 

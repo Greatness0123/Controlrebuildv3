@@ -116,7 +116,7 @@ class ChatWindow {
 
         document.getElementById('liteHistoryBtn')?.addEventListener('click', () => this.showSessionsModal());
         document.getElementById('liteWorkflowBtn')?.addEventListener('click', () => {
-             if (window.chatAPI) window.chatAPI.showWindow('workflow');
+            if (window.chatAPI) window.chatAPI.showWindow('workflow');
         });
         document.getElementById('liteNewChatBtn')?.addEventListener('click', () => {
             this.saveCurrentSession();
@@ -311,7 +311,7 @@ class ChatWindow {
                     remoteInfo.style.cssText = 'display: flex; align-items: center; gap: 4px; border: 1px solid var(--border); background: var(--bg-secondary); padding: 2px 6px; border-radius: 4px; margin-right: 12px; font-size: 9px; font-weight: bold; color: var(--text-secondary);';
                     statusContent.parentNode.insertBefore(remoteInfo, statusContent);
                 }
-                
+
                 const idShort = status.deviceId ? status.deviceId.split('-')[0] : (status.pairing?.id ? status.pairing.id.split('-')[0] : (status.deviceId ? status.deviceId.split('-')[0] : 'None'));
                 remoteInfo.innerHTML = `
                     <i class="fas fa-signal" style="font-size: 8px; color: ${status.enabled ? '#22c55e' : '#71717a'};"></i>
@@ -338,7 +338,7 @@ class ChatWindow {
     handleSlashCommandInput() {
         const value = this.chatInput.value;
 
-        // Autocomplete logic
+        // Autocomplete logic: show suggestions if it starts with / and has no internal spaces
         if (value.startsWith('/') && !value.includes(' ')) {
             const query = value.substring(1).toLowerCase();
             this.showCommandSuggestions(query);
@@ -346,7 +346,7 @@ class ChatWindow {
             this.hideCommandSuggestions();
         }
 
-        // Highlighting logic
+        // Highlighting for slash commands (Purple accent as requested)
         if (this.inputBackdrop) {
             const escapedValue = this.escapeHtml(value);
             // Highlight only the slash command at the start (e.g., /test)
@@ -383,7 +383,7 @@ class ChatWindow {
             }
 
             // Strip "imported from ......" or "import from ......" from the description or pattern
-            let displayDesc = skill.description || skill.pattern;
+            let displayDesc = skill.description || skill.pattern || '';
             displayDesc = displayDesc.replace(/import(ed)? from .*/i, '').trim();
             if (displayDesc.length > 50) displayDesc = displayDesc.substring(0, 50) + '...';
 
@@ -400,15 +400,15 @@ class ChatWindow {
                 <div class="suggestion-icon"><i class="${iconClass}"></i></div>
                 <div class="suggestion-content">
                     <div class="cmd-name">/${skill.name}</div>
-                    <div class="cmd-desc">${displayDesc}</div>
+                    ${displayDesc ? `<div class="cmd-desc">${displayDesc}</div>` : ''}
                 </div>
-                ${index === 0 ? '<div class="suggestion-hint">Enter</div>' : ''}
             `;
             item.onclick = () => {
                 this.chatInput.value = `/${skill.name} `;
                 this.hideCommandSuggestions();
                 this.chatInput.focus();
                 this.autoResizeTextarea();
+                this.handleSlashCommandInput();
             };
             this.commandSuggestions.appendChild(item);
         });
@@ -884,9 +884,6 @@ class ChatWindow {
         this.chatInput.style.height = 'auto';
         const newHeight = Math.min(this.chatInput.scrollHeight, 120);
         this.chatInput.style.height = newHeight + 'px';
-        if (this.inputBackdrop) {
-            this.inputBackdrop.style.height = newHeight + 'px';
-        }
     }
 
     updateSendButton() {
@@ -1188,7 +1185,7 @@ class ChatWindow {
         this.autoResizeTextarea();
         this.updateSendButton();
         this.handleSlashCommandInput();
-        
+
         if (showWelcome !== false) {
             this.showWelcomeScreen();
         } else {
@@ -1615,7 +1612,7 @@ class ChatWindow {
         // Read file as ArrayBuffer for direct transfer (more efficient than base64)
         const arrayBuffer = await file.arrayBuffer();
         const uint8Array = new Uint8Array(arrayBuffer);
-        
+
         let thumbnail = null;
         if (file.type.startsWith('image/')) {
             const blob = new Blob([uint8Array], { type: file.type });
@@ -1640,7 +1637,7 @@ class ChatWindow {
         this.attachments.forEach((a, idx) => {
             const pill = document.createElement('div');
             pill.className = 'attachment-pill';
-            
+
             let iconClass = 'fas fa-file';
             if (a.type.startsWith('image/')) iconClass = 'fas fa-image';
             else if (a.type.includes('pdf')) iconClass = 'fas fa-file-pdf';
@@ -1689,7 +1686,7 @@ class ChatWindow {
             '"': '&quot;',
             "'": '&#039;'
         };
-        return text.replace(/[&<>"']/g, function(m) { return map[m]; });
+        return text.replace(/[&<>"']/g, function (m) { return map[m]; });
     }
 
     getOrCreateAIResponseContainer() {
@@ -1718,11 +1715,8 @@ class ChatWindow {
     }
 
     addStreamChunk(chunk) {
-        // Defensive check for thinking indicators
-        const thinkingSpinner = this.messagesContainer.querySelector('.action-card[data-action-id].running');
-        if (thinkingSpinner && thinkingSpinner.querySelector('.action-title')?.textContent === 'Thinking...') {
-            this.forceStopThinking();
-        }
+        // Aggressively clear any thinking/processing indicators when we start receiving chunks
+        this.forceStopThinking();
 
         const container = this.getOrCreateAIResponseContainer();
         this.currentAIStreamingText += chunk;
@@ -1874,10 +1868,6 @@ class ChatWindow {
         contentDiv.className = 'message-content';
         contentDiv.innerHTML = this.parseMarkdown(safeText);
 
-        if (this.currentMode === 'ask') {
-            this.addMessageActions(messageDiv, safeText, sender);
-        }
-
         if (attachments && attachments.length > 0) {
             const attachmentContainer = document.createElement('div');
             attachmentContainer.className = 'message-attachments';
@@ -1912,6 +1902,9 @@ class ChatWindow {
         }
 
         messageDiv.appendChild(contentDiv);
+        if (this.currentMode === 'ask') {
+            this.addMessageActions(messageDiv, safeText, sender);
+        }
         this.messagesContainer.appendChild(messageDiv);
         this.scrollToBottom();
         this.checkAndShowWelcomeScreen();
@@ -1924,9 +1917,9 @@ class ChatWindow {
         const sectionContent = this.getSectionContent(container, 'actions');
 
         const actionCard = document.createElement('div');
-        actionCard.className = 'action-card fade-in';
+        actionCard.className = `action-card fade-in ${status || ''}`;
         actionCard.dataset.actionId = actionId;
-        
+
         // Map common task words to icons
         let icon = 'fa-cog';
         const t = text.toLowerCase();
@@ -1935,12 +1928,13 @@ class ChatWindow {
         if (t.includes('type') || t.includes('keyboard')) icon = 'fa-keyboard';
         if (t.includes('scroll')) icon = 'fa-arrows-alt-v';
         if (t.includes('screenshot')) icon = 'fa-camera';
-        if (t.includes('thinking')) icon = 'fa-brain';
+        if (t.includes('thinking')) icon = '';
+        if (t.includes('responding')) icon = 'fa-comment-dots';
         if (t.includes('waiting')) icon = 'fa-clock';
 
         actionCard.innerHTML = `
             <div class="action-icon">
-                <i class="fas ${icon}"></i>
+                <i class="fas ${icon}" ${!icon ? 'style="display:none"' : ''}></i>
                 <div class="action-spinner"></div>
             </div>
             <div style="flex:1">
@@ -2043,23 +2037,28 @@ class ChatWindow {
      * Aggressively clears all spinners and thinking states.
      */
     forceStopThinking() {
-        // Remove all 'Thinking...' action elements
+        // Remove ANY 'Thinking...' or 'Responding...' action cards from the container
+        const actionCards = Array.from(this.messagesContainer.querySelectorAll('.action-card'));
+        actionCards.forEach(card => {
+            const title = card.querySelector('.action-title')?.textContent || "";
+            if (title.toLowerCase().includes('thinking') || title.toLowerCase().includes('responding')) {
+                card.remove();
+            }
+        });
+
+        // Also clean our internal tracking map
         for (const [id, data] of this.actionStatuses.entries()) {
-            if (data.text === 'Thinking...') {
-                if (data.element) {
-                    data.element.remove();
-                }
+            if (data.text && (data.text.toLowerCase().includes('thinking') || data.text.toLowerCase().includes('responding'))) {
+                data.element?.remove();
                 this.actionStatuses.delete(id);
             }
         }
 
-        // Also remove any spinners from remaining action elements
+        // Also remove any remaining spinners in other cards that finished
         for (const [id, data] of this.actionStatuses.entries()) {
             if (data.element) {
                 const spinner = data.element.querySelector('.action-spinner');
-                if (spinner) {
-                    spinner.remove();
-                }
+                if (spinner) spinner.remove();
             }
         }
 
@@ -2145,7 +2144,7 @@ class ChatWindow {
             '"': '&quot;',
             "'": '&#039;'
         };
-        return text.replace(/[&<>"']/g, function(m) { return map[m]; });
+        return text.replace(/[&<>"']/g, function (m) { return map[m]; });
     }
 
     parseMarkdown(text) {
@@ -2161,10 +2160,10 @@ class ChatWindow {
                 // Prevent raw HTML from being rendered as UI elements
                 renderer.html = (token) => {
                     return token.text.replace(/&/g, "&amp;")
-                                     .replace(/</g, "&lt;")
-                                     .replace(/>/g, "&gt;")
-                                     .replace(/"/g, "&quot;")
-                                     .replace(/'/g, "&#039;");
+                        .replace(/</g, "&lt;")
+                        .replace(/>/g, "&gt;")
+                        .replace(/"/g, "&quot;")
+                        .replace(/'/g, "&#039;");
                 };
 
                 // Custom code block renderer with language label and copy button
@@ -2241,49 +2240,32 @@ class ChatWindow {
     }
 
     updateRateLimitDisplay() {
-        // Rate limit display moved to Settings -> Account
-        // Keep functionality but remove UI dependency in chat window
         const user = (this.settings && this.settings.userDetails) ? this.settings.userDetails : {};
-        // Normalize plan name (Supabase may store "Free", "Pro", "Master" etc.)
         const planRaw = user.plan || 'free';
         const plan = String(planRaw).toLowerCase().replace(/\s*plan\s*/gi, '').trim() || 'free';
-        const mode = this.currentMode || 'act';
 
-        // Limits matching subscription tiers
         const limits = {
-            free: { act: 10, ask: 20 },
-            pro: { act: 200, ask: 300 },
-            master: { act: Infinity, ask: Infinity }
+            free: { act: 10, ask: 200 },
+            pro: { act: 200, ask: 500 },
+            master: { act: '∞', ask: '∞' }
         };
 
-        const limitObj = limits[plan] || limits.free;
-        const limit = limitObj[mode];
-        const currentCount = user[`${mode}Count`] || 0;
+        // const limitObj = limits[plan] || limits.free;
+        // const actUsed = user.actUsed || 0;
+        // const askUsed = user.askUsed || 0;
 
-        const progressBar = document.getElementById('rateLimitProgress');
-        const textLabel = document.getElementById('rateLimitText');
-
-        if (plan === 'master') {
-            if (progressBar) progressBar.style.width = '100%';
-            if (textLabel) textLabel.innerHTML = '<span class="rate-limit-infinity">∞</span>';
-        } else {
-            const percentage = Math.min(100, (currentCount / limit) * 100);
-            if (progressBar) progressBar.style.width = `${percentage}%`;
-            if (textLabel) textLabel.textContent = `${currentCount}/${limit}`;
-
-            // Color indication
-            if (percentage > 90) {
-                if (progressBar) progressBar.style.background = '#ef4444';
-            } else {
-                if (progressBar) progressBar.style.background = 'var(--accent-color)';
-            }
-        }
+        // if (this.modeAct) {
+        //     this.modeAct.innerHTML = `ACT <span style="font-size:9px;opacity:0.6;margin-left:4px;">${actUsed}/${limitObj.act}</span>`;
+        // }
+        // if (this.modeAsk) {
+        //     this.modeAsk.innerHTML = `ASK <span style="font-size:9px;opacity:0.6;margin-left:4px;">${askUsed}/${limitObj.ask}</span>`;
+        // }
     }
 
     parseErrorMessage(rawError) {
         if (typeof rawError === 'object' && rawError !== null) {
             if (rawError.message) return this.parseErrorMessage(rawError.message);
-            try { return JSON.stringify(rawError); } catch(e) { return 'Unknown error object'; }
+            try { return JSON.stringify(rawError); } catch (e) { return 'Unknown error object'; }
         }
 
         const errorString = String(rawError || '');

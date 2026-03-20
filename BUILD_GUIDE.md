@@ -65,7 +65,7 @@ To update only the Gemini model:
 ```bash
 node scripts/set-gemini-model.js YOUR_MODEL_NAME
 ```
-(e.g., `gemini-2.0-flash` or `gemini-1.5-pro`)
+(e.g., `gemini-2.0-flash` or `gemini-2.5-pro`)
 
 ### Strategy B: Bundling Python (Advanced)
 If you wish to bundle a portable Python environment with the app:

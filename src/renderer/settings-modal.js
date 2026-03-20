@@ -37,6 +37,7 @@ class SettingsModal {
         await this.loadUserStatus();
         await this.loadSettings();
         await this.loadTTSVoices();
+        if (this.loadSkillsList) await this.loadSkillsList();
 
         this.updateUI();
         this.initializeLucideIcons();
@@ -44,9 +45,7 @@ class SettingsModal {
     }
 
     initializeLucideIcons() {
-        if (typeof lucide !== 'undefined') {
-            lucide.createIcons();
-        }
+        // Lucide is replaced by Font Awesome
     }
 
     setupTabs() {
@@ -359,6 +358,38 @@ class SettingsModal {
             }
         });
 
+        document.getElementById('uploadSkillFolderBtn')?.addEventListener('click', async () => {
+            if (window.settingsAPI && window.settingsAPI.uploadSkillFolder) {
+                try {
+                    const res = await window.settingsAPI.uploadSkillFolder();
+                    if (res && res.success) {
+                        this.showToast(`Successfully imported ${res.count || 'some'} skills`, 'success');
+                        this.loadSkillsList();
+                    } else if (res && res.error) {
+                        this.showToast(res.error, 'error');
+                    }
+                } catch (e) {
+                    this.showToast('Failed to upload skills', 'error');
+                }
+            }
+        });
+
+        document.getElementById('uploadSkillBtn')?.addEventListener('click', async () => {
+            if (window.settingsAPI && window.settingsAPI.importSkill) {
+                try {
+                    const res = await window.settingsAPI.importSkill();
+                    if (res && res.success) {
+                        this.showToast(`Skill imported successfully`, 'success');
+                        this.loadSkillsList();
+                    } else if (res && res.error) {
+                        this.showToast(res.error, 'error');
+                    }
+                } catch (e) {
+                    this.showToast('Failed to import skill', 'error');
+                }
+            }
+        });
+
         document.getElementById('quitButton')?.addEventListener('click', () => {
             if (window.settingsAPI) window.settingsAPI.quitApp();
         });
@@ -378,7 +409,9 @@ class SettingsModal {
 
         // PIN Modal
         document.getElementById('pinCancelButton')?.addEventListener('click', () => {
-            document.getElementById('pinModal').style.display = 'none';
+            const modal = document.getElementById('pinModal');
+            if (modal) modal.style.display = 'none';
+            if (window.settingsAPI?.setModalActive) window.settingsAPI.setModalActive(false);
         });
 
         document.getElementById('pinConfirmButton')?.addEventListener('click', () => {
@@ -387,6 +420,9 @@ class SettingsModal {
 
         // Close on blur (click outside)
         window.addEventListener('mousedown', (e) => {
+            // New: Don't close if clicking inside a modal or popup
+            if (e.target.closest('.modal-overlay')) return;
+            
             const win = document.querySelector('.settings-window');
             if (win && !win.contains(e.target)) {
                  if (window.settingsAPI) window.settingsAPI.closeSettings();
@@ -548,20 +584,24 @@ class SettingsModal {
 
             // Usage Limits
             const actUsed = this.currentUser.actUsed || 0;
-            const actLimit = this.currentUser.actLimit || 0;
             const askUsed = this.currentUser.askUsed || 0;
-            const askLimit = this.currentUser.askLimit || 0;
+            const plan = (this.currentUser.plan || 'free').toLowerCase();
+            let actLimitStr = plan === 'master' ? '∞' : (plan === 'pro' ? '200' : '10');
+            let askLimitStr = plan === 'master' ? '∞' : (plan === 'pro' ? '500' : '200');
 
             if (document.getElementById('actLimitText')) {
-                document.getElementById('actLimitText').textContent = `${actUsed} / ${actLimit}`;
+                document.getElementById('actLimitText').textContent = `${actUsed} / ${actLimitStr}`;
             }
             if (document.getElementById('askLimitText')) {
-                document.getElementById('askLimitText').textContent = `${askUsed} / ${askLimit}`;
+                document.getElementById('askLimitText').textContent = `${askUsed} / ${askLimitStr}`;
             }
 
             // Stats
-            if (document.getElementById('statTasks')) document.getElementById('statTasks').textContent = actUsed + askUsed;
-            if (document.getElementById('statHours')) document.getElementById('statHours').textContent = Math.floor((actUsed + askUsed) * 0.1);
+            const totalTokens = this.currentUser.totalTokens || 0;
+            const dailyTokens = Object.values(this.currentUser.dailyTokenData || {}).reduce((a, b) => a + (b || 0), 0);
+            
+            if (document.getElementById('statTotalTokens')) document.getElementById('statTotalTokens').textContent = totalTokens.toLocaleString();
+            if (document.getElementById('statDailyTokens')) document.getElementById('statDailyTokens').textContent = dailyTokens.toLocaleString();
         }
     }
 
@@ -583,6 +623,7 @@ class SettingsModal {
         display.textContent = 'Press keys...';
         saveBtn.disabled = true;
         modal.style.display = 'flex';
+        if (window.settingsAPI?.setModalActive) window.settingsAPI.setModalActive(true);
         
         let currentCombo = '';
 
@@ -610,6 +651,7 @@ class SettingsModal {
         const cleanup = () => {
             window.removeEventListener('keydown', onKeyDown);
             modal.style.display = 'none';
+            if (window.settingsAPI?.setModalActive) window.settingsAPI.setModalActive(false);
         };
 
         saveBtn.onclick = () => {
@@ -632,6 +674,7 @@ class SettingsModal {
         this.pinMode = mode;
         input.value = '';
         modal.style.display = 'flex';
+        if (window.settingsAPI?.setModalActive) window.settingsAPI.setModalActive(true);
         input.focus();
 
         if (mode === 'change') {
@@ -662,6 +705,7 @@ class SettingsModal {
                 if (res.success) {
                     this.showToast('PIN changed successfully', 'success');
                     document.getElementById('pinModal').style.display = 'none';
+                    if (window.settingsAPI?.setModalActive) window.settingsAPI.setModalActive(false);
                 } else {
                     this.showToast(res.message || 'Failed to change PIN', 'error');
                     this.showPinModal('change');
@@ -672,7 +716,75 @@ class SettingsModal {
             if (res.success) {
                 this.showToast('PIN set successfully', 'success');
                 document.getElementById('pinModal').style.display = 'none';
+                if (window.settingsAPI?.setModalActive) window.settingsAPI.setModalActive(false);
             }
+        }
+    }
+
+    async loadSkillsList() {
+        const container = document.getElementById('skillsListContainer');
+        if (!container || !window.settingsAPI || !window.settingsAPI.getSkills) return;
+
+        try {
+            const data = await window.settingsAPI.getSkills();
+            const behaviors = data.behaviors || [];
+            
+            if (behaviors.length === 0) {
+                container.innerHTML = '<div class="setting-desc">No skills installed. Upload a file or folder above.</div>';
+                return;
+            }
+
+            container.innerHTML = '';
+            behaviors.forEach(skill => {
+                const row = document.createElement('div');
+                row.className = 'setting-row';
+                row.style.background = 'var(--bg-tertiary)';
+                row.style.padding = '12px 16px';
+                row.style.borderRadius = '8px';
+                row.style.border = '1px solid var(--border-color)';
+                row.style.marginBottom = '12px';
+                
+                // Icon mapping matching chat window
+                let iconClass = 'fas fa-bolt';
+                const cmd = skill.name.toLowerCase();
+                if (cmd.includes('web')) iconClass = 'fas fa-globe';
+                else if (cmd.includes('cmd') || cmd.includes('terminal')) iconClass = 'fas fa-terminal';
+                else if (cmd.includes('file') || cmd.includes('read')) iconClass = 'fas fa-file-alt';
+                else if (cmd.includes('code') || cmd.includes('edit')) iconClass = 'fas fa-code';
+                else if (cmd.includes('media') || cmd.includes('audio')) iconClass = 'fas fa-volume-up';
+
+                row.innerHTML = `
+                    <div class="setting-info">
+                        <div class="setting-name"><i class="${iconClass}" style="width: 14px; margin-right: 6px;"></i> ${skill.name}</div>
+                        <div class="setting-desc" style="max-height: 36px; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;">${skill.pattern || 'Custom interaction workflow'}</div>
+                    </div>
+                    <div style="display:flex; gap:8px;">
+                        <button class="btn btn-secondary delete-skill-btn" data-name="${skill.name}" style="padding: 6px 12px; color: var(--danger);"><i class="fas fa-trash-alt"></i></button>
+                    </div>
+                `;
+                container.appendChild(row);
+            });
+
+            // this.initializeLucideIcons(); // No longer needed for FA
+
+            container.querySelectorAll('.delete-skill-btn').forEach(btn => {
+                btn.addEventListener('click', async (e) => {
+                    const name = e.currentTarget.getAttribute('data-name');
+                    if (confirm(`Are you sure you want to delete the skill "${name}"?`)) {
+                        if (window.settingsAPI.deleteSkill) {
+                            const res = await window.settingsAPI.deleteSkill(name);
+                            if (res.success) {
+                                this.showToast('Skill deleted', 'success');
+                                this.loadSkillsList();
+                            } else {
+                                this.showToast('Failed to delete', 'error');
+                            }
+                        }
+                    }
+                });
+            });
+        } catch (e) {
+            container.innerHTML = '<div class="setting-desc">Failed to load skills.</div>';
         }
     }
 

@@ -4,14 +4,19 @@ FROM ubuntu:22.04
 # Prevent interactive prompts
 ENV DEBIAN_FRONTEND=noninteractive
 
-# Install essential desktop components
-RUN apt-get update && apt-get install -y \
+# Install essential desktop components (Minimized to save space)
+RUN apt-get update && apt-get install -y --no-install-recommends \
     xfce4 \
-    xfce4-goodies \
+    xfce4-terminal \
+    mousepad \
     xvfb \
     x11vnc \
     novnc \
     websockify \
+    && apt-get clean && rm -rf /var/lib/apt/lists/*
+
+# Install python and other essentials
+RUN apt-get update && apt-get install -y --no-install-recommends \
     python3 \
     python3-pip \
     python3-tk \
@@ -20,10 +25,12 @@ RUN apt-get update && apt-get install -y \
     curl \
     git \
     sudo \
+    gnupg \
+    ca-certificates \
     software-properties-common \
     && add-apt-repository -y ppa:mozillateam/ppa \
     && echo 'Package: *\nPin: release o=LP-PPA-mozillateam\nPin-Priority: 1001\n' > /etc/apt/preferences.d/mozilla-firefox \
-    && apt-get update && apt-get install -y firefox \
+    && apt-get update && apt-get install -y --no-install-recommends firefox \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 RUN pip3 install pyautogui websockets mss Pillow
@@ -58,7 +65,10 @@ WORKDIR /home/controluser
 # Entrypoint and Agent scripts
 COPY entrypoint.sh /home/controluser/entrypoint.sh
 COPY ai_agent.py /home/controluser/ai_agent.py
-RUN chown controluser:controluser /home/controluser/entrypoint.sh /home/controluser/ai_agent.py && \
+COPY wallpaper1.png /home/controluser/wallpaper1.png
+COPY wallpaper2.png /home/controluser/wallpaper2.png
+COPY wallpaper3.png /home/controluser/wallpaper3.png
+RUN chown controluser:controluser /home/controluser/entrypoint.sh /home/controluser/ai_agent.py /home/controluser/wallpaper*.png && \
     chmod +x /home/controluser/entrypoint.sh
 
 USER controluser

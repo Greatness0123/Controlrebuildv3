@@ -15,7 +15,7 @@ interface UpgradeButtonProps {
 
 export default function UpgradeButton({ planName, amount, isPopular, disabled }: UpgradeButtonProps) {
   const { user } = useAuthStore();
-  
+
   const config = {
     public_key: process.env.NEXT_PUBLIC_FLUTTERWAVE_PUBLIC_KEY || '',
     tx_ref: `ctrl_${user?.id?.substring(0, 8)}_${Date.now()}`,
@@ -30,11 +30,11 @@ export default function UpgradeButton({ planName, amount, isPopular, disabled }:
     customizations: {
       title: `Control ${planName} Plan`,
       description: `Upgrade to the ${planName} plan for enhanced agent compute.`,
-      logo: 'https://raw.githubusercontent.com/lucide-react/lucide/main/icons/command.svg',
+      logo: 'https://assets.streamlinehq.com/image/private/w_300,h_300,ar_1/f_auto/v1/icons/c4/mac-command-a2vt7pg56bsgb88g0ccq.png/mac-command-4o0jizhxme58pxunu7xtec.png?_a=DATAiZiuZAA0',
     },
     meta: {
-        userId: user?.id,
-        plan: planName.toLowerCase()
+      userId: user?.id,
+      plan: planName.toLowerCase()
     }
   };
 
@@ -42,13 +42,13 @@ export default function UpgradeButton({ planName, amount, isPopular, disabled }:
 
   const handleClick = () => {
     if (!user) {
-        toast.error("Please log in to upgrade your plan.");
-        return;
+      toast.error("Please log in to upgrade your plan.");
+      return;
     }
 
     if (!config.public_key) {
-        toast.error("Flutterwave configuration missing.");
-        return;
+      toast.error("Flutterwave configuration missing.");
+      return;
     }
 
     handleFlutterPayment({
@@ -73,11 +73,10 @@ export default function UpgradeButton({ planName, amount, isPopular, disabled }:
     <button
       onClick={handleClick}
       disabled={disabled}
-      className={`w-full py-4 rounded-xl font-black text-[10px] uppercase tracking-[0.2em] transition-all flex items-center justify-center gap-2 ${
-        isPopular 
-          ? "bg-black text-white hover:bg-zinc-800" 
+      className={`w-full py-4 rounded-xl font-black text-[10px] uppercase tracking-[0.2em] transition-all flex items-center justify-center gap-2 ${isPopular
+          ? "bg-black text-white hover:bg-zinc-800"
           : "bg-white text-black hover:bg-zinc-200"
-      } ${disabled ? "opacity-50 pointer-events-none" : ""}`}
+        } ${disabled ? "opacity-50 pointer-events-none" : ""}`}
     >
       {disabled ? "Current Plan" : (
         <>

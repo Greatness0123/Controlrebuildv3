@@ -307,7 +307,7 @@ export default function WorkspaceLayout({ children }: { children: ReactNode }) {
 
       {/* Mobile sidebar */}
       <aside className={cn(
-        "fixed inset-y-0 left-0 z-[60] w-72 flex flex-col border-r border-border bg-secondary transition-transform duration-250 ease-in-out md:hidden",
+        "fixed inset-y-0 left-0 z-[60] w-72 flex flex-col border-r border-border bg-secondary/90 backdrop-blur-xl transition-transform duration-250 ease-in-out md:hidden",
         mobileOpen ? 'translate-x-0' : '-translate-x-full'
       )}>
         <SidebarContent isMobile />
@@ -349,7 +349,7 @@ export default function WorkspaceLayout({ children }: { children: ReactNode }) {
             className="ml-auto flex items-center gap-1.5 px-3 py-1.5 bg-card border border-border rounded-lg text-[10px] font-bold text-text-secondary hover:text-foreground hover:bg-card-hover transition-all"
           >
             <LayoutDashboard size={12} />
-            Workspace
+            <span className="hidden sm:inline">Workspace</span>
           </Link>
         </div>
 

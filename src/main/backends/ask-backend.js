@@ -22,7 +22,7 @@ class AskBackend {
 
   setupGeminiAPI(apiKey, modelName) {
     const key = apiKey || process.env.GEMINI_API_KEY || process.env.GEMINI_FREE_KEY || "test_api_key";
-    const finalModelName = modelName || process.env.GEMINI_MODEL || "gemini-1.5-flash";
+    const finalModelName = modelName || process.env.GEMINI_MODEL || "gemini-2.5-flash";
 
     if (key === this.currentApiKey && this.model && this.currentModelName === finalModelName) return;
 
@@ -110,29 +110,29 @@ class AskBackend {
 
     // Process [DISPLAY_CODE] blocks in-place for better flow
     const cleanText = responseText
-        .replace(/\[DISPLAY_CODE:\s*([\w-]+)\s*\n([\s\S]+?)\]/g, (match, lang, code) => {
-            return `\n\n\`\`\`${lang}\n${code.trim()}\n\`\`\`\n\n`;
-        })
-        .replace(/\[REQUEST_SCREENSHOT\]/g, "")
-        .replace(/\[REQUEST_COMMAND:\s*.+?\]/g, "")
-        .replace(/\[BROWSER_OPEN:\s*.+?\]/g, "")
-        .replace(/\[BROWSER_EXECUTE_JS:\s*.+?\]/g, "")
-        .replace(/\[BROWSER_SCREENSHOT\]/g, "")
-        .replace(/\[READ_BEHAVIORS\]/g, "")
-        .replace(/\[WRITE_BEHAVIOR:\s*[\s\S]+?\]/g, "")
-        .replace(/^(?:REQUEST_COMMAND|COMMAND):\s*.+$/gm, "")
-        .trim();
+      .replace(/\[DISPLAY_CODE:\s*([\w-]+)\s*\n([\s\S]+?)\]/g, (match, lang, code) => {
+        return `\n\n\`\`\`${lang}\n${code.trim()}\n\`\`\`\n\n`;
+      })
+      .replace(/\[REQUEST_SCREENSHOT\]/g, "")
+      .replace(/\[REQUEST_COMMAND:\s*.+?\]/g, "")
+      .replace(/\[BROWSER_OPEN:\s*.+?\]/g, "")
+      .replace(/\[BROWSER_EXECUTE_JS:\s*.+?\]/g, "")
+      .replace(/\[BROWSER_SCREENSHOT\]/g, "")
+      .replace(/\[READ_BEHAVIORS\]/g, "")
+      .replace(/\[WRITE_BEHAVIOR:\s*[\s\S]+?\]/g, "")
+      .replace(/^(?:REQUEST_COMMAND|COMMAND):\s*.+$/gm, "")
+      .trim();
 
     return { requestType, requestData, cleanText };
   }
 
   formatCitations(response) {
     try {
-        // Citations disabled per user request to minimize space and remove unclickable links
-        return response.text();
+      // Citations disabled per user request to minimize space and remove unclickable links
+      return response.text();
     } catch (e) {
-        console.error("[ASK JS] Error getting text from response:", e);
-        return "";
+      console.error("[ASK JS] Error getting text from response:", e);
+      return "";
     }
   }
 
@@ -176,7 +176,7 @@ class AskBackend {
               fullResponse += data.response;
               onChunk(data.response);
             }
-          } catch (e) {}
+          } catch (e) { }
         }
       }
       return fullResponse;
@@ -275,8 +275,8 @@ class AskBackend {
     });
 
     if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(`${provider} error: ${errorData.error?.message || response.statusText}`);
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(`${provider} error: ${errorData.error?.message || response.statusText}`);
     }
 
     if (onChunk) {
@@ -302,7 +302,7 @@ class AskBackend {
                 fullText += content;
                 onChunk(content);
               }
-            } catch (e) {}
+            } catch (e) { }
           }
         }
       }
@@ -387,7 +387,7 @@ class AskBackend {
                 fullText += data.delta.text;
                 onChunk(data.delta.text);
               }
-            } catch (e) {}
+            } catch (e) { }
           }
         }
       }
@@ -406,12 +406,12 @@ class AskBackend {
     // Special case: if OpenRouter is selected but the model is Gemini 1.5 Flash (SDK version), switch to gemini provider logic
     let effectiveProvider = provider;
     if (provider === "openrouter" && (settings.openrouterModel === "google/gemini-flash-1.5-sdk" || settings.openrouterModel === "gemini-native")) {
-        effectiveProvider = "gemini";
+      effectiveProvider = "gemini";
     }
 
     const supabaseService = require("../supabase-service");
     const cachedKeys = supabaseService.getKeys();
-    const defaultGeminiModel = cachedKeys ? cachedKeys.gemini_model : "gemini-1.5-flash";
+    const defaultGeminiModel = cachedKeys ? cachedKeys.gemini_model : "gemini-2.5-flash";
     const geminiModel = settings.selectedModel || defaultGeminiModel;
 
     if (effectiveProvider === "gemini") {
@@ -432,7 +432,7 @@ class AskBackend {
         for (const att of attachments) {
           if (att.path && fs.existsSync(att.path)) {
             const ext = path.extname(att.path).toLowerCase();
-            const mime = {".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".webp": "image/webp", ".pdf": "application/pdf"}[ext];
+            const mime = { ".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".webp": "image/webp", ".pdf": "application/pdf" }[ext];
             if (mime) conversationParts.push({ inlineData: { mimeType: mime, data: fs.readFileSync(att.path).toString("base64") } });
           }
         }

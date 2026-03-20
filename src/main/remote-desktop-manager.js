@@ -203,6 +203,28 @@ class RemoteDesktopManager {
                 console.log('[Remote] Stream stop requested by web');
                 this.stopStreaming();
             })
+            .on('broadcast', { event: 'request_workflows' }, () => {
+                const workflowManager = require('./workflow-manager');
+                const workflows = workflowManager.getAllWorkflows();
+                this.channel.send({
+                    type: 'broadcast',
+                    event: 'workflows_list',
+                    payload: { workflows }
+                });
+            })
+            .on('broadcast', { event: 'execute_workflow' }, async (payload) => {
+                const workflowId = payload.payload.id;
+                const workflowManager = require('./workflow-manager');
+                const workflow = workflowManager.getWorkflowById(workflowId);
+                console.log('[Remote] Executing workflow via web:', workflow?.name);
+                if (workflow && this.windowManager?.backendManager) {
+                    const apiKey = require('./supabase-service').getKeys()?.gemini_keys?.[0] || process.env.GEMINI_API_KEY;
+                    await this.windowManager.backendManager.executeTask({
+                        text: workflow.name,
+                        api_key: apiKey
+                    }, 'act', this.settingsManager.getSettings());
+                }
+            })
             .on('system', { event: '*' }, (payload) => {
                 console.log('[Remote] Channel system event:', payload);
             })

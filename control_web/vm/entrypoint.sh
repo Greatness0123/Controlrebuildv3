@@ -24,6 +24,11 @@ gsettings set org.gnome.desktop.screensaver lock-enabled false || true
 gio set /home/controluser/Desktop/firefox.desktop metadata::trusted true || true
 chmod +x /home/controluser/Desktop/firefox.desktop
 
+# Set a random wallpaper dynamically across any active XFCE monitor
+WALLPAPERS=("/home/controluser/wallpaper1.png" "/home/controluser/wallpaper2.png" "/home/controluser/wallpaper3.png")
+SELECTED_WP=${WALLPAPERS[$RANDOM % 3]}
+(sleep 5 && for prop in $(xfconf-query -c xfce4-desktop -p /backdrop -l | grep last-image); do xfconf-query -c xfce4-desktop -p $prop -s "$SELECTED_WP"; done) &
+
 # Start VNC Server (retry until X is ready)
 for i in $(seq 1 10); do
     x11vnc -display :1 -forever -nopw -rfbport 5900 -shared &

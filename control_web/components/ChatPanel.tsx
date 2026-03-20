@@ -54,7 +54,7 @@ export default function ChatPanel({ sessionId }: ChatPanelProps) {
       const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
       if (SpeechRecognition) {
         const recognition = new SpeechRecognition();
-        recognition.continuous = false;
+        recognition.continuous = true;
         recognition.interimResults = false;
         recognition.lang = 'en-US';
 
@@ -170,12 +170,15 @@ export default function ChatPanel({ sessionId }: ChatPanelProps) {
     }
   };
 
+  const isSendingRef = useRef(false);
+
   const handleSend = async (e?: React.FormEvent, customMsg?: string) => {
     e?.preventDefault();
     const userMsg = customMsg || input;
     if (!userMsg.trim() && !attachedFile) return;
-    if (isStreaming) return;
+    if (isStreaming || isSendingRef.current) return;
 
+    isSendingRef.current = true;
     if (!customMsg) setInput('');
     setError('');
     setStreaming(true);
@@ -185,8 +188,17 @@ export default function ChatPanel({ sessionId }: ChatPanelProps) {
     const fileName = attachedFile?.name;
     setAttachedFile(null);
 
+    // Optimistically add the user message
+    const displayMsg = fileName ? `${userMsg}\n📎 ${fileName}` : userMsg;
+    addMessage({
+      id: Math.random().toString(),
+      session_id: sessionId,
+      role: 'user',
+      content: displayMsg,
+      created_at: new Date().toISOString()
+    } as any);
+
     try {
-      const displayMsg = fileName ? `${userMsg}\n📎 ${fileName}` : userMsg;
       const stream = chatApi.sendMessage(sessionId, userMsg, fileUrl);
 
       for await (const event of stream) {
@@ -246,6 +258,7 @@ export default function ChatPanel({ sessionId }: ChatPanelProps) {
     } finally {
       setStreaming(false);
       setAiState('idle');
+      isSendingRef.current = false;
       const res = await chatApi.messages(sessionId);
       setMessages(res.messages);
     }
@@ -306,6 +319,7 @@ export default function ChatPanel({ sessionId }: ChatPanelProps) {
 
       {/* Messages */}
       <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-6 scroll-smooth pb-10">
+        <div className="max-w-3xl mx-auto w-full space-y-6">
         {messages.length === 0 ? (
           <div className="h-full flex flex-col items-center justify-center text-center px-6 animate-in fade-in duration-1000 max-w-lg mx-auto">
             <div className="flex flex-col items-center justify-center mb-10">
@@ -344,6 +358,7 @@ export default function ChatPanel({ sessionId }: ChatPanelProps) {
             </div>
           </div>
         )}
+        </div>
       </div>
 
       {/* Attached File Preview */}

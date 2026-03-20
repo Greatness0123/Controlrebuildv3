@@ -20,6 +20,8 @@ export default function RemoteDesktopViewer({ deviceId, className }: RemoteDeskt
   const [status, setStatus] = useState<'connecting' | 'online' | 'streaming' | 'offline'>('connecting');
   const [lastUpdate, setLastUpdate] = useState<number>(0);
   const [isMobile, setIsMobile] = useState(false);
+  const [workflows, setWorkflows] = useState<any[]>([]);
+  const [showWorkflows, setShowWorkflows] = useState(false);
   const channelRef = useRef<any>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -114,6 +116,11 @@ export default function RemoteDesktopViewer({ deviceId, className }: RemoteDeskt
           setStatus('streaming');
         }
       })
+      .on('broadcast', { event: 'workflows_list' }, (payload) => {
+        if (payload.payload?.workflows) {
+           setWorkflows(payload.payload.workflows);
+        }
+      })
       .subscribe(async (subStatus, err) => {
         console.log(`[Remote] Subscription status: ${subStatus}`);
         if (err) console.error('[Remote] Subscription error:', err);
@@ -134,6 +141,11 @@ export default function RemoteDesktopViewer({ deviceId, className }: RemoteDeskt
               type: 'broadcast',
               event: 'request_stream',
               payload: { request_id: Date.now() }
+            });
+            channel.send({
+              type: 'broadcast',
+              event: 'request_workflows',
+              payload: {}
             });
           }, 200);
         }
@@ -248,6 +260,36 @@ export default function RemoteDesktopViewer({ deviceId, className }: RemoteDeskt
                     Wake
                 </button>
             )}
+            
+            <div className="relative group/wf z-50">
+                <button 
+                  onClick={() => setShowWorkflows(!showWorkflows)}
+                  className="px-2 py-1 bg-secondary border border-border rounded text-[9px] font-bold text-text-muted hover:text-foreground transition-all uppercase flex items-center gap-1"
+                >
+                  Workflows
+                </button>
+                {showWorkflows && workflows.length > 0 && (
+                  <div className="absolute right-0 mt-2 w-48 bg-zinc-950 border border-border rounded-xl shadow-2xl p-1 overflow-hidden z-[100]">
+                    {workflows.map(wf => (
+                      <button
+                        key={wf.id}
+                        onClick={() => {
+                          channelRef.current?.send({
+                            type: 'broadcast',
+                            event: 'execute_workflow',
+                            payload: { id: wf.id }
+                          });
+                          setShowWorkflows(false);
+                        }}
+                        className="w-full text-left px-3 py-2 text-[10px] text-zinc-300 hover:bg-white/10 hover:text-white rounded-lg transition-colors truncate"
+                      >
+                        {wf.name}
+                      </button>
+                    ))}
+                  </div>
+                )}
+            </div>
+
             <button 
               onClick={() => window.open(`/remote/${deviceId}`, '_blank')}
               className="p-1.5 hover:bg-card-hover rounded text-text-muted hover:text-foreground transition-colors"
