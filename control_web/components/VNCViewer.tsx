@@ -66,40 +66,33 @@ export default function VNCViewer({ url, status = 'stopped', className }: VNCVie
   }
 
   return (
-    <div className={cn("relative group bg-background flex flex-col", className)}>
-      {/* Toolbar */}
-      <div className="h-10 bg-secondary border-b border-border flex items-center justify-between px-3 shrink-0">
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-1.5">
-            <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-            <span className="text-[10px] font-bold text-text-muted uppercase tracking-widest">Live Desktop</span>
+    <div className={cn("relative group bg-background flex flex-col overflow-hidden", className)}>
+      {/* Compact Overlay Controls */}
+      <div className="absolute top-2 right-2 flex items-center gap-1.5 z-40 opacity-40 hover:opacity-100 transition-opacity">
+          <div className="flex items-center gap-1 bg-black/80 backdrop-blur rounded-lg px-2 py-1 border border-white/10">
+              <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+              <span className="text-[8px] font-black text-white/50 uppercase tracking-tighter">Live VNC</span>
           </div>
-          <div className="h-4 w-px bg-border" />
-          <div className="flex items-center gap-2 text-[10px] text-text-muted">
-            <Shield size={10} />
-            <span>Secure Stream (noVNC)</span>
-          </div>
-        </div>
-        <div className="flex items-center gap-1">
+
           <button 
             onClick={handleRefresh}
-            className="p-1.5 hover:bg-card-hover rounded text-text-muted hover:text-foreground transition-colors"
-            title="Refresh View"
+            className="w-7 h-7 bg-black/80 backdrop-blur border border-white/10 rounded-lg flex items-center justify-center text-white/50 hover:text-white transition-colors"
+            title="Refresh"
           >
-            <RefreshCcw size={14} />
+            <RefreshCcw size={12} />
           </button>
+
           <button 
             onClick={toggleFullscreen}
-            className="p-1.5 hover:bg-card-hover rounded text-text-muted hover:text-foreground transition-colors"
+            className="w-7 h-7 bg-black/80 backdrop-blur border border-white/10 rounded-lg flex items-center justify-center text-white/50 hover:text-white transition-colors"
             title="Fullscreen"
           >
-            <Maximize2 size={14} />
+              <Maximize2 size={12} />
           </button>
-        </div>
       </div>
 
       {/* Viewer */}
-      <div className="flex-1 relative overflow-hidden">
+      <div className="flex-1 relative overflow-hidden bg-zinc-900">
         {url ? (
           <iframe
             ref={iframeRef}

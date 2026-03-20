@@ -23,6 +23,7 @@ export default function RemoteDesktopViewer({ deviceId, className }: RemoteDeskt
   const [workflows, setWorkflows] = useState<any[]>([]);
   const [showWorkflows, setShowWorkflows] = useState(false);
   const channelRef = useRef<any>(null);
+  const isJoinedRef = useRef(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -33,7 +34,7 @@ export default function RemoteDesktopViewer({ deviceId, className }: RemoteDeskt
   }, []);
 
   const startStream = useCallback(() => {
-    if (channelRef.current) {
+    if (channelRef.current && isJoinedRef.current) {
       console.log('[Remote] Requesting stream start...');
       channelRef.current.send({
         type: 'broadcast',
@@ -44,7 +45,7 @@ export default function RemoteDesktopViewer({ deviceId, className }: RemoteDeskt
   }, []);
 
   const stopStream = useCallback(() => {
-    if (channelRef.current) {
+    if (channelRef.current && isJoinedRef.current) {
         console.log('[Remote] Requesting stream stop...');
         channelRef.current.send({
           type: 'broadcast',
@@ -126,28 +127,29 @@ export default function RemoteDesktopViewer({ deviceId, className }: RemoteDeskt
         if (err) console.error('[Remote] Subscription error:', err);
 
         if (subStatus === 'SUBSCRIBED') {
+          isJoinedRef.current = true;
           console.log(`[Remote] Subscribed. Requesting initial stream: ${channelName}`);
           
-          // Track web viewer presence
           await channel.track({
             online_at: new Date().toISOString(),
             type: 'viewer',
             user_id: 'web'
           });
 
-          // Request stream immediately upon subscription
           setTimeout(() => {
-            channel.send({
-              type: 'broadcast',
-              event: 'request_stream',
-              payload: { request_id: Date.now() }
-            });
-            channel.send({
-              type: 'broadcast',
-              event: 'request_workflows',
-              payload: {}
-            });
-          }, 200);
+            if (isJoinedRef.current) {
+              channel.send({
+                type: 'broadcast',
+                event: 'request_stream',
+                payload: { request_id: Date.now() }
+              });
+              channel.send({
+                type: 'broadcast',
+                event: 'request_workflows',
+                payload: {}
+              });
+            }
+          }, 300);
         }
       });
 
@@ -171,6 +173,7 @@ export default function RemoteDesktopViewer({ deviceId, className }: RemoteDeskt
 
     return () => {
       clearInterval(interval);
+      isJoinedRef.current = false;
       if (channelRef.current) {
         channelRef.current.unsubscribe();
         channelRef.current = null;
@@ -179,7 +182,7 @@ export default function RemoteDesktopViewer({ deviceId, className }: RemoteDeskt
   }, [deviceId]); // Only reconnect when deviceId changes
 
   const handleAction = (type: string, data: any) => {
-    if (channelRef.current) {
+    if (channelRef.current && isJoinedRef.current) {
       channelRef.current.send({
         type: 'broadcast',
         event: 'action',
@@ -227,77 +230,58 @@ export default function RemoteDesktopViewer({ deviceId, className }: RemoteDeskt
 
   return (
     <div className={cn("relative bg-background flex flex-col overflow-hidden group", className)}>
-      {/* Header */}
-      <div className="h-10 bg-secondary border-b border-border flex items-center justify-between px-3 shrink-0 z-20">
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-1.5 text-accent-primary">
-            <Zap size={14} className={status === 'streaming' ? 'animate-pulse' : 'opacity-50'} />
-            <span className="text-[10px] font-bold uppercase tracking-widest">
-              Live Desktop
-            </span>
+      {/* Compact Overlay Controls (Transparent) */}
+      <div className="absolute top-2 right-2 flex items-center gap-1.5 z-40 opacity-40 hover:opacity-100 transition-opacity">
+          {status === 'online' && !screen && (
+              <button 
+                  onClick={startStream}
+                  className="px-2 py-1 bg-accent-primary/80 backdrop-blur text-[8px] font-black text-white rounded-lg uppercase tracking-widest shadow-xl"
+              >
+                  Wake Stream
+              </button>
+          )}
+          
+          <div className="flex items-center gap-1 bg-black/80 backdrop-blur rounded-lg px-2 py-1 border border-white/10">
+              <div className={cn(
+                  "w-1.5 h-1.5 rounded-full animate-pulse",
+                  status === 'streaming' ? "bg-emerald-500" : status === 'online' ? "bg-accent-primary" : "bg-zinc-600"
+              )} />
+              <span className="text-[8px] font-black text-white/50 uppercase tracking-tighter">{status}</span>
           </div>
-          <div className="h-4 w-px bg-border" />
-          <div className="flex items-center gap-2 text-[10px] text-text-muted bg-secondary px-2 py-1 rounded border border-border">
-            <Monitor size={10} className="text-text-muted" />
-            <span className="font-bold text-text-muted uppercase tracking-tighter">Signaling ID:</span>
-            <span className="font-mono text-text-secondary select-all">{deviceId}</span>
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
-            <div className="flex items-center gap-1.5 px-1.5 py-0.5 rounded bg-secondary border border-border">
-                <div className={cn(
-                    "w-1.5 h-1.5 rounded-full animate-pulse",
-                    status === 'streaming' ? "bg-emerald-500 shadow-[0_0_5px_rgba(16,185,129,0.5)]" : 
-                    status === 'online' ? "bg-accent-primary" : "bg-text-muted"
-                )} />
-                <span className="text-[8px] font-bold text-text-muted uppercase tracking-tight">{status}</span>
-            </div>
-            {status === 'online' && !screen && (
-                <button 
-                    onClick={startStream}
-                    className="px-2 py-1 bg-accent-primary/10 border border-accent-primary/20 rounded text-[9px] font-bold text-accent-primary hover:bg-accent-primary/20 transition-all uppercase"
-                >
-                    Wake
-                </button>
-            )}
-            
-            <div className="relative group/wf z-50">
-                <button 
-                  onClick={() => setShowWorkflows(!showWorkflows)}
-                  className="px-2 py-1 bg-secondary border border-border rounded text-[9px] font-bold text-text-muted hover:text-foreground transition-all uppercase flex items-center gap-1"
-                >
-                  Workflows
-                </button>
-                {showWorkflows && workflows.length > 0 && (
-                  <div className="absolute right-0 mt-2 w-48 bg-zinc-950 border border-border rounded-xl shadow-2xl p-1 overflow-hidden z-[100]">
-                    {workflows.map(wf => (
-                      <button
-                        key={wf.id}
-                        onClick={() => {
-                          channelRef.current?.send({
-                            type: 'broadcast',
-                            event: 'execute_workflow',
-                            payload: { id: wf.id }
-                          });
-                          setShowWorkflows(false);
-                        }}
-                        className="w-full text-left px-3 py-2 text-[10px] text-zinc-300 hover:bg-white/10 hover:text-white rounded-lg transition-colors truncate"
-                      >
-                        {wf.name}
-                      </button>
-                    ))}
-                  </div>
-                )}
-            </div>
 
-            <button 
-              onClick={() => window.open(`/remote/${deviceId}`, '_blank')}
-              className="p-1.5 hover:bg-card-hover rounded text-text-muted hover:text-foreground transition-colors"
-              title="Open in new window"
-            >
-                <Maximize2 size={14} />
-            </button>
-        </div>
+          <div className="relative group/wf">
+              <button 
+                onClick={() => setShowWorkflows(!showWorkflows)}
+                className="w-7 h-7 bg-black/80 backdrop-blur border border-white/10 rounded-lg flex items-center justify-center text-white/50 hover:text-white transition-colors"
+                title="Workflows"
+              >
+                <Zap size={12} />
+              </button>
+              {showWorkflows && workflows.length > 0 && (
+                <div className="absolute right-0 mt-1 w-40 bg-zinc-950 border border-border rounded-xl shadow-2xl p-1 overflow-hidden z-[100]">
+                  {workflows.map(wf => (
+                    <button
+                      key={wf.id}
+                      onClick={() => {
+                        handleAction('execute_workflow', { id: wf.id });
+                        setShowWorkflows(false);
+                      }}
+                      className="w-full text-left px-3 py-1.5 text-[9px] text-zinc-400 hover:bg-white/5 hover:text-white rounded-lg transition-colors truncate"
+                    >
+                      {wf.name}
+                    </button>
+                  ))}
+                </div>
+              )}
+          </div>
+
+          <button 
+            onClick={() => window.open(`/remote/${deviceId}`, '_blank')}
+            className="w-7 h-7 bg-black/80 backdrop-blur border border-white/10 rounded-lg flex items-center justify-center text-white/50 hover:text-white transition-colors shadow-2xl"
+            title="Pop-out Viewer"
+          >
+              <Maximize2 size={12} />
+          </button>
       </div>
 
       {/* Stream Container */}

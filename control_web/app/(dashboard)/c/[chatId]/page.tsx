@@ -122,70 +122,44 @@ export default function ChatSessionPage() {
       {modal}
       <div className="flex-1 flex flex-col min-h-0 bg-background text-foreground">
         {/* Session Header */}
-        <header className="h-14 flex items-center justify-between px-4 border-b border-border bg-secondary shrink-0 relative z-30 shadow-2xl">
+        <header className="h-14 flex items-center justify-between px-4 border-b border-border bg-secondary shrink-0 relative z-30">
           <div className="flex items-center gap-4 min-w-0">
-            <div className="flex items-center gap-3">
-               <div
-                className={cn(
-                  "p-2.5 rounded-xl border transition-all",
-                  (!activeVmId && !activeDeviceId) ? "bg-red-500/10 text-red-500 border-red-500/20" : "bg-secondary border-border text-text-muted"
-                )}
-               >
-                  {activeDeviceId ? <Laptop size={20} /> : <Cpu size={20} />}
+            <div className="flex items-center gap-2">
+               <div className={cn(
+                  "p-2 rounded-lg border transition-all",
+                  (!activeVmId && !activeDeviceId) ? "bg-red-500/10 text-red-500 border-red-500/20" : "bg-card border-border text-zinc-400"
+                )}>
+                  {activeDeviceId ? <Laptop size={14} /> : <Cpu size={14} />}
                </div>
                <div className="min-w-0">
-                  <h1 className="text-xs sm:text-sm font-black text-foreground truncate uppercase tracking-tight">
-                    {activeVm?.name || activeDevice?.name || 'Unassigned Session'}
+                  <h1 className="text-xs font-black text-foreground truncate uppercase tracking-tighter">
+                    {activeVm?.name || activeDevice?.name || 'Unassigned'}
                   </h1>
-                  <div className="flex items-center gap-2">
-                    <div className={cn(
-                      "w-1.5 h-1.5 rounded-full animate-pulse",
-                      (activeVm || activeDevice) ? "bg-emerald-500" : "bg-red-500"
-                    )} />
-                    <span className="text-[10px] text-text-muted font-bold uppercase tracking-widest truncate hidden sm:inline">
-                      {activeVm ? 'Cloud Machine Linked' : activeDevice ? 'Hardware Node Bridged' : 'No target selected'}
-                    </span>
-                  </div>
                </div>
             </div>
 
-            <div className="h-6 w-px bg-white/5 mx-2 hidden md:block" />
+            <div className="h-4 w-px bg-border mx-1 hidden md:block" />
 
             {/* AI Controls in Header */}
-            <div className="hidden lg:flex items-center gap-3 pr-4 border-r border-white/5">
+            <div className="hidden lg:flex items-center gap-2">
               {aiState !== 'idle' && (
-                <div className="flex items-center gap-1.5 bg-white/5 border border-white/10 rounded-full px-3 py-1 animate-in fade-in zoom-in duration-300">
+                <div className="flex items-center gap-1 bg-white/5 border border-white/5 rounded-lg px-2 py-0.5">
                   <button 
                     onClick={async () => {
                       const nextState = aiState === 'paused' ? 'running' : 'paused';
                       setAiState(nextState);
-                      try {
-                        await chatApi.update(chatId, { ai_status: nextState } as any);
-                      } catch { toast.error("Failed to update AI status"); }
+                      try { await chatApi.update(chatId, { ai_status: nextState } as any); } catch {}
                     }}
-                    className="hover:text-white text-zinc-400 transition-colors"
-                    title={aiState === 'paused' ? "Continue AI" : "Pause AI"}
+                    className="hover:text-white text-zinc-500 transition-colors"
                   >
-                    {aiState === 'paused' ? <PlayCircle size={14} /> : <PauseCircle size={14} />}
+                    {aiState === 'paused' ? <PlayCircle size={12} /> : <PauseCircle size={12} />}
                   </button>
-                  <div className="w-[1px] h-3 bg-white/10" />
                   <button 
-                    onClick={async () => { 
-                      setStreaming(false); 
-                      setAiState('idle'); 
-                      try { await chatApi.update(chatId, { ai_status: 'stopped' } as any); } catch {}
-                    }}
-                    className="text-red-500/70 hover:text-red-400 transition-colors"
-                    title="Stop AI"
+                    onClick={async () => { setStreaming(false); setAiState('idle'); try { await chatApi.update(chatId, { ai_status: 'stopped' } as any); } catch {} }}
+                    className="text-red-500/50 hover:text-red-500 transition-colors"
                   >
-                    <Square size={14} fill="currentColor" />
+                    <Square size={10} fill="currentColor" />
                   </button>
-                </div>
-              )}
-              {aiState === 'running' && (
-                <div className="flex items-center gap-1.5 px-2.5 py-1 bg-white/5 rounded-lg border border-white/5 animate-pulse">
-                  <MousePointer size={10} className="text-blue-400" />
-                  <span className="text-[9px] font-mono text-zinc-500">{mousePos.x}, {mousePos.y}</span>
                 </div>
               )}
             </div>

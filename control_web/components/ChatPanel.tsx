@@ -63,22 +63,22 @@ export default function ChatPanel({ sessionId }: ChatPanelProps) {
         };
 
         recognition.onresult = (event: any) => {
-          const transcript = event.results[0][0].transcript;
-          if (transcript) {
-            setInput(prev => (prev.trim() + ' ' + transcript).trim());
+          let finalTranscript = '';
+          for (let i = event.resultIndex; i < event.results.length; ++i) {
+            if (event.results[i].isFinal) {
+              finalTranscript += event.results[i][0].transcript;
+            }
+          }
+          if (finalTranscript) {
+            setInput(prev => (prev.trim() + ' ' + finalTranscript).trim());
           }
         };
 
         recognition.onerror = (event: any) => {
           console.error('Speech recognition error:', event.error);
           setIsListening(false);
-          if (event.error === 'not-allowed') {
-            toast.error("Microphone access denied. Please check site permissions.");
-          } else if (event.error === 'no-speech') {
-            toast.error("No speech detected. Please try again.");
-          } else {
-            toast.error(`Speech error: ${event.error}`);
-          }
+          const errorMsg = event.error === 'network' ? 'Network error: Speech service is unavailable.' : `Speech error: ${event.error}`;
+          toast.error(errorMsg);
         };
 
         recognition.onend = () => {
@@ -259,8 +259,6 @@ export default function ChatPanel({ sessionId }: ChatPanelProps) {
       setStreaming(false);
       setAiState('idle');
       isSendingRef.current = false;
-      const res = await chatApi.messages(sessionId);
-      setMessages(res.messages);
     }
   };
 
