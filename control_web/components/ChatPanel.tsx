@@ -37,7 +37,6 @@ export default function ChatPanel({ sessionId }: ChatPanelProps) {
   const [error, setError] = useState('');
   const [hitlRequired, setHitlRequired] = useState(false);
   const [terminalRequest, setTerminalRequest] = useState<{ command: string } | null>(null);
-  const [mode, setMode] = useState<'act' | 'ask'>('act');
 
   const [attachedFile, setAttachedFile] = useState<{ url: string; name: string; type: string } | null>(null);
   const [uploading, setUploading] = useState(false);
@@ -208,7 +207,7 @@ export default function ChatPanel({ sessionId }: ChatPanelProps) {
     } as any);
 
     try {
-      const stream = chatApi.sendMessage(sessionId, userMsg, fileUrl, mode);
+      const stream = chatApi.sendMessage(sessionId, userMsg, fileUrl, 'act');
 
       for await (const event of stream) {
         if (event.type === 'message' || event.type === 'thought') {
@@ -217,6 +216,8 @@ export default function ChatPanel({ sessionId }: ChatPanelProps) {
             session_id: sessionId,
             role: 'assistant',
             content: event.content,
+            is_thought: event.type === 'thought',
+            is_final: event.type === 'message',
             created_at: new Date().toISOString()
           } as any);
         } else if (event.type === 'action') {
@@ -353,12 +354,12 @@ export default function ChatPanel({ sessionId }: ChatPanelProps) {
           )}
           {isStreaming && (
             <div className="flex gap-3 items-start animate-in fade-in slide-in-from-bottom-2 px-1">
-              <div className="w-7 h-7 rounded-lg bg-accent-primary flex items-center justify-center shrink-0">
-                <Sparkles size={12} className="text-accent-foreground animate-pulse" />
+              <div className="w-8 h-8 rounded-xl bg-accent-primary/10 border border-accent-primary/20 flex items-center justify-center shrink-0">
+                <div className="w-2 h-2 bg-accent-primary rounded-full animate-ping" />
               </div>
               <div className="flex-1 space-y-2 mt-1.5">
-                <div className="h-2 w-24 bg-border rounded-full animate-pulse" />
-                <div className="h-2 w-48 bg-border/50 rounded-full animate-pulse" />
+                <div className="h-1.5 w-24 bg-border/50 rounded-full animate-pulse" />
+                <div className="h-1.5 w-48 bg-border/30 rounded-full animate-pulse" />
               </div>
             </div>
           )}
@@ -384,39 +385,6 @@ export default function ChatPanel({ sessionId }: ChatPanelProps) {
 
       <div className="p-4 border-t border-border bg-secondary pb-[calc(1rem+env(safe-area-inset-bottom))]">
         <div className="max-w-4xl mx-auto flex flex-col gap-2">
-
-          <div className="flex bg-background border border-border p-1 rounded-full self-start shadow-sm pl-1 pr-1 w-max relative">
-            <div 
-              className={cn(
-                "absolute top-1 bottom-1 w-[calc(50%-4px)] rounded-full transition-all duration-300 ease-out z-0 blur-[2px]",
-                mode === 'act' ? "bg-accent-primary/20 left-1 translate-x-0" : "bg-sky-500/20 left-1 translate-x-[calc(100%+8px)]"
-              )} 
-            />
-            <div 
-              className={cn(
-                "absolute top-1 bottom-1 w-[calc(50%-4px)] rounded-full transition-all duration-300 ease-out z-0 shadow-sm",
-                mode === 'act' ? "bg-accent-primary left-1 translate-x-0" : "bg-sky-500 left-1 translate-x-[calc(100%+8px)]"
-              )} 
-            />
-            <button
-              onClick={() => setMode('act')}
-              className={cn(
-                "relative z-10 px-4 py-1 text-[11px] font-bold uppercase tracking-widest rounded-full transition-colors",
-                mode === 'act' ? "text-accent-foreground" : "text-text-muted hover:text-foreground"
-              )}
-            >
-              Control
-            </button>
-            <button
-              onClick={() => setMode('ask')}
-              className={cn(
-                "relative z-10 px-4 py-1 text-[11px] font-bold uppercase tracking-widest rounded-full transition-colors",
-                mode === 'ask' ? "text-white" : "text-text-muted hover:text-foreground"
-              )}
-            >
-              Ask
-            </button>
-          </div>
 
           <form
             onSubmit={handleSend}
@@ -463,7 +431,7 @@ export default function ChatPanel({ sessionId }: ChatPanelProps) {
                   handleSend();
                 }
               }}
-              placeholder={mode === 'act' ? "Tell Control what to do..." : "Ask a question..."}
+              placeholder="Tell Control what to do or ask a question..."
               rows={1}
               className="flex-1 bg-transparent border-none focus:outline-none text-sm p-2.5 resize-none max-h-40 placeholder:text-text-muted min-h-[42px] leading-relaxed text-foreground"
             />
@@ -476,9 +444,7 @@ export default function ChatPanel({ sessionId }: ChatPanelProps) {
                 "mb-1 p-2.5 rounded-xl transition-all shadow-sm shrink-0",
                 isStreaming
                   ? "bg-red-500/10 text-red-500 hover:bg-red-500/20 shadow-[0_0_15px_rgba(239,68,68,0.1)]"
-                  : mode === 'ask' 
-                    ? "bg-sky-500 text-white hover:opacity-90 disabled:opacity-30" 
-                    : "bg-accent-primary text-accent-foreground hover:opacity-90 disabled:opacity-30"
+                  : "bg-accent-primary text-accent-foreground hover:opacity-90 disabled:opacity-30"
               )}
               title={isStreaming ? "Stop AI" : "Send message"}
             >
@@ -510,14 +476,15 @@ function MessageBubble({ msg }: { msg: any }) {
     const actionIcon = getActionIcon(msg.action_type);
     return (
       <div className="flex items-start gap-3 px-1">
-        <div className="w-5 h-5 rounded-full bg-card border border-border flex items-center justify-center shrink-0 mt-0.5">
+        <div className="w-8 h-8 rounded-xl bg-card border border-border flex items-center justify-center shrink-0">
           {actionIcon}
         </div>
-        <div className="flex-1 min-w-0">
-          <div className="text-xs text-text-secondary font-medium items-center flex gap-2">
-            <span className="font-bold text-foreground text-xs">{formatActionType(msg.action_type)}</span>
-            <span className="text-text-muted text-[11px] truncate">{msg.content}</span>
+        <div className="flex-1 min-w-0 bg-card border border-border rounded-xl px-3 py-2">
+          <div className="text-xs text-text-secondary font-medium items-center flex gap-2 justify-between">
+            <span className="font-bold text-foreground text-[11px] uppercase tracking-wider">{formatActionType(msg.action_type)}</span>
+            <div className="h-1.5 w-1.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]" />
           </div>
+          <div className="text-text-muted text-[11px] mt-1 line-clamp-1">{msg.content}</div>
         </div>
       </div>
     );
@@ -526,7 +493,6 @@ function MessageBubble({ msg }: { msg: any }) {
   if (isUser) {
     return (
       <div className="flex flex-col items-end">
-        <span className="text-[10px] font-bold text-text-muted uppercase tracking-widest px-1 mb-1">You</span>
         <div className="max-w-[85%] text-sm p-4 rounded-2xl rounded-tr-sm bg-accent-primary/10 text-foreground break-words border border-accent-primary/20">
           <div className="prose prose-sm max-w-none dark:prose-invert">
             <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.content}</ReactMarkdown>
@@ -536,10 +502,19 @@ function MessageBubble({ msg }: { msg: any }) {
     );
   }
 
+  if (msg.is_thought) {
+    return (
+      <div className="flex flex-col items-start px-1 opacity-60">
+        <div className="max-w-[90%] text-[11px] px-3 py-2 rounded-xl bg-secondary border border-border italic text-text-secondary leading-relaxed">
+          {msg.content}
+        </div>
+      </div>
+    );
+  }
+
   // Assistant message
   return (
-    <div className="flex flex-col items-start px-2">
-      <span className="text-[10px] font-bold text-text-muted uppercase tracking-widest px-1 mb-1">Control AI</span>
+    <div className="flex flex-col items-start">
       <div className="max-w-[95%] text-sm px-1 py-1 break-words leading-relaxed text-foreground">
         <div className="prose prose-sm max-w-none dark:prose-invert">
           <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.content}</ReactMarkdown>

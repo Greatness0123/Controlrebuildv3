@@ -1,9 +1,15 @@
 #!/bin/bash
 set -e
 
+# Cleanup any existing locks
+sudo rm -rf /tmp/.X1-lock /tmp/.X11-unix/X1 || true
+
+# Start D-Bus session
+export $(dbus-launch)
+
 # Start Xvfb (virtual display)
-Xvfb :1 -screen 0 ${RESOLUTION:-1280x800x24} &
-sleep 1
+Xvfb :1 -screen 0 ${RESOLUTION:-1280x800x24} -ac +extension GLX +render -noreset &
+sleep 2
 
 # Start Desktop Environment
 export DISPLAY=:1

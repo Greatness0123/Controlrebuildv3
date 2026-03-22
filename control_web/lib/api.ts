@@ -1,6 +1,6 @@
 const BACKEND_URL = typeof window !== 'undefined' ? '' : (process.env.NEXT_PUBLIC_BACKEND_URL || 'http://20.164.16.171:8000');
 
-import { getAccessToken } from './supabase';
+import { getAccessToken, getSupabaseClient } from './supabase';
 
 async function authHeaders(): Promise<Record<string, string>> {
   const token = await getAccessToken();
@@ -35,14 +35,40 @@ export const vmApi = {
 };
 
 export const chatApi = {
-  list: () => apiFetch<{ sessions: any[] }>('/api/chat/list'),
+  list: async () => {
+    try {
+      const supabase = getSupabaseClient();
+      const { data, error } = await supabase
+        .from('chat_sessions')
+        .select('*')
+        .order('updated_at', { ascending: false });
+      if (error) throw error;
+      return { sessions: data };
+    } catch (err) {
+      console.warn('Supabase fetch failed, falling back to backend:', err);
+      return apiFetch<{ sessions: any[] }>('/api/chat/list');
+    }
+  },
   create: (vmId?: string, deviceId?: string) =>
     apiFetch<{ session: any }>('/api/chat/create', {
       method: 'POST',
       body: JSON.stringify({ vm_id: vmId, device_id: deviceId }),
     }),
-  messages: (sessionId: string) =>
-    apiFetch<{ messages: any[] }>(`/api/chat/${sessionId}/messages`),
+  messages: async (sessionId: string) => {
+    try {
+      const supabase = getSupabaseClient();
+      const { data, error } = await supabase
+        .from('chat_messages')
+        .select('*')
+        .eq('session_id', sessionId)
+        .order('created_at', { ascending: true });
+      if (error) throw error;
+      return { messages: data };
+    } catch (err) {
+      console.warn('Supabase fetch failed, falling back to backend:', err);
+      return apiFetch<{ messages: any[] }>(`/api/chat/${sessionId}/messages`);
+    }
+  },
   update: (sessionId: string, data: { vm_id?: string | null; device_id?: string | null; title?: string; ai_status?: string }) =>
     apiFetch<{ session: any }>(`/api/chat/${sessionId}`, {
       method: 'PATCH',

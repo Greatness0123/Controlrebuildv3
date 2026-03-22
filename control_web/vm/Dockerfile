@@ -9,6 +9,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     xfce4 \
     xfce4-terminal \
     mousepad \
+    dbus-x11 \
     xvfb \
     x11vnc \
     novnc \
@@ -22,6 +23,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     python3-tk \
     python3-dev \
     scrot \
+    at-spi2-core \
     curl \
     git \
     sudo \

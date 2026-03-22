@@ -85,7 +85,9 @@ module.exports = {
                 aiSettings: data.ai_settings,
                 appSettings: data.app_settings,
                 actCount: data.act_count,
-                askCount: data.ask_count
+                askCount: data.ask_count,
+                totalTokens: data.total_token_usage,
+                dailyTokenData: data.daily_token_usage
             };
 
             this.cacheUser(userData);
@@ -131,7 +133,9 @@ module.exports = {
                 aiSettings: userData.ai_settings,
                 appSettings: userData.app_settings,
                 actCount: userData.act_count,
-                askCount: userData.ask_count
+                askCount: userData.ask_count,
+                totalTokens: userData.total_token_usage,
+                dailyTokenData: userData.daily_token_usage
             };
 
             this.cacheUser(mappedUser);
