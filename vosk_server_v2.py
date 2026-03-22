@@ -1,8 +1,4 @@
 #!/usr/bin/env python3
-"""
-Vosk Server V2
-Simplified, FFmpeg-free, Raw PCM WebSocket Server.
-"""
 
 import sys
 import os
@@ -12,7 +8,6 @@ import asyncio
 import argparse
 from pathlib import Path
 
-# Setup logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger('VoskServerV2')
 
@@ -31,7 +26,7 @@ class VoskServer:
         self.model = None
 
         if not os.path.exists(self.model_path):
-             # Try relative path
+
              rel_path = os.path.join(os.path.dirname(__file__), self.model_path)
              if os.path.exists(rel_path):
                  self.model_path = rel_path
@@ -54,25 +49,23 @@ class VoskServer:
         try:
             async for message in websocket:
                 if isinstance(message, str):
-                    # Handle text commands (e.g. config)
-                    # For now we ignore or log, assuming standard 16k mono
+
                     pass
                 elif isinstance(message, bytes):
-                    # Raw PCM Audio (16-bit, 16kHz, mono)
-                    # Process audio chunks (Vosk works best with chunks >= 320 bytes = 160 samples)
+
                     if len(message) > 0:
                         try:
                             if rec.AcceptWaveform(message):
                                 result_json = rec.Result()
                                 result = json.loads(result_json)
-                                # Only send if there's actual text
+
                                 if result.get('text') and result['text'].strip():
                                     logger.info(f"Final result: {result['text']}")
                                     await websocket.send(result_json)
                             else:
                                 partial_json = rec.PartialResult()
                                 partial = json.loads(partial_json)
-                                # Only send partial if there's actual text
+
                                 if partial.get('partial') and partial['partial'].strip():
                                     logger.debug(f"Partial result: {partial['partial']}")
                                     await websocket.send(partial_json)
@@ -84,7 +77,7 @@ class VoskServer:
             logger.error(f"Error handling connection: {e}")
 
     async def start(self):
-        # Set ping_timeout and ping_interval to keep connection alive and detect dead ones
+
         async with websockets.serve(
             self.handle_connection,
             self.host,

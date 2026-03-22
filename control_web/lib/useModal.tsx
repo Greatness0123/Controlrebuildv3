@@ -14,9 +14,6 @@ interface ShowOptions {
   onCancel?: () => void;
 }
 
-/**
- * useModal — drop-in replacement for window.alert(), window.confirm(), and window.prompt()
- */
 export function useModal() {
   const [state, setState] = useState<(ShowOptions & { open: boolean }) | null>(null);
 
@@ -24,12 +21,10 @@ export function useModal() {
     setState(null);
   }, []);
 
-  /** Replaces window.alert() */
   const alert = useCallback((message: string, opts?: Partial<Omit<ShowOptions, 'message'>>) => {
     setState({ open: true, message, variant: 'error', title: 'Error', ...opts });
   }, []);
 
-  /** Replaces window.confirm() — resolves true/false */
   const confirm = useCallback((message: string, opts?: Partial<Omit<ShowOptions, 'message'>>): Promise<boolean> => {
     return new Promise((resolve) => {
       setState({
@@ -46,7 +41,6 @@ export function useModal() {
     });
   }, []);
 
-  /** Replaces window.prompt() — resolves string | null */
   const prompt = useCallback((message: string, defaultValue?: string, opts?: Partial<Omit<ShowOptions, 'message'>>): Promise<string | null> => {
     return new Promise((resolve) => {
       setState({
@@ -64,7 +58,6 @@ export function useModal() {
     });
   }, []);
 
-  /** Show an info / success / any variant */
   const show = useCallback((opts: ShowOptions) => {
     setState({ open: true, ...opts });
   }, []);

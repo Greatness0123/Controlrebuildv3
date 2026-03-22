@@ -1935,7 +1935,6 @@ class ChatWindow {
         actionCard.innerHTML = `
             <div class="action-icon">
                 <i class="fas ${icon}" ${!icon ? 'style="display:none"' : ''}></i>
-                <div class="action-spinner"></div>
             </div>
             <div style="flex:1">
                 <div class="action-title">${text}</div>
@@ -2001,20 +2000,9 @@ class ChatWindow {
             const actionDetailsEl = entry.querySelector('.action-details');
 
             if (actionIcon) {
-                // Always try to remove spinner if finalizing
-                const spinner = actionIcon.querySelector('.action-spinner');
-                if (spinner) {
-                    spinner.remove();
-                }
-
-                // Update icon based on success
-                if (success === true) {
-                    actionIcon.innerHTML = '<i class="fas fa-check action-success"></i>';
-                } else if (success === false) {
-                    actionIcon.innerHTML = '<i class="fas fa-times action-error"></i>';
-                } else if (isFinalizing && !actionIcon.querySelector('i')) {
-                    // Default to check if finalizing but no icon set
-                    actionIcon.innerHTML = '<i class="fas fa-check action-success"></i>';
+                // Do not replace original icon with tick or cross, keep timeline neat
+                if (success === false) {
+                    actionIcon.style.color = 'var(--error-color, #ef4444)';
                 }
             }
 

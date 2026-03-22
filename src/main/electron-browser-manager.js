@@ -38,7 +38,6 @@ class ElectronBrowserManager {
         const win = await this.ensureBrowser();
         console.log(`[ElectronBrowserManager] Navigating to: ${url}`);
 
-        // Ensure URL has protocol
         if (!/^https?:\/\//i.test(url)) {
             url = 'https://' + url;
         }

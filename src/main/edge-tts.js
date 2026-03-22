@@ -101,7 +101,6 @@ class EdgeTTSManager extends EventEmitter {
         this.isSpeaking = true;
         const text = this.queue.shift();
 
-        // If we've had many consecutive failures recently, skip online check for a while
         const now = Date.now();
         const cooldownActive = this.consecutiveFailures >= 3 && (now - this.lastFailureTime < 300000); // 5 minute cooldown
 
@@ -172,15 +171,12 @@ class EdgeTTSManager extends EventEmitter {
                 const audioFile = path.join(tempDir, `tts-${Date.now()}.mp3`);
                 console.log('[EdgeTTS] Generating audio via edge-tts (python) for voice:', this.voice);
 
-                // Build rate string (+0%, -10%, etc.)
                 const ratePercentage = Math.round((this.rate - 1.0) * 100);
                 const rateStr = (ratePercentage >= 0 ? '+' : '') + ratePercentage + '%';
 
-                // Build volume string (+0%, -10%, etc.)
                 const volPercentage = Math.round((this.volume - 1.0) * 100);
                 const volStr = (volPercentage >= 0 ? '+' : '') + volPercentage + '%';
 
-                // We use the edge-tts CLI directly if available
                 const args = [
                     '-m', 'edge_tts',
                     '--voice', this.voice,
@@ -381,7 +377,7 @@ $mediaPlayer.Close()
     }
 
     async getAvailableVoices() {
-        // Avoid repeated network calls if we know we're offline or in cooldown
+
         const now = Date.now();
         const cooldownActive = this.consecutiveFailures >= 3 && (now - this.lastFailureTime < 300000);
 
@@ -394,7 +390,6 @@ $mediaPlayer.Close()
             const python = await this.findPython();
             if (!python) throw new Error('Python not found');
 
-            // Use a shorter timeout for voice listing
             const { stdout } = await execAsync(`${python} -m edge_tts --list-voices`, { timeout: 5000 });
             const voices = stdout.split('\n')
                 .filter(line => line.includes('Name:'))
@@ -418,7 +413,7 @@ $mediaPlayer.Close()
     }
 
     getDefaultVoices() {
-        // Return standard Edge TTS voices as fallback
+
         return [
             'en-US-JennyNeural',
             'en-US-GuyNeural',

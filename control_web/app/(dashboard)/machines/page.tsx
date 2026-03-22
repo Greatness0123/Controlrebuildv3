@@ -61,7 +61,7 @@ export default function MachinesPage() {
     const plan = user?.user_metadata?.plan?.toLowerCase() || 'free';
     if (plan === 'master') return 10;
     if (plan === 'pro') return 5;
-    return 1; 
+    return 1;
   };
 
   const pairedDevices = devices.filter(d => d.status === 'paired');
@@ -70,21 +70,18 @@ export default function MachinesPage() {
     <>
       {modal}
       <div className="flex-1 flex flex-col min-h-0 bg-background">
-        {/* Header */}
-        <header className="h-16 flex items-center justify-between px-8 border-b border-border shrink-0">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-purple-500/10 rounded-xl flex items-center justify-center border border-purple-500/20">
-              <Cpu size={18} className="text-purple-400" />
+
+        <header className="h-16 flex items-center justify-between px-4 sm:px-8 border-b border-border shrink-0 bg-background/80 backdrop-blur-xl">
+          <div className="flex items-center gap-2 sm:gap-3">
+            <div className="w-8 h-8 sm:w-10 sm:h-10 bg-purple-500/10 rounded-xl flex items-center justify-center border border-purple-500/20 shrink-0">
+              <Cpu size={16} className="text-purple-400" />
             </div>
-            <div>
-              <h1 className="text-sm font-black tracking-tight text-foreground">Machines</h1>
-              <p className="text-[10px] text-text-muted font-medium uppercase tracking-widest">Manage your compute resources</p>
-            </div>
+            <h1 className="text-sm font-black tracking-tight text-foreground">Machines</h1>
           </div>
-          <div className="flex items-center gap-3">
-            <button 
+          <div className="flex items-center gap-2 sm:gap-3">
+            <button
               onClick={loadData}
-              className="p-2.5 bg-card border border-border rounded-xl text-text-muted hover:text-foreground transition-all"
+              className="p-2.5 bg-card border border-border rounded-xl text-text-muted hover:text-foreground transition-all shrink-0"
               title="Refresh"
             >
               <RefreshCw size={14} />
@@ -92,15 +89,14 @@ export default function MachinesPage() {
             <button
               onClick={handleCreate}
               disabled={creating}
-              className="flex items-center gap-2 px-4 py-2 bg-accent-primary text-accent-foreground rounded-xl text-[11px] font-black uppercase tracking-widest hover:bg-opacity-90 transition-all disabled:opacity-50 shadow-lg"
+              className="flex items-center gap-2 px-3 py-2 sm:px-4 bg-accent-primary text-accent-foreground rounded-xl text-[10px] sm:text-[11px] font-black uppercase tracking-widest hover:bg-opacity-90 transition-all disabled:opacity-50 shadow-lg shrink-0 min-w-[40px] justify-center"
             >
-              {creating ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}
-              New Machine
+              {creating ? <Loader2 size={12} className="animate-spin" /> : <Plus size={14} />}
+              <span className="hidden sm:inline">New Machine</span>
             </button>
           </div>
         </header>
 
-        {/* Main Content */}
         <div className="flex-1 overflow-y-auto p-8">
           <div className="max-w-7xl mx-auto space-y-12">
             {error && (
@@ -112,15 +108,15 @@ export default function MachinesPage() {
 
             {loading ? (
               <div className="py-40 flex items-center justify-center">
-                <Loader2 className="w-8 h-8 animate-spin text-zinc-800" />
+                <Loader2 className="w-8 h-8 animate-spin text-text-muted" />
               </div>
             ) : (
               <>
-                {/* Virtual Machines Section */}
+
                 <section>
                   <div className="flex items-center justify-between mb-6 px-1">
                     <div className="flex items-center gap-2">
-                       <Cpu size={14} className="text-text-muted" />
+                      <Cpu size={14} className="text-text-muted" />
                       <h2 className="text-[11px] font-black text-text-muted uppercase tracking-widest">Virtual Machines</h2>
                     </div>
                   </div>
@@ -142,7 +138,6 @@ export default function MachinesPage() {
                   )}
                 </section>
 
-                {/* Paired / Remote Machines Section */}
                 <section>
                   <div className="flex items-center justify-between mb-6 px-1 pt-6 border-t border-border">
                     <div className="flex items-center gap-2">
@@ -174,7 +169,7 @@ export default function MachinesPage() {
                           </div>
                           <div className="space-y-1 mb-6">
                             <h3 className="text-sm font-bold group-hover:text-blue-400 transition-colors">{device.name}</h3>
-                            <p className="text-[10px] text-zinc-500 font-medium font-mono uppercase tracking-tighter opacity-60">
+                            <p className="text-[10px] text-text-muted font-medium font-mono uppercase tracking-tighter opacity-60">
                               {device.status.toUpperCase()} • ID: {device.id.split('-')[0]}
                             </p>
                           </div>
@@ -194,19 +189,18 @@ export default function MachinesPage() {
           </div>
         </div>
 
-        {/* Footer Stats */}
-        <div className="px-8 py-3 border-t border-border bg-secondary/50 flex items-center justify-between text-[10px] font-black uppercase tracking-widest text-text-muted">
+        {/* <div className="px-8 py-3 border-t border-border bg-secondary/50 flex items-center justify-between text-[10px] font-black uppercase tracking-widest text-text-muted">
           <div className="flex items-center gap-6">
             <div className="flex items-center gap-2">
               <div className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
               <span>Network Active</span>
             </div>
-            <div>{vms.length} / {getPlanLimits()} VM UTILIZATION • {pairedDevices.length} REMOTE NODES</div>
+            <div>{vms.length} / {getPlanLimits()} VM UTILIZATION • {pairedDevices.length} REMOTE INSTANCES</div>
           </div>
           <div className="flex items-center gap-4">
             <span className="opacity-50">Local Docker Engine V24.0.0</span>
           </div>
-        </div>
+        </div> */}
       </div>
     </>
   );

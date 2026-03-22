@@ -14,7 +14,7 @@ export default function RemoteDesktop({ vmId, noVncPort, instanceUrl, type = 'vm
     const [status, setStatus] = useState('Initializing...');
 
     useEffect(() => {
-        // Simulate connection sequence
+
         const steps = [
             { delay: 500, msg: 'Authenticating...' },
             { delay: 1500, msg: 'Establishing secure tunnel...' },
@@ -28,9 +28,8 @@ export default function RemoteDesktop({ vmId, noVncPort, instanceUrl, type = 'vm
         return () => timeouts.forEach(clearTimeout);
     }, [vmId]);
 
-    // Render VNC Stream if available, otherwise fallback to the mock UI
     if (instanceUrl) {
-        // Build the VNC url. noVNC usually serves on `/vnc.html`
+
         let vncUrl = instanceUrl;
         if (!vncUrl.includes('/vnc.html')) {
             vncUrl = `${vncUrl.endsWith('/') ? vncUrl : vncUrl + '/'}vnc.html?resize=scale&autoconnect=true`;
@@ -52,11 +51,11 @@ export default function RemoteDesktop({ vmId, noVncPort, instanceUrl, type = 'vm
 
     return (
         <div className="relative w-full h-full bg-black flex items-center justify-center">
-            {/* Simulated Desktop */}
+
             <div className="absolute inset-0 dot-grid opacity-30" />
 
             <div className="relative z-10 flex flex-col items-center justify-center gap-4 p-8">
-                {/* Icon */}
+
                 <div className="w-16 h-16 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center animate-pulse-glow">
                     {type === 'vm' ? (
                         <Cpu size={28} className="text-zinc-500" />
@@ -65,7 +64,6 @@ export default function RemoteDesktop({ vmId, noVncPort, instanceUrl, type = 'vm
                     )}
                 </div>
 
-                {/* Status */}
                 <div className="text-center space-y-2">
                     <p className="text-sm text-zinc-400 font-medium">{status}</p>
                     <div className="flex items-center gap-2 justify-center">
@@ -76,7 +74,6 @@ export default function RemoteDesktop({ vmId, noVncPort, instanceUrl, type = 'vm
                     </div>
                 </div>
 
-                {/* Mock Terminal Lines */}
                 <div className="mt-4 w-full max-w-sm space-y-1.5">
                     <TerminalLine text="$ ssh control@157.230.22.10" delay={800} />
                     <TerminalLine text="Connecting to remote host..." delay={1600} />
@@ -85,7 +82,6 @@ export default function RemoteDesktop({ vmId, noVncPort, instanceUrl, type = 'vm
                 </div>
             </div>
 
-            {/* Bottom status bar */}
             <div className="absolute bottom-3 left-3 right-3 flex items-center justify-between">
                 <div className="flex items-center gap-2 px-3 py-1.5 bg-black/60 backdrop-blur-md rounded-full text-[10px] text-zinc-500 border border-white/5">
                     <Terminal size={10} />

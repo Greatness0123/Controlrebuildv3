@@ -36,19 +36,15 @@ class BackendManager extends EventEmitter {
         });
 
         this.messageHandlers.set('ai_response', (data, source) => {
-            // Remove broadcastToWindows here to prevent duplicate messages in renderer.
-            // Main.js listens to this.emit('ai-response') and handles forwarding to chat + TTS.
+
             this.emit('ai-response', data);
 
-            // Defensive: if edge glow is disabled in settings, ensure overlays are hidden immediately
             const edgeEnabled = global.appSettings?.edgeGlowEnabled !== false;
             if (!edgeEnabled) {
                 console.log('[BackendManager] ai_response received while edgeGlow disabled - hiding visual effects proactively');
                 try { this.hideVisualEffects(); } catch (e) { console.error('[BackendManager] hideVisualEffects error:', e); }
             }
 
-            // If this response came from ASK backend, ensure the chat window is visible
-            // so the frontend can display the response and clear any thinking indicators.
             if (source === 'ASK' && global.windowManager) {
                 try {
                     global.windowManager.showWindow('chat').catch(e => {
@@ -88,12 +84,11 @@ class BackendManager extends EventEmitter {
             }
         });
 
-        // After-message (ACT only): user-facing message that is not part of task logs
         this.messageHandlers.set('after_message', (data, source) => {
-            // Forward via emit so Main.js can handle broadcasting to chat window + TTS
+
             this.emit('after-message', data);
             console.log('[BackendManager] after_message received:', { data, source });
-            // Do not force-show chat for ACT to avoid disrupting user's window state; let renderer decide
+
         });
 
         this.messageHandlers.set('task_start', (data) => {
@@ -175,7 +170,7 @@ class BackendManager extends EventEmitter {
         if (this.currentTask) {
             console.log('[BackendManager] A task is already running, stopping it before starting new one');
             this.stopTask();
-            // Small delay to allow cleanup
+
             await new Promise(r => setTimeout(r, 200));
         }
 
@@ -238,7 +233,6 @@ class BackendManager extends EventEmitter {
 
             this.currentTask = task.text;
 
-            // Await the backend processing
             await backend.processRequest(task.text, processedAttachments, (typeOrData, data) => {
                 if (typeof typeOrData === 'string') {
                     onEvent(typeOrData, data);
@@ -270,7 +264,7 @@ class BackendManager extends EventEmitter {
         }
 
         if (this.askBackend) {
-            // Ask backend might not have stopTask but let's be safe
+
             try { if (this.askBackend.stopTask) this.askBackend.stopTask(); } catch (e) { }
         }
 

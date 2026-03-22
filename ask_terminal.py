@@ -1,8 +1,4 @@
 #!/usr/bin/env python3
-"""
-Terminal access script for ASK backend (Gemini)
-Run this script directly to use ASK mode from terminal
-"""
 
 import sys
 from ask_backend import AskBackend
@@ -38,4 +34,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

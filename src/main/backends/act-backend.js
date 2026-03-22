@@ -65,7 +65,6 @@ class ActBackend {
       const filename = `screenshot_${timestamp}.png`;
       const filepath = path.join(this.screenshotDir, filename);
 
-      // Attempt to capture primary display specifically to match coordinate scaling
       let imgBuffer;
       try {
         const displays = await screenshot.listDisplays();
@@ -77,7 +76,6 @@ class ActBackend {
 
       const image = await Jimp.read(imgBuffer);
 
-      // Important: Use primary display bounds for perceived screen size to match executeAction scaling
       const primaryDisplay = screen.getPrimaryDisplay();
       this.screenSize = {
         width: primaryDisplay.bounds.width,
@@ -374,7 +372,6 @@ class ActBackend {
             const encodedQuery = encodeURIComponent(params.query);
             const searchUrl = `https://www.google.com/search?q=${encodedQuery}`;
 
-            // Try SearchManager (API-based) first
             const searchResults = await searchManager.search(params.query);
             if (searchResults && searchResults.length > 0) {
               result.success = true;
@@ -383,7 +380,6 @@ class ActBackend {
               return result;
             }
 
-            // Fallback to Agentic Browser if native tools (gemini) are unavailable
             if (this.currentProvider !== 'gemini') {
               console.log(`[ACT JS] Web search fallback to agentic browser for: ${params.query}`);
               await electronBrowserManager.open(searchUrl);
@@ -426,7 +422,7 @@ class ActBackend {
           if (params.script) {
             try {
               const jsResult = await electronBrowserManager.executeJs(params.script);
-              // Give it a moment to react if it triggered a navigation
+
               await new Promise(r => setTimeout(r, 800));
 
               const status = await electronBrowserManager.getStatus();
@@ -485,7 +481,6 @@ class ActBackend {
     const verificationInfo = action.verification || {};
     if (!verificationInfo.expected_outcome) return { verified: true, message: "No verification needed" };
 
-    // Wait for the UI to settle before verification
     await new Promise(r => setTimeout(r, this.verificationWait));
 
     const method = verificationInfo.verification_method || "visual";
@@ -551,7 +546,7 @@ Analyze the state and determine if the action was successful. Respond ONLY with 
 
   formatCitations(response) {
     try {
-      // Citations disabled per user request to minimize space and remove unclickable links
+
       return response.text();
     } catch (e) {
       console.error("[ACT JS] Error getting text from response:", e);
@@ -630,7 +625,6 @@ Analyze the state and determine if the action was successful. Respond ONLY with 
 
     let url = baseUrl ? (baseUrl.endsWith('/chat/completions') ? baseUrl : `${baseUrl}/chat/completions`) : endpoints[provider];
 
-    // Handle Cloud Providers specifically
     if (provider === 'azure') {
       apiKey = settings.cloudCredentials;
       model = settings.cloudModel;
@@ -871,7 +865,6 @@ Analyze screen and provide IMMEDIATE ACTIONS. Respond with JSON.`;
           }
         }
 
-        // Place text prompt after images as per best practices
         content.push(prompt);
 
         let fullText = "";
@@ -896,16 +889,16 @@ Analyze screen and provide IMMEDIATE ACTIONS. Respond with JSON.`;
         const onChunkCallback = (chunk) => {
           if (isFirstChunk) {
             isFirstChunk = false;
-            // If response starts with JSON, don't stream it to the chat window
+
             if (chunk.trim().startsWith('{')) {
               skipStreaming = true;
             }
           }
 
           if (!skipStreaming && onEvent && typeof onEvent === 'function') {
-            // Check for JSON start in middle of chunk if not already skipped
+
             if (chunk.includes('{')) {
-              // If we hit JSON, we stop streaming to the UI to avoid showing raw code
+
               skipStreaming = true;
               return;
             }
@@ -935,26 +928,20 @@ Analyze screen and provide IMMEDIATE ACTIONS. Respond with JSON.`;
         }
         const jsonMatch = /\{[\s\S]*\}/.exec(fullText);
 
-        // If no JSON found, it might be a pure research response or grounding metadata
         if (!jsonMatch) {
           const cleanMarkdown = fullText.trim();
           if (cleanMarkdown) {
             onEvent("ai_response", { text: cleanMarkdown, is_action: false });
           }
-          // If it's the last loop or no content, we should probably stop
+
           if (loopCount >= maxLoops) break;
-          // Otherwise, we continue to the next loop which will re-take screenshot and re-prompt
-          // This allows the model to "think" via search before acting
+
           continue;
         }
 
         const plan = JSON.parse(jsonMatch[0]);
 
-        // Remove the JSON block from the text to get the clean markdown commentary
         const cleanMarkdown = fullText.replace(/\{[\s\S]*\}/, "").trim();
-
-        // this.currentBlueprint = plan.blueprint || this.currentBlueprint;
-        // onEvent("plan_update", { blueprint: this.currentBlueprint, thought: plan.thought });
 
         const thoughtToDisplay = plan.thought || cleanMarkdown;
         if (thoughtToDisplay) onEvent("ai_response", { text: thoughtToDisplay, is_action: false });
@@ -963,7 +950,7 @@ Analyze screen and provide IMMEDIATE ACTIONS. Respond with JSON.`;
         if (actions.length === 0) {
           onEvent("task_complete", { task: userRequest, success: true });
           taskFinished = true;
-          // For the final message, use the clean markdown if thought is empty
+
           const finalMessage = plan.after_message || (plan.thought ? "" : cleanMarkdown);
           if (finalMessage) onEvent("after_message", { text: finalMessage });
           break;

@@ -1,19 +1,16 @@
 const { contextBridge, ipcRenderer } = require('electron');
 
 contextBridge.exposeInMainWorld('chatAPI', {
-    // Task execution
+
     executeTask: (task, mode) => ipcRenderer.invoke('execute-task', task, mode),
     stopTask: () => ipcRenderer.invoke('stop-task'),
     stopAction: () => ipcRenderer.invoke('stop-action'),
     confirmAction: (confirmed) => ipcRenderer.invoke('confirm-action', confirmed),
 
-    // Audio control
     stopAudio: () => ipcRenderer.invoke('stop-audio'),
 
-    // Transcription
     transcribeAudio: (audioData, audioType) => ipcRenderer.invoke('transcribe-audio', audioData, audioType),
 
-    // Backend messages
     onAIResponse: (callback) => ipcRenderer.on('ai-response', callback),
     onAIStream: (callback) => ipcRenderer.on('ai-stream', callback),
     onTranscriptionResult: (callback) => ipcRenderer.on('transcription-result', callback),
@@ -29,31 +26,25 @@ contextBridge.exposeInMainWorld('chatAPI', {
     onPlanUpdate: (callback) => ipcRenderer.on('plan-update', callback),
     onRequestConfirmation: (callback) => ipcRenderer.on('request-confirmation', callback),
 
-    // Audio state events
     onAudioStarted: (callback) => ipcRenderer.on('audio-started', callback),
     onAudioStopped: (callback) => ipcRenderer.on('audio-stopped', callback),
 
-    // Wake word detection
     onWakeWordDetected: (callback) => ipcRenderer.on('wakeword-detected', callback),
     setWakewordEnabled: (enabled) => ipcRenderer.invoke('set-wakeword-enabled', enabled),
 
-    // Window controls
     closeChat: () => ipcRenderer.invoke('close-window', 'chat'),
     hideChat: () => ipcRenderer.invoke('hide-window', 'chat'),
     showChat: () => ipcRenderer.invoke('show-window', 'chat'),
     showSettings: () => ipcRenderer.invoke('show-window', 'settings'),
     dragWindow: (delta) => ipcRenderer.send('window-drag', delta),
 
-    // Greeting TTS
     shouldSpeakGreeting: () => ipcRenderer.invoke('should-speak-greeting'),
     speakGreeting: (text) => ipcRenderer.invoke('speak-greeting', text),
     importSkill: () => ipcRenderer.invoke('import-skill'),
 
-    // App state
     isAppLocked: () => ipcRenderer.invoke('is-app-locked'),
     readBehaviors: () => ipcRenderer.invoke('read-behaviors'),
 
-    // Settings
     getSettings: () => ipcRenderer.invoke('get-settings'),
     saveSettings: (settings) => ipcRenderer.invoke('save-settings', settings),
     onSettingsUpdated: (callback) => ipcRenderer.on('settings-updated', callback),
@@ -61,12 +52,10 @@ contextBridge.exposeInMainWorld('chatAPI', {
     onUserChanged: (callback) => ipcRenderer.on('user-changed', callback),
     onSkillsUpdated: (callback) => ipcRenderer.on('skills-updated', callback),
 
-    // App initialization
     onAppInitialized: (callback) => ipcRenderer.on('app-initialized', callback),
     onWorkflowStarted: (callback) => ipcRenderer.on('workflow-started', callback),
 
     showWindow: (windowType) => ipcRenderer.invoke('show-window', windowType),
 
-    // Remove listeners
     removeAllListeners: (channel) => ipcRenderer.removeAllListeners(channel),
 });

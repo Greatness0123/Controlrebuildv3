@@ -1,14 +1,3 @@
-// Browser-side Supabase helper used by the `website/` pages.
-// Requires the Supabase JS v2 UMD bundle to be loaded first (it exposes `window.supabase`).
-//
-// IMPORTANT:
-// - Using the anon key in a frontend is OK.
-// - NEVER use the Supabase service_role key in the browser.
-
-// Supabase Configuration
-// You can optionally set these before loading this script:
-//   window.SUPABASE_URL = '...'
-//   window.SUPABASE_ANON_KEY = '...'
 const SUPABASE_URL =
   window.SUPABASE_URL || 'https://gdvitudsmqktiutyyndv.supabase.co';
 const SUPABASE_ANON_KEY =
@@ -25,7 +14,7 @@ function createSupabaseClient() {
 }
 
 function generateEntryId() {
-  // 12-digit numeric entry ID used by the desktop app for login
+
   let result = '';
   for (let i = 0; i < 12; i++) result += Math.floor(Math.random() * 10);
   return result;
@@ -58,7 +47,6 @@ window.SupabaseService = class SupabaseService {
       });
       if (error) throw error;
 
-      // Fetch profile from public.users by auth_id
       const { data: profile, error: profileError } = await this.client
         .from('users')
         .select('*')
@@ -131,4 +119,3 @@ window.SupabaseService = class SupabaseService {
     }
   }
 };
-

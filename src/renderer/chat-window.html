@@ -122,7 +122,6 @@
             color: var(--bg-primary);
         }
 
-        /* Messages Area */
         .messages-container {
             flex: 1;
             overflow-y: auto;
@@ -132,6 +131,17 @@
             flex-direction: column;
             gap: 24px;
             scroll-behavior: smooth;
+        }
+
+        .messages-container.ask-mode {
+            gap: 12px;
+        }
+
+        .messages-container.ask-mode .text-block {
+            margin-top: 4px;
+            padding: 16px 20px;
+            border-top: none;
+            box-shadow: none;
         }
 
         .message {
@@ -297,62 +307,48 @@
         }
 
         .action-card {
-            background: var(--bg-primary);
-            border: 1px solid var(--border);
-            border-radius: 16px;
-            padding: 14px 18px;
             display: flex;
-            align-items: center;
-            gap: 14px;
-            font-size: 13.5px;
-            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.03);
-            transition: all 0.2s ease;
-            margin: 8px 0;
+            align-items: flex-start;
+            gap: 12px;
+            font-size: 13px;
+            padding: 8px 0 8px 16px;
+            border-left: 2px solid var(--border);
+            margin-left: 8px;
+            position: relative;
         }
 
-        body.dark-mode .action-card {
-            background: var(--bg-secondary);
-            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
-        }
-
-        .action-card:hover {
-            border-color: var(--accent);
-            transform: translateY(-1px);
+        .action-card:last-child {
+            /* border-left: 2px solid transparent; */
         }
 
         .action-icon {
-            width: 32px;
-            height: 32px;
+            width: 16px;
+            height: 16px;
             display: flex;
             align-items: center;
             justify-content: center;
             color: var(--accent);
-            background: var(--bg-secondary);
-            border-radius: 10px;
-            border: 1px solid var(--border);
             flex-shrink: 0;
-            position: relative;
+            margin-top: 2px;
+            margin-left: -25px; /* Pull icon over the line */
+            background: var(--bg-primary);
+            border-radius: 4px; /* Small square block */
+        }
+        
+        body.dark-mode .action-icon {
+            background: #1a1a1a; /* Match AI container background approx */
         }
 
-        .action-spinner {
-            position: absolute;
-            top: -2px;
-            left: -2px;
-            right: -2px;
-            bottom: -2px;
-            border: 2px solid transparent;
-            border-top-color: var(--accent);
-            border-radius: 50%;
-            animation: spin 0.8s linear infinite;
-            display: none;
+        .action-title {
+            color: var(--text-primary);
+            font-weight: 500;
+            line-height: 1.4;
         }
 
-        .action-card.running .action-spinner {
-            display: block;
-        }
-
-        @keyframes spin {
-            to { transform: rotate(360deg); }
+        .action-details {
+            font-size: 11px;
+            color: var(--text-muted, #888);
+            margin-top: 4px;
         }
 
         .action-title {

@@ -5,10 +5,6 @@ const { mouse, keyboard, Button, Point, Key } = require("@computer-use/nut-js");
 const { desktopCapturer } = require('electron');
 const os = require('os');
 
-/**
- * RemoteDesktopManager handles the secure pairing, real-time screen streaming,
- * and remote execution of actions on the host machine.
- */
 class RemoteDesktopManager {
     constructor(windowManager, settingsManager) {
         this.windowManager = windowManager;
@@ -20,8 +16,7 @@ class RemoteDesktopManager {
         this.channel = null;
         
         this.setupIPCHandlers();
-        
-        // Optimize nut-js for fluidity
+
         mouse.config.mouseSpeed = 1000;
         keyboard.config.autoDelayMs = 0;
     }
@@ -33,13 +28,11 @@ class RemoteDesktopManager {
             return;
         }
 
-        // Auto-start if previously enabled in settings
         const settings = this.settingsManager.getSettings();
         if (settings.remoteAccessEnabled) {
             console.log(`[Remote] Auto-starting remote access for user: ${user.id}`);
             await this.toggleRemoteAccess(true);
-            
-            // Sync pairing status if it exists
+
             const pairing = deviceManager.getPairingData();
             if (pairing?.id) {
                 try {
@@ -66,14 +59,12 @@ class RemoteDesktopManager {
             if (!user) return null;
 
             const existing = deviceManager.getPairingData();
-            
-            // If we have an existing code and it's not a force-regeneration, return it
+
             if (existing && existing.pairing_code && !forceRegenerate) {
                 console.log(`[Remote] Returning permanent pairing code: ${existing.pairing_code}`);
                 return existing.pairing_code;
             }
 
-            // Surgical Revocation: Only revoke THIS device's previous record if forceRegenerate is true
             if (forceRegenerate && existing?.id) {
                 console.log(`[Remote] Force regenerating code for this device. Revoking old pairing: ${existing.id}`);
                 try {
@@ -84,7 +75,6 @@ class RemoteDesktopManager {
                 }
             }
 
-            // Generate a brand new code for this system
             const res = await supabase.generateDevicePairingCode(user.id, deviceName || os.hostname() || 'Control Desktop');
             if (res && res.code) {
                 deviceManager.setPairingData({
@@ -98,7 +88,7 @@ class RemoteDesktopManager {
         });
 
         ipcMain.handle('toggle-remote-access', async (event, enabled) => {
-            // Save state in settings
+
             this.settingsManager.updateSettings({ remoteAccessEnabled: enabled });
             return await this.toggleRemoteAccess(enabled);
         });
@@ -108,7 +98,6 @@ class RemoteDesktopManager {
             const settings = this.settingsManager.getSettings();
             const channelActive = !!(this.channel && this.channel.state === 'joined');
 
-            // If we have a pending pairing, try to sync its status occasionally
             if (pairing?.id && pairing.status !== 'paired') {
                 const now = Date.now();
                 if (!this._lastSync || now - this._lastSync > 5000) { // Every 5s
@@ -148,8 +137,7 @@ class RemoteDesktopManager {
         try {
             if (enabled) {
                 this.startSignalingListener(user.id);
-                // We don't auto-start streaming here to save bandwidth. 
-                // We wait for 'request_stream' from the web.
+
             } else {
                 this.stopSignalingListener();
                 this.stopStreaming();
@@ -167,7 +155,7 @@ class RemoteDesktopManager {
             console.error('[Remote] Cannot start signaling: Supabase not initialized');
             return;
         }
-        // Cleanup and health check
+
         if (this.channel) {
             if (this.channel.state === 'joined' && !retryCount) {
                 console.log('[Remote] Signaling listener already active and joined.');
@@ -280,7 +268,6 @@ class RemoteDesktopManager {
             return true;
         };
 
-        // Initial check
         if (!await checkStatus()) return;
         
         this.heartbeatInterval = setInterval(async () => {
@@ -293,7 +280,7 @@ class RemoteDesktopManager {
     async runPowershell(script) {
         return new Promise((resolve, reject) => {
             const { exec } = require('child_process');
-            // Use -NoProfile for speed and safety
+
             const fullCommand = `powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "${script.replace(/"/g, '`"')}"`;
             exec(fullCommand, (error, stdout, stderr) => {
                 if (error) {
@@ -311,25 +298,19 @@ class RemoteDesktopManager {
         try {
             const primary = screen.getPrimaryDisplay();
             const { width, height, scaleFactor } = primary.bounds; 
-            // Note: Bounds is logical. display.size is physical? No, display.size is also logical usually.
-            // In Electron, to get physical pixels on Windows:
-            // physical = logical * scaleFactor
-            
+
             const isWindows = process.platform === 'win32';
 
             switch (action.type) {
                 case 'move':
                 case 'mouse_move':
                     {
-                        // Map 0-1000 to logical bounds
+
                         const x = Math.round((action.x / 1000) * width);
                         const y = Math.round((action.y / 1000) * height);
                         
                         if (isWindows) {
-                            // PowerShell System.Windows.Forms.Cursor.Position uses logical pixels on modern Windows 10/11 
-                            // IF the process is DPI aware. Electron is.
-                            // However, sometimes it requires physical. 
-                            // Let's use a more robust script that ensures DPI awareness or uses absolute scaling.
+
                             await this.runPowershell(`
                                 Add-Type -AssemblyName System.Windows.Forms
                                 [System.Windows.Forms.Cursor]::Position = New-Object System.Drawing.Point(${x}, ${y})
@@ -460,7 +441,7 @@ class RemoteDesktopManager {
 
     startStreaming(userId) {
         if (this.isStreaming) {
-            // If already streaming, send one frame immediately to sync
+
             this.sendFrame();
             return;
         }
@@ -468,12 +449,11 @@ class RemoteDesktopManager {
         this.isStreaming = true;
         console.log('[Remote] Starting screen stream...');
 
-        // First frame immediately
         this.sendFrame();
 
         this.streamInterval = setInterval(() => {
             this.sendFrame();
-        }, 110); // ~9 FPS
+        }, 33); // ~30 FPS for real-time feel
     }
 
     stopStreaming() {

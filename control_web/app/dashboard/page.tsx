@@ -16,14 +16,10 @@ import RemoteDesktop from '@/components/RemoteDesktop';
 import ChatPanel from '@/components/ChatPanel';
 import Link from 'next/link';
 
-// cn utility embedded for simplicity
 function cn(...classes: (string | undefined | null | false)[]) {
   return classes.filter(Boolean).join(' ');
 }
 
-// --------------------------------------------------------------------------------
-// Status Configurations
-// --------------------------------------------------------------------------------
 const statusConfig: Record<string, { color: string; icon: any; label: string }> = {
   creating: { color: "blue", icon: Loader2, label: "Creating" },
   starting: { color: "blue", icon: Loader2, label: "Starting" },
@@ -34,9 +30,6 @@ const statusConfig: Record<string, { color: string; icon: any; label: string }> 
   deleting: { color: "red", icon: Loader2, label: "Deleting" },
 };
 
-// --------------------------------------------------------------------------------
-// MachineCard Subcomponent
-// --------------------------------------------------------------------------------
 function MachineCard({ machine, onSelect, onUpdate, onDelete }: any) {
   const [loadingAction, setLoadingAction] = useState<string | null>(null);
 
@@ -163,9 +156,6 @@ function MachineCard({ machine, onSelect, onUpdate, onDelete }: any) {
   );
 }
 
-// --------------------------------------------------------------------------------
-// Main Dashboard Component
-// --------------------------------------------------------------------------------
 export default function Dashboard() {
   const router = useRouter();
   const { vms, setVMs, updateVM } = useVMStore();
@@ -197,7 +187,6 @@ export default function Dashboard() {
     if (user) fetchMachines();
   }, [user]);
 
-  // Handle rapid polling for state transitions
   useEffect(() => {
     const transitioning = vms.some(m => ["creating", "starting", "stopping"].includes(m.status));
     if (transitioning) {
@@ -258,11 +247,10 @@ export default function Dashboard() {
     { id: "stopped", label: "Stopped", count: stoppedMachines },
   ];
 
-  // Selected Machine View (Remote Desktop + Chat)
   if (selectedMachine) {
     return (
       <div className="h-[100dvh] bg-black text-white flex flex-col font-sans overflow-hidden">
-        {/* Header */}
+
         <header className="h-14 border-b border-white/5 px-6 flex items-center justify-between bg-black/80 backdrop-blur-xl shrink-0">
           <div className="flex items-center gap-6">
             <button onClick={() => setSelectedMachine(null)} className="flex items-center gap-2 text-zinc-500 hover:text-white transition-colors">
@@ -304,10 +292,9 @@ export default function Dashboard() {
     );
   }
 
-  // Grid Dashboard View (Coasty Inspired)
   return (
     <div className="h-[100dvh] bg-black text-white overflow-y-auto scrollbar-invisible relative font-sans">
-      {/* Ambient background */}
+
       <div className="pointer-events-none fixed inset-0 overflow-hidden z-0">
         <div className="absolute -top-[30%] -right-[15%] h-[60%] w-[50%] rounded-full opacity-[0.04] blur-[120px] bg-white" />
         <div className="absolute -bottom-[20%] -left-[10%] h-[50%] w-[40%] rounded-full opacity-[0.035] blur-[100px] bg-white" />
@@ -316,7 +303,6 @@ export default function Dashboard() {
 
       <div className="container mx-auto p-4 sm:p-8 max-w-7xl space-y-6 sm:space-y-8 relative z-10 pt-14 md:pt-12">
 
-        {/* Header */}
         <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
           <div className="max-w-xl">
             <div className="flex items-center gap-3">
@@ -355,7 +341,6 @@ export default function Dashboard() {
           </div>
         </motion.div>
 
-        {/* Status Filters */}
         {vms.length > 0 && (
           <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="flex flex-wrap gap-2">
             {statusFilters.map((filter) => (
@@ -383,7 +368,6 @@ export default function Dashboard() {
           </motion.div>
         )}
 
-        {/* Machines Grid */}
         {vms.length === 0 ? (
           <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="relative rounded-3xl border border-white/10 bg-white/[0.02] backdrop-blur-md overflow-hidden shadow-2xl">
             <div className="pointer-events-none absolute -top-20 -left-20 h-72 w-72 rounded-full bg-white/[0.02] blur-3xl" />

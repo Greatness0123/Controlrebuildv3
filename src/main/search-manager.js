@@ -34,9 +34,7 @@ class SearchManager {
     }
 
     async duckDuckGoSearch(query) {
-        // Since we want a free fallback without API keys, we can use a simpler approach
-        // or just return a structure that tells the AI to use the browser.
-        // For now, let's return a dummy result that directs the AI to use the browser if everything fails.
+
         return null;
     }
 }

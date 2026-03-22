@@ -1,8 +1,3 @@
-/**
- * Utility script to update the Gemini model in Firebase config/api_keys
- * Interactive version.
- */
-
 const admin = require('firebase-admin');
 const path = require('path');
 const fs = require('fs');
@@ -30,7 +25,6 @@ async function setModel() {
         process.exit(0);
     }
 
-    // Initialize Firebase
     try {
         const serviceAccountPath = path.join(__dirname, '../src/config/firebase-service-account.json');
         if (!fs.existsSync(serviceAccountPath)) {

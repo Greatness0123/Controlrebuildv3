@@ -20,7 +20,7 @@ export default function StandaloneRemotePage() {
   if (loading || !user) return null;
 
   return (
-    <div className="h-screen w-screen bg-black overflow-hidden flex flex-col">
+    <div className="h-screen w-screen bg-background overflow-hidden flex flex-col">
       <RemoteDesktopViewer 
         deviceId={deviceId} 
         className="flex-1"

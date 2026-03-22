@@ -15,24 +15,20 @@ class SignupPage {
             await this.signup();
         });
 
-        // Password strength indicator
         passwordInput.addEventListener('input', (e) => {
             this.updatePasswordStrength(e.target.value);
         });
 
-        // Plan selection
         document.querySelectorAll('.plan-option').forEach(option => {
             option.addEventListener('click', () => {
                 this.selectPlan(option);
             });
         });
 
-        // Confirm password validation
         confirmPasswordInput.addEventListener('input', (e) => {
             this.validatePasswords();
         });
 
-        // Auto-focus first name field
         document.getElementById('firstName').focus();
     }
 
@@ -54,17 +50,14 @@ class SignupPage {
 
         let strength = 0;
 
-        // Length check
         if (password.length >= 8) strength++;
         if (password.length >= 12) strength++;
 
-        // Character variety checks
         if (/[a-z]/.test(password)) strength++;
         if (/[A-Z]/.test(password)) strength++;
         if (/[0-9]/.test(password)) strength++;
         if (/[^a-zA-Z0-9]/.test(password)) strength++;
 
-        // Update UI
         if (strength <= 2) {
             strengthBar.className = 'password-strength-bar weak';
         } else if (strength <= 4) {
@@ -94,7 +87,6 @@ class SignupPage {
         const password = document.getElementById('password').value;
         const confirmPassword = document.getElementById('confirmPassword').value;
 
-        // Validation
         if (!firstName || !lastName || !email || !password || !confirmPassword) {
             this.showError('Please fill in all fields');
             return;
@@ -119,10 +111,9 @@ class SignupPage {
         this.hideMessages();
 
         try {
-            // Generate unique User ID for app linking
+
             const userId = await this.db.generateUserId();
 
-            // Create user account
             const userData = {
                 id: 'u_' + Date.now(),
                 app_id: userId,
@@ -139,14 +130,11 @@ class SignupPage {
                 passwordLastChanged: new Date()
             };
 
-            // Store user
             await this.db.createUser(userData);
 
-            // Show success message
             this.showSuccessMessage(`Account created successfully! You can now log in with your email.`);
             this.displayUserId(userId);
 
-            // Reset form
             document.getElementById('signupForm').reset();
             document.getElementById('passwordStrengthBar').className = 'password-strength-bar';
 
@@ -206,7 +194,6 @@ class SignupPage {
     }
 }
 
-// Initialize when DOM is loaded
 document.addEventListener('DOMContentLoaded', () => {
     new SignupPage();
 });

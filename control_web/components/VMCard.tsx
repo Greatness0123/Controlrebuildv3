@@ -112,7 +112,7 @@ export default function VMCard({ vm }: { vm: any }) {
     <>
       {modal}
       <div className="bg-card border border-border rounded-[24px] overflow-hidden flex flex-col group transition-all duration-300 hover:border-accent-primary/30 hover:bg-card-hover backdrop-blur-sm">
-        {/* Header */}
+
         <div className="p-4 border-b border-border flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className={cn(
@@ -157,7 +157,6 @@ export default function VMCard({ vm }: { vm: any }) {
           </div>
         </div>
 
-        {/* stats */}
         <div className="p-4 flex-1 space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
@@ -205,7 +204,6 @@ export default function VMCard({ vm }: { vm: any }) {
             </div>
           </div>
 
-          {/* Network Info */}
           <div className="pt-3 border-t border-border flex items-center justify-between">
             <div className="flex items-center gap-2 text-[9px] font-bold text-text-muted uppercase tracking-widest truncate max-w-[150px]">
                 <Globe size={10} />
@@ -222,7 +220,6 @@ export default function VMCard({ vm }: { vm: any }) {
           </div>
         </div>
 
-        {/* Actions */}
         <div className="p-2 pb-2 px-2">
             <div className="bg-secondary rounded-[20px] p-1 flex items-center gap-1 border border-border">
                 {vm.status === 'stopped' ? (

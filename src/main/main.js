@@ -3,7 +3,6 @@ const { app, BrowserWindow, globalShortcut, ipcMain, screen, shell, Tray, Menu }
 const path = require('path');
 const fs = require('fs-extra');
 
-// Environment variable loading strategy for bundled apps
 let isDev = false;
 try {
     isDev = typeof electron === 'object' && (electron.app ? electron.app.isPackaged === false : false);
@@ -20,7 +19,6 @@ const possibleEnvPaths = [
     path.join(__dirname, '../../.env'), // Development
 ];
 
-// Late-bind app paths logic (used inside ready or when needed)
 function loadExtendedEnv() {
     try {
         const extendedPaths = [
@@ -34,11 +32,10 @@ function loadExtendedEnv() {
             }
         }
     } catch (e) {
-        // app.getPath might fail before ready
+
     }
 }
 
-// Initial load
 for (const envPath of possibleEnvPaths) {
     if (fs.existsSync(envPath)) {
         console.log(`[Main] Loading environment from: ${envPath}`);
@@ -50,10 +47,8 @@ for (const envPath of possibleEnvPaths) {
 const { spawn } = require('child_process');
 app.disableHardwareAcceleration();
 
-// Load extended env as soon as app is somewhat initialized (even before ready, sometimes path is available)
 setTimeout(loadExtendedEnv, 0);
 
-// Global error handlers
 process.on('uncaughtException', (error) => {
     console.error('[Main] Uncaught Exception:', error);
 });
@@ -62,7 +57,6 @@ process.on('unhandledRejection', (reason, promise) => {
     console.error('[Main] Unhandled Rejection at:', promise, 'reason:', reason);
 });
 
-// Import our custom modules
 const WindowManager = require('./window-manager');
 const HotkeyManager = require('./hotkey-manager');
 const SecurityManager = require('./security-manager-fixed');
@@ -84,7 +78,6 @@ class ComputerUseAgent {
         this.isAuthenticated = false; // ✅ NEW: Track authentication state
         this.tray = null;
 
-        // Initialize managers
         this.windowManager = new WindowManager();
         global.windowManager = this.windowManager; // Required for BackendManager broadcasting
         this.hotkeyManager = new HotkeyManager();
@@ -98,9 +91,8 @@ class ComputerUseAgent {
         this.settingsManager = new SettingsManager();
         this.remoteDesktopManager = new RemoteDesktopManager(this.windowManager, this.settingsManager);
 
-        // Load persisted settings
         this.appSettings = this.settingsManager.getSettings();
-        // Initialize defaults if not present
+
         if (this.appSettings.autoSendAfterWakeWord === undefined) {
             this.appSettings.autoSendAfterWakeWord = false;
         }
@@ -114,13 +106,11 @@ class ComputerUseAgent {
             this.appSettings.wakeWordToggleChat = false;
         }
 
-        // Make settings available to window manager
         global.appSettings = this.appSettings;
 
         this.setupEventHandlers();
         this.setupIPCHandlers();
 
-        // Listen for hotkey events emitted by HotkeyManager via process.emit
         process.on('hotkey-triggered', async (payload) => {
             try {
                 const { event, data } = payload;
@@ -128,8 +118,7 @@ class ComputerUseAgent {
 
                 switch (event) {
                     case 'wakeword-detected':
-                        // Optimize: Only hide settings if it might be visible (or let toggleChat handle it if needed)
-                        // Checking visibility via window manager state would be faster than OS call
+
                         const settingsWin = this.windowManager.getWindow('settings');
                         if (settingsWin && settingsWin.isVisible()) {
                             this.windowManager.hideWindow('settings');
@@ -148,35 +137,33 @@ class ComputerUseAgent {
                                 mainWin.webContents.send('request-pin-and-toggle');
                             }
                         } else {
-                            // Track if chat was closed before this wake word
+
                             const wasVisible = this.windowManager.chatVisible;
 
-                            // Check if wake word should toggle chat or just open it
                             if (this.appSettings.wakeWordToggleChat) {
-                                // Toggle mode
+
                                 await this.windowManager.toggleChat();
 
-                                // Only send wakeword-detected if chat became visible (was closed, now open)
                                 if (this.windowManager.chatVisible && !wasVisible) {
                                     const chatWin = this.windowManager.getWindow('chat');
                                     if (chatWin && !chatWin.isDestroyed()) {
-                                        // Send with flag indicating this opened a closed chat
+
                                         chatWin.webContents.send('wakeword-detected', { openedChat: true });
                                     }
                                 }
                             } else {
-                                // Default behavior: Ensure open
+
                                 if (!wasVisible) {
-                                    // Chat was closed, open it and start transcription
+
                                     await this.windowManager.showWindow('chat');
 
                                     const chatWin = this.windowManager.getWindow('chat');
                                     if (chatWin && !chatWin.isDestroyed()) {
-                                        // Send with flag indicating this opened a closed chat
+
                                         chatWin.webContents.send('wakeword-detected', { openedChat: true });
                                     }
                                 } else {
-                                    // Chat already visible, just focus - NO auto-transcription
+
                                     const chatWin = this.windowManager.getWindow('chat');
                                     if (chatWin && !chatWin.isDestroyed()) {
                                         chatWin.focus();
@@ -188,7 +175,7 @@ class ComputerUseAgent {
                         break;
                     case 'toggle-chat':
                         console.log('[Main] Toggle chat event received');
-                        // Hide other windows when toggling chat
+
                         this.windowManager.hideWindow('settings');
                         this.windowManager.hideWindow('workflow');
 
@@ -220,31 +207,27 @@ class ComputerUseAgent {
             }
         });
 
-        // Handle invalid picovoice/porcupine key events emitted by wakeword helper
         process.on('wakeword-invalid-key', async (payload) => {
             console.warn('[Main] Wakeword invalid key event received:', payload);
             console.log('[Main] Handling wakeword-invalid-key: disabling voiceActivation and notifying renderers');
             try {
-                // Turn off the voice activation setting to avoid broken state
+
                 this.settingsManager.updateSettings({ voiceActivation: false });
                 this.windowManager.broadcast('settings-updated', this.getSettings());
 
-                // Notify renderers for a user-facing message
                 this.windowManager.broadcast('porcupine-key-invalid', { message: payload && payload.message ? payload.message : 'Invalid Picovoice key' });
             } catch (e) {
                 console.error('[Main] Failed to handle wakeword-invalid-key:', e);
             }
         });
 
-        // Handle wakeword errors (e.g., max retries reached)
         process.on('wakeword-error', async (payload) => {
             console.error('[Main] Wakeword error event received:', payload);
             try {
-                // Disable voice activation setting
+
                 this.settingsManager.updateSettings({ voiceActivation: false });
                 this.windowManager.broadcast('settings-updated', this.getSettings());
 
-                // Notify renderers
                 this.windowManager.broadcast('wakeword-error', {
                     message: payload && payload.message ? payload.message : 'Wake word detection failed.'
                 });
@@ -281,24 +264,19 @@ class ComputerUseAgent {
             userDetails: userData
         });
 
-        // Broadcast to all active windows
         this.windowManager.broadcast('user-changed', userData);
         this.windowManager.broadcast('settings-updated', this.settingsManager.getSettings());
 
-        // 0. Auto-start remote access if enabled
         if (this.remoteDesktopManager) {
             this.remoteDesktopManager.checkAndAutoStart();
         }
 
-        // 1. Show main overlay
         await this.windowManager.showWindow('main');
 
-        // 2. Automatically show chat/lite window if configured
         if (this.settingsManager.getSettings().windowVisibility !== false) {
             await this.windowManager.toggleChat();
         }
 
-        // 3. Hide entry window after a small delay to ensure smooth transition
         setTimeout(() => {
             this.windowManager.hideWindow('entry');
         }, 500);
@@ -308,18 +286,14 @@ class ComputerUseAgent {
         try {
             console.log('[Main] Control starting (High Concurrency Mode)...');
 
-            // --- TIER 1: IMMEDIATE PARALLEL EXECUTION ---
-            // These start simultaneously and don't block each other or the UI
             const dbKeysPromise = dbService.fetchAndCacheKeys().catch(e => console.warn('[Main] Key fetch error:', e.message));
             const backendStartPromise = this.backendManager.startBackend();
             const voskStartPromise = this.voskServerManager.start();
             const windowInitPromise = this.windowManager.initializeWindows();
 
-            // Fast non-blocking setup
             this.setupPermissions();
             if (this.appSettings.voiceResponse) this.edgeTTS.enable(true);
 
-            // --- TIER 2: USER DATA & SESSION ---
             const cachedUser = dbService.checkCachedUser();
             let userDataPromise = Promise.resolve();
 
@@ -327,15 +301,13 @@ class ComputerUseAgent {
                 this.isAuthenticated = true;
                 this.currentUser = cachedUser;
                 this.settingsManager.updateSettings({ userAuthenticated: true, userDetails: cachedUser });
-                
-                // Track if we need to auto-start remote access
+
                 if (this.remoteDesktopManager) {
                     this.remoteDesktopManager.checkAndAutoStart();
                 }
 
-                // Concurrent sync
                 userDataPromise = dbService.updateUser(cachedUser.id, {}).then(res => {
-                    // Refresh from DB
+
                     return dbService.verifyEntryID(cachedUser.id);
                 }).then(result => {
                     if (result.success) {
@@ -356,11 +328,8 @@ class ComputerUseAgent {
                 this.isAuthenticated = false;
             }
 
-            // --- TIER 3: UI CRITICAL PATH ---
-            // Await only what's needed for the FIRST pixels
             await windowInitPromise;
 
-            // Show overlay and entry immediately
             this.windowManager.showWindow('main');
             await this.windowManager.showWindow('entry');
 
@@ -369,15 +338,12 @@ class ComputerUseAgent {
                 entryWin.minimize();
             }
 
-            // Quick post-UI setup
             this.hotkeyManager.setupHotkeys(this.appSettings.hotkeys);
             this.updateWindowVisibility(this.appSettings.windowVisibility);
             this.startWorkflowScheduler();
 
-            // --- TIER 4: BACKGROUND FINALIZATION ---
-            // Wakeword needs API keys and potentially user data, so it starts after UI is up but concurrently with other Tier 4 tasks
             const wakewordStartPromise = (async () => {
-                // Wait for keys to be loaded if they aren't already
+
                 await dbKeysPromise;
                 if (this.appSettings.voiceActivation) {
                     return this.wakewordManager.enable(true);
@@ -398,12 +364,10 @@ class ComputerUseAgent {
                 this.backendManager.waitForReady();
             });
 
-            // Listen for AI streaming chunks
             this.backendManager.on('ai-stream', (data) => {
                 this.windowManager.broadcast('ai-stream', data);
             });
 
-            // Setup EdgeTTS event listeners for audio state tracking
             this.edgeTTS.on('speaking', () => {
                 console.log('[Main] Audio started playing');
                 const chatWin = this.windowManager.getWindow('chat');
@@ -414,7 +378,7 @@ class ComputerUseAgent {
 
             this.edgeTTS.on('stopped', () => {
                 console.log('[Main] Audio segment stopped');
-                // We don't send audio-stopped here to prevent button flickering between sentences
+
             });
 
             this.edgeTTS.on('queue-empty', () => {
@@ -425,17 +389,11 @@ class ComputerUseAgent {
                 }
             });
 
-
-            // âœ… Listen for AI responses and check settings before speaking
             this.backendManager.on('ai-response', (data) => {
                 console.log('[Main] AI response received');
 
-                // Send to all relevant windows (chat, lite, etc.)
                 this.windowManager.broadcast('ai-response', data);
 
-                // Speak response only if BOTH conditions are met:
-                // 1. voiceResponse setting is enabled
-                // 2. Response contains text
                 if (this.appSettings.voiceResponse && data && data.text) {
                     console.log('[Main] ✓ All conditions met - Speaking AI response');
                     const cleanText = this.cleanMarkdownForTTS(data.text);
@@ -451,12 +409,10 @@ class ComputerUseAgent {
                 }
             });
 
-            // Listen for ACT after-message events and treat them as front-facing messages (display + optional TTS)
             this.backendManager.on('after-message', (data) => {
                 console.log('[Main] After-message received from ACT');
                 this.windowManager.broadcast('after-message', data);
 
-                // Speak the after-message if voice response enabled and text present
                 if (this.appSettings.voiceResponse && data && data.text) {
                     console.log('[Main] Speaking ACT after-message via EdgeTTS');
                     const cleanText = this.cleanMarkdownForTTS(data.text);
@@ -464,16 +420,14 @@ class ComputerUseAgent {
                 }
             });
 
-            // Setup system tray
             this.setupTray();
 
             this.isReady = true;
             console.log('[Main] Control initialized successfully');
 
-            // Notify chat window that initialization is complete (for greeting)
             const chatWin = this.windowManager.getWindow('chat');
             if (chatWin && !chatWin.isDestroyed()) {
-                // Small delay to ensure chat window is ready
+
                 setTimeout(() => {
                     chatWin.webContents.send('app-initialized', {});
                 }, 500);
@@ -486,7 +440,7 @@ class ComputerUseAgent {
     }
 
     setupPermissions() {
-        // Set up security permissions
+
         app.on('web-contents-created', (event, contents) => {
             contents.on('new-window', (event, navigationUrl) => {
                 event.preventDefault();
@@ -496,7 +450,7 @@ class ComputerUseAgent {
     }
 
     setupIPCHandlers() {
-        // Window management
+
         ipcMain.handle('show-window', async (event, windowType) => {
             await this.windowManager.showWindow(windowType);
             return { success: true };
@@ -507,11 +461,9 @@ class ComputerUseAgent {
             return { success: true };
         });
 
-        // ✅ SINGLE toggle-chat handler - checks authentication state internally
         ipcMain.handle('toggle-chat', async () => {
             console.log('[Main] toggle-chat handler called');
 
-            // Check if authentication is required
             if (this.securityManager && this.securityManager.isEnabled() && !this.isAuthenticated) {
                 console.log('[Main] Authentication required, requesting PIN');
                 const mainWin = this.windowManager.getWindow('main');
@@ -522,7 +474,6 @@ class ComputerUseAgent {
                 return { success: false, needsAuth: true };
             }
 
-            // User is authenticated or PIN disabled
             console.log('[Main] Calling windowManager.toggleChat()');
             const result = await this.windowManager.toggleChat();
             console.log('[Main] toggleChat result:', result);
@@ -534,7 +485,6 @@ class ComputerUseAgent {
             return { success: true };
         });
 
-        // Security
         ipcMain.handle('verify-pin', (event, pin) => {
             const result = this.securityManager.verifyPin(pin);
             if (result.valid) {
@@ -548,7 +498,7 @@ class ComputerUseAgent {
         ipcMain.handle('enable-security-pin', async (event, enabled) => {
             try {
                 const result = await this.securityManager.enablePin(enabled);
-                // If PIN is disabled, clear authentication requirement
+
                 if (!enabled) {
                     this.isAuthenticated = false;
                 }
@@ -566,7 +516,6 @@ class ComputerUseAgent {
             }
         });
 
-        // Change PIN (requires current PIN)
         ipcMain.handle('change-pin', async (event, currentPin, newPin) => {
             try {
                 return await this.securityManager.changePin(currentPin, newPin);
@@ -588,7 +537,6 @@ class ComputerUseAgent {
             }
         });
 
-        // Authentication & entry window (ID-based, kept for backward compatibility and pairing)
         ipcMain.handle('authenticate-user', async (event, userId) => {
             try {
                 const result = await dbService.verifyEntryID(userId);
@@ -606,11 +554,9 @@ class ComputerUseAgent {
             try {
                 const settings = this.settingsManager.getSettings();
 
-                // 1. Check memory settings first
                 if (settings.userAuthenticated && settings.userDetails) {
                     console.log('[Main] Found user details in settings memory');
 
-                    // Try to get a fresher copy from DB (with a short timeout so we don't block startup)
                     try {
                         const userId = settings.userDetails.id;
                         if (userId) {
@@ -626,7 +572,7 @@ class ComputerUseAgent {
 
                             if (timed && timed.success && timed.user) {
                                 console.log('[Main] get-user-info: refreshed user data from DB for', userId);
-                                // update memory and cache
+
                                 this.settingsManager.updateSettings({ userDetails: timed.user });
                                 this.currentUser = timed.user;
 
@@ -638,11 +584,10 @@ class ComputerUseAgent {
                             }
                         }
                     } catch (e) {
-                        // don't block on errors
+
                         console.warn('[Main] get-user-info: error while checking DB for fresh user:', e.message || e);
                     }
 
-                    // Fallback to in-memory copy if no fresh copy available
                     return {
                         success: true,
                         isAuthenticated: true,
@@ -650,11 +595,10 @@ class ComputerUseAgent {
                     };
                 }
 
-                // 2. Check disk cache fallback (IMPORTANT for Entry Page reliability)
                 const cachedUser = dbService.checkCachedUser();
                 if (cachedUser) {
                     console.log('[Main] Found user details in disk cache (fallback)');
-                    // Restore to settings memory
+
                     this.settingsManager.updateSettings({
                         userAuthenticated: true,
                         userDetails: cachedUser
@@ -683,7 +627,6 @@ class ComputerUseAgent {
             }
         });
 
-        // Entry verification
         ipcMain.handle('verify-entry-id', async (event, entryId) => {
             try {
                 const result = await dbService.verifyEntryID(entryId);
@@ -697,7 +640,6 @@ class ComputerUseAgent {
             }
         });
 
-        // Picovoice key management (per-user)
         ipcMain.handle('get-picovoice-key', async () => {
             try {
                 console.log('[Main] [IPC] get-picovoice-key called');
@@ -716,23 +658,19 @@ class ComputerUseAgent {
                 console.log('[Main] [IPC] set-picovoice-key called by renderer (user id=', this.currentUser ? this.currentUser.id : 'none', ')');
                 if (!this.currentUser || !this.currentUser.id) return { success: false, message: 'Not authenticated' };
 
-                // Try to update DB but don't let it block local success
                 dbService.updateUser(this.currentUser.id, { picovoiceKey: key })
                     .then(res => console.log('[Main] Picovoice key updated in DB:', res.success))
                     .catch(e => console.warn('[Main] DB key update failed, using local only:', e.message));
 
-                // Always update local state
                 this.currentUser.picovoiceKey = key;
                 dbService.cacheUser(this.currentUser);
 
                 this.settingsManager.updateSettings({ userDetails: this.currentUser });
                 this.windowManager.broadcast('user-changed', this.currentUser);
 
-                // Apply key for current session
                 process.env.PORCUPINE_ACCESS_KEY = key;
                 console.log('[Main] [IPC] Applied picovoice key to process.env');
 
-                // Enable voice activation
                 this.settingsManager.updateSettings({ voiceActivation: true });
                 this.windowManager.broadcast('settings-updated', this.getSettings());
 
@@ -748,7 +686,6 @@ class ComputerUseAgent {
                 console.log('[Main] [IPC] validate-picovoice-key called (key length=', key ? key.length : 0, ')');
                 const WakewordHelper = require('./backends/wakeword-helper');
 
-                // Create a temporary helper with the same logger as the manager if possible
                 const helper = new WakewordHelper({
                     accessKey: key,
                     logger: (msg, level) => this.wakewordManager.logWithDevTools(msg, level)
@@ -772,7 +709,6 @@ class ComputerUseAgent {
             }
         });
 
-        // Window helpers
         ipcMain.handle('minimize-window', (event) => {
             const w = BrowserWindow.fromWebContents(event.sender);
             if (w) w.minimize();
@@ -791,7 +727,6 @@ class ComputerUseAgent {
             return { version: app.getVersion() };
         });
 
-        // Workflow Management
         ipcMain.handle('get-installed-apps', async () => {
             return await appUtils.getInstalledApps();
         });
@@ -897,7 +832,7 @@ class ComputerUseAgent {
                             }
                         } else if (['.md', '.txt', '.markdown'].includes(ext)) {
                             const content = fs.readFileSync(filePath, 'utf8');
-                            // Extract name from filename (remove extension and replace special chars)
+
                             const name = path.basename(filePath, ext)
                                 .replace(/[^a-zA-Z0-9]/g, ' ')
                                 .split(' ')
@@ -1010,12 +945,10 @@ class ComputerUseAgent {
             return { success: false };
         });
 
-        // Close settings window
         ipcMain.on('close-settings', () => {
             this.windowManager.hideWindow('settings');
         });
 
-        // Window dragging
         ipcMain.on('window-drag', (event, delta) => {
             const window = BrowserWindow.fromWebContents(event.sender);
             if (window && !window.isDestroyed()) {
@@ -1024,18 +957,16 @@ class ComputerUseAgent {
             }
         });
 
-        // Window visibility
         ipcMain.handle('set-window-visibility', (event, visible) => {
             console.log(`[Main] set-window-visibility called with: ${visible}`);
             this.appSettings.windowVisibility = !!visible;
             this.updateWindowVisibility(visible);
             this.settingsManager.updateSettings({ windowVisibility: visible });
-            // Broadcast to all windows to ensure UI state is synced
+
             this.windowManager.broadcast('settings-updated', this.getSettings());
             return { success: true };
         });
 
-        // Overlay hover: temporarily enable interactions when hovering the floating button
         ipcMain.on('overlay-hover', (event, isHover) => {
             try {
                 this.windowManager.setInteractive(!!isHover);
@@ -1056,29 +987,23 @@ class ComputerUseAgent {
             }
         });
 
-        // Logout handler
         ipcMain.handle('logout', async () => {
             console.log('[Main] Logout requested');
-            // Clear authentication state
+
             this.isAuthenticated = false;
             this.currentUser = null;
 
-            // Clear cache and sign out from Supabase
             await dbService.signOut();
 
-            // Update settings
             this.settingsManager.updateSettings({
                 userAuthenticated: false,
                 userDetails: null
             });
 
-            // Stop any running tasks
             await this.backendManager.stopTask();
 
-            // Reset UI - Hide windows instead of destroying them to preserve hotkeys
             this.windowManager.hideWindow('chat');
 
-            // Reload chat to clear previous session state
             const chatWin = this.windowManager.getWindow('chat');
             if (chatWin && !chatWin.isDestroyed()) {
                 chatWin.reload();
@@ -1090,22 +1015,21 @@ class ComputerUseAgent {
             return { success: true };
         });
 
-        // New conversation placeholder
         ipcMain.handle('new-conversation', async () => {
-            // Implement clearing conversation state if stored
+
             return { success: true };
         });
 
         ipcMain.handle('lock-app', async () => {
             console.log('[Main] lock-app handler called');
             this.isAuthenticated = false; // ✅ Clear authentication state
-            // Close chat and settings windows
+
             this.windowManager.hideWindow('chat');
             this.windowManager.hideWindow('settings');
-            // Lock the app
+
             const result = this.securityManager.lockApp();
             console.log('[Main] App locked, showing overlay and entry screen');
-            // Show the main overlay (overlay is always visible but will show PIN modal on interaction)
+
             await this.windowManager.showWindow('main');
             await this.windowManager.showWindow('entry');
             return result;
@@ -1132,10 +1056,9 @@ class ComputerUseAgent {
             return result;
         });
 
-        // Backend communication
         ipcMain.handle('set-wakeword-enabled', (event, enabled) => {
             if (enabled) {
-                // Only enable if globally enabled in settings
+
                 if (this.appSettings.voiceActivation) {
                     this.wakewordManager.enable(true);
                 }
@@ -1159,7 +1082,6 @@ class ComputerUseAgent {
         ipcMain.handle('execute-task', async (event, task, mode) => {
             console.log('[Main] [IPC] execute-task:', mode, task);
 
-            // Check for workflow keywords if triggers are enabled
             if (this.appSettings.workflowTriggersEnabled !== false && task.text && !task.skipWorkflowCheck) {
                 const workflows = workflowManager.getAllWorkflows();
                 const matchedWorkflow = workflows.find(wf => {
@@ -1175,7 +1097,6 @@ class ComputerUseAgent {
                 }
             }
 
-            // 1. Check Authentication & Profile
             if (this.securityManager.isEnabled() && !this.isAuthenticated) {
                 throw new Error('Authentication required');
             }
@@ -1185,27 +1106,25 @@ class ComputerUseAgent {
                 throw new Error('User profile not loaded. Please sign in.');
             }
 
-            // 2. Check Rate Limit
             const rateResult = await dbService.checkRateLimit(currentUser.id, mode);
             if (!rateResult.allowed) {
                 throw new Error(rateResult.error || 'Rate limit exceeded');
             }
 
-            // 3. Get API Key with multiple fallbacks
             let apiKey = this.appSettings.geminiApiKey; // Priority 1: User's manually entered key
             
             if (!apiKey) {
-                // Priority 2: Key from database/plan
+
                 apiKey = await dbService.getGeminiKey(currentUser.plan);
             }
             
             if (!apiKey) {
-                // Priority 3: Local keys cache (Supabase fetch)
+
                 const cachedKeys = dbService.getKeys();
                 if (cachedKeys && cachedKeys.gemini) {
                     apiKey = cachedKeys.gemini;
                 } else {
-                    // Priority 4: Environment variables as last resort
+
                     console.log('Using default env API key');
                     apiKey = process.env.GEMINI_API_KEY || process.env.GEMINI_FREE_KEY;
                 }
@@ -1216,13 +1135,12 @@ class ComputerUseAgent {
                 const result = await this.backendManager.executeTask(task, mode, this.getSettings());
                 await dbService.incrementTaskCount(currentUser.id, mode);
 
-                // Re-fetch and broadcast updated user data
                 const updatedUser = await dbService.verifyEntryID(currentUser.id);
                 if (updatedUser.success) {
                     this.currentUser = updatedUser.user;
-                    // Update cache
+
                     dbService.cacheUser(this.currentUser);
-                    // Broadcast
+
                     this.settingsManager.updateSettings({ userDetails: this.currentUser });
                     this.windowManager.broadcast('user-changed', this.currentUser);
                 }
@@ -1267,7 +1185,6 @@ class ComputerUseAgent {
             }
         });
 
-        // TTS Control handlers
         ipcMain.handle('tts-stop', () => {
             console.log('[Main] [IPC] tts-stop requested');
             this.edgeTTS.stop();
@@ -1320,7 +1237,6 @@ class ComputerUseAgent {
             return { success: true };
         });
 
-        // Greeting TTS handlers
         ipcMain.handle('should-speak-greeting', () => {
             const shouldSpeak = this.appSettings.greetingTTS || false;
             console.log('[Main] [IPC] should-speak-greeting requested. Setting:', shouldSpeak);
@@ -1343,9 +1259,6 @@ class ComputerUseAgent {
             }
         });
 
-
-
-        // Settings
         ipcMain.handle('get-settings', () => {
             return this.settingsManager.getSettings();
         });
@@ -1357,16 +1270,14 @@ class ComputerUseAgent {
         ipcMain.handle('update-hotkeys', (event, newHotkeys) => {
             console.log('[Main] [IPC] update-hotkeys:', newHotkeys);
 
-            // Validate basic structure
             if (!newHotkeys || !newHotkeys.toggleChat || !newHotkeys.stopAction) {
                 return { success: false, message: 'Invalid hotkey configuration' };
             }
 
-            // Update settings
             const success = this.settingsManager.updateSettings({ hotkeys: newHotkeys });
 
             if (success) {
-                // Update live hotkeys
+
                 this.hotkeyManager.updateHotkeys(newHotkeys);
                 this.windowManager.broadcast('settings-updated', this.getSettings());
                 return { success: true };
@@ -1375,26 +1286,22 @@ class ComputerUseAgent {
             return { success: false, message: 'Failed to save hotkey settings' };
         });
 
-
-
         ipcMain.handle('update-floating-button', (event, visible) => {
-            // Update appSettings and persist synchronously so subsequent get-settings calls see the change
+
             this.appSettings.floatingButtonVisible = visible;
-            // Update settings manager immediately to make get-settings reflect new value
+
             try {
                 this.settingsManager.updateSettings({ floatingButtonVisible: visible });
             } catch (e) {
                 console.error('[Main] Failed to update settings manager for floating button:', e);
             }
 
-            // Broadcast new settings to all windows so renderers can react immediately
             try {
                 this.windowManager.broadcast('settings-updated', this.getSettings());
             } catch (e) {
                 console.error('[Main] Failed to broadcast settings-updated after floating button change:', e);
             }
 
-            // Ensure global.appSettings is in sync
             try {
                 global.appSettings = this.appSettings;
             } catch (e) {
@@ -1403,13 +1310,11 @@ class ComputerUseAgent {
 
             console.log('[Main] Floating button updated:', visible);
 
-            // Broadcast to overlay window about the toggle so it can enforce visibility immediately
             const mainWin = this.windowManager.getWindow('main');
             if (mainWin && !mainWin.isDestroyed()) {
                 mainWin.webContents.send('floating-button-toggle', visible);
             }
 
-            // Also return the new persisted state
             return { success: true, floatingButtonVisible: visible };
         });
 
@@ -1418,13 +1323,12 @@ class ComputerUseAgent {
             return { success: true };
         });
 
-        // App control
         ipcMain.handle('quit-app', () => {
-            // Close all windows first (cleanup)
+
             this.windowManager.closeAllWindows();
-            // Stop backend
+
             this.backendManager.stopBackend();
-            // Quit app
+
             this.quitApp();
             return { success: true };
         });
@@ -1435,22 +1339,18 @@ class ComputerUseAgent {
             return { success: true };
         });
 
-        // Data Management Handlers
         ipcMain.handle('delete-all-data', async () => {
             console.log('[Main] Delete all data requested');
             try {
-                // Clear settings
+
                 this.settingsManager.resetSettings();
 
-                // Clear user profile
                 dbService.clearCachedUser();
                 this.isAuthenticated = false;
                 this.currentUser = null;
 
-                // Clear workflows
                 workflowManager.deleteAllWorkflows();
 
-                // Clear screenshots
                 const screenshotDir = path.join(os.tmpdir(), "control_screenshots");
                 if (fs.existsSync(screenshotDir)) {
                     const files = fs.readdirSync(screenshotDir);
@@ -1484,7 +1384,6 @@ class ComputerUseAgent {
             }
         });
 
-        // Agentic Browser Handlers (Native Electron)
         ipcMain.handle('browser-navigate', async (event, url) => {
             console.log(`[Main] Browser navigate: ${url}`);
             try {
@@ -1519,7 +1418,6 @@ class ComputerUseAgent {
             return { success: true };
         });
 
-        // UI Modal Handlers
         ipcMain.handle('show-confirm-modal', async (event, options) => {
             const { dialog } = require('electron');
             const win = electron.BrowserWindow.fromWebContents(event.sender);
@@ -1541,8 +1439,7 @@ class ComputerUseAgent {
         });
 
         ipcMain.handle('show-prompt-modal', async (event, message, defaultValue, options) => {
-            // For now, since native prompt is missing in Electron, we'll return default
-            // In a future update, this could open a custom input window
+
             console.warn('[Main] show-prompt-modal not fully implemented, returning default');
             return defaultValue;
         });
@@ -1550,10 +1447,9 @@ class ComputerUseAgent {
 
     getSettings() {
         const settings = this.settingsManager.getSettings();
-        // Ensure security manager PIN status is reflected
-        // We use the raw pinEnabled property to ensure the toggle state is preserved even before a PIN hash is set
+
         settings.pinEnabled = this.securityManager.pinEnabled;
-        // Include layout, autoSendAfterWakeWord, lastMode, windowVisibility, and wakeWordToggleChat
+
         settings.layout = this.appSettings.layout || 'classic';
         settings.autoSendAfterWakeWord = this.appSettings.autoSendAfterWakeWord || false;
         settings.lastMode = this.appSettings.lastMode || 'act';
@@ -1598,7 +1494,6 @@ class ComputerUseAgent {
         settings.ttsRate = this.appSettings.ttsRate !== undefined ? this.appSettings.ttsRate : 1.0;
         settings.ttsVolume = this.appSettings.ttsVolume !== undefined ? this.appSettings.ttsVolume : 1.0;
 
-        // Add gemini settings with fallbacks
         const cachedKeys = dbService.getKeys();
         settings.geminiApiKey = this.appSettings.geminiApiKey || (cachedKeys ? cachedKeys.gemini : '');
         settings.geminiModel = this.appSettings.geminiModel || (cachedKeys ? cachedKeys.gemini_model : (process.env.GEMINI_MODEL || "gemini-2.5-flash"));
@@ -1626,7 +1521,6 @@ class ComputerUseAgent {
     async runWorkflow(workflow) {
         console.log(`[Main] Running workflow: ${workflow.name}`);
 
-        // Convert steps to natural language instructions
         let taskDescription = `Perform the workflow: "${workflow.name}".\nSteps:\n`;
         workflow.steps.forEach((step, index) => {
             let detail = "";
@@ -1650,11 +1544,10 @@ class ComputerUseAgent {
             attachments: []
         };
 
-        // Switch to ACT mode for workflows
         const mode = 'act';
 
         try {
-            // Re-use execute-task logic
+
             const currentUser = this.currentUser || dbService.checkCachedUser();
             let apiKey = await dbService.getGeminiKey(currentUser.plan);
             if (!apiKey) {
@@ -1663,7 +1556,6 @@ class ComputerUseAgent {
             }
             task.api_key = apiKey;
 
-            // Broadcast task start to chat
             const chatWin = this.windowManager.getWindow('chat');
             if (chatWin) {
                 chatWin.webContents.send('workflow-started', { name: workflow.name });
@@ -1686,7 +1578,6 @@ class ComputerUseAgent {
             const now = new Date();
             const currentTime = now.getHours().toString().padStart(2, '0') + ':' + now.getMinutes().toString().padStart(2, '0');
 
-            // Only process if the minute has changed
             if (this.lastCheckedMinute === currentTime) return;
             this.lastCheckedMinute = currentTime;
 
@@ -1698,7 +1589,7 @@ class ComputerUseAgent {
             const workflows = workflowManager.getAllWorkflows();
             workflows.forEach(wf => {
                 if (wf.enabled && wf.trigger && wf.trigger.type === 'time' && wf.trigger.value === currentTime) {
-                    // Check if today is one of the scheduled days
+
                     const days = wf.trigger.days || [];
                     if (days.length === 0 || days.includes(currentDayFull) || days.includes(currentDayShort)) {
                         console.log(`[Scheduler] Triggering workflow: ${wf.name}`);
@@ -1729,7 +1620,7 @@ class ComputerUseAgent {
             }
             if (settings.pinEnabled !== undefined) {
                 await this.securityManager.enablePin(settings.pinEnabled);
-                // If disabling PIN, clear authentication requirement
+
                 if (!settings.pinEnabled) {
                     this.isAuthenticated = false;
                 }
@@ -1833,7 +1724,6 @@ class ComputerUseAgent {
                 this.edgeTTS.setVolume(settings.ttsVolume);
             }
 
-            // Handle hotkeys if present
             if (settings.hotkeys) {
                 const oldHotkeys = JSON.stringify(oldSettings.hotkeys);
                 const newHotkeys = JSON.stringify(settings.hotkeys);
@@ -1844,10 +1734,9 @@ class ComputerUseAgent {
                 }
             }
 
-            // Save all settings to persistent storage
             this.settingsManager.updateSettings({
                 ...settings,
-                // Ensure critical ones use appSettings state if not provided in updates
+
                 voiceActivation: this.appSettings.voiceActivation,
                 voiceResponse: this.appSettings.voiceResponse,
                 greetingTTS: this.appSettings.greetingTTS,
@@ -1895,10 +1784,8 @@ class ComputerUseAgent {
                 ttsVolume: this.appSettings.ttsVolume
             });
 
-            // Update local clone to match full state
             this.appSettings = this.settingsManager.getSettings();
 
-            // Broadcast update to all windows
             this.windowManager.broadcast('settings-updated', this.getSettings());
 
             return { success: true };
@@ -1909,8 +1796,7 @@ class ComputerUseAgent {
     }
 
     onWindowAllClosed() {
-        // Don't quit on Windows/Linux when all windows are closed
-        // Keep the app running in background
+
         if (process.platform !== 'darwin' && this.isQuitting) {
             app.quit();
         }
@@ -1931,14 +1817,12 @@ class ComputerUseAgent {
 
     setupTray() {
         try {
-            // Path to tray icon
+
             const iconPath = path.join(__dirname, '../../assets/icons/icon-removebg-preview.png');
 
-            // Create tray icon
             this.tray = new Tray(iconPath);
             this.tray.setToolTip('Control - AI Assistant');
 
-            // Create tray context menu
             const contextMenu = Menu.buildFromTemplate([
                 {
                     label: 'Show/Hide Chat',
@@ -1969,7 +1853,6 @@ class ComputerUseAgent {
 
             this.tray.setContextMenu(contextMenu);
 
-            // Double click to toggle chat
             this.tray.on('double-click', () => {
                 this.windowManager.toggleChat();
             });
@@ -2004,7 +1887,6 @@ class ComputerUseAgent {
     }
 }
 
-// Single instance lock
 const gotTheLock = app.requestSingleInstanceLock();
 
 if (!gotTheLock) {
@@ -2012,15 +1894,15 @@ if (!gotTheLock) {
     console.log('[Main] Application already running - exiting this instance');
     app.quit();
 } else {
-    // Create and start the application
+
     const agent = new ComputerUseAgent();
 
     app.on('second-instance', async (event, commandLine, workingDirectory) => {
         console.log('[Main] Second instance detected, showing entry window');
         console.log('[Main] Attempting to open entry page for second instance');
-        // If someone tried to run a second instance, we should focus our window.
+
         if (agent && agent.windowManager) {
-            // Log the second instance attempt
+
             console.log('[Main] Second instance - current authentication state:', agent.isAuthenticated);
 
             const entryWin = agent.windowManager.getWindow('entry');
@@ -2030,7 +1912,7 @@ if (!gotTheLock) {
                 entryWin.show();
                 entryWin.focus();
             } else {
-                // If entry window doesn't exist or was closed, recreate/show it
+
                 console.log('[Main] Entry window does not exist, creating it');
                 await agent.windowManager.showWindow('entry');
             }

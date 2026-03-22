@@ -31,7 +31,7 @@ export default function LoginPage() {
     <div className="min-h-screen bg-black text-white flex items-center justify-center p-6">
       <div className="absolute inset-0 dot-grid opacity-20" />
       <div className="relative w-full max-w-md">
-        {/* Logo */}
+
         <div className="text-center mb-10">
           <div className="inline-flex items-center justify-center w-12 h-12 bg-white rounded-xl mb-4">
             <Command className="text-black w-6 h-6" />
@@ -40,7 +40,6 @@ export default function LoginPage() {
           <p className="text-zinc-500 text-sm mt-1">Sign in to Control Web</p>
         </div>
 
-        {/* Form */}
         <form onSubmit={handleSubmit} className="space-y-4">
           {error && (
             <div className="flex items-center gap-2 p-3 bg-red-500/10 border border-red-500/20 rounded-xl text-red-400 text-sm">

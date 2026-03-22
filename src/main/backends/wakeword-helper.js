@@ -12,8 +12,6 @@ const nativeModuleLogger = (msg, level = 'info') => {
 
 const isPackaged = app.isPackaged;
 
-// In production, we MUST load from app.asar.unpacked because Picovoice
-// needs real filesystem paths for its .pv files.
 if (isPackaged) {
     nativeModuleLogger('App is packaged, prioritizing app.asar.unpacked for native modules');
     const possibleUnpackedPaths = [
@@ -42,7 +40,6 @@ if (isPackaged) {
     }
 }
 
-// Fallback to standard require if not packaged or if unpacked loading failed
 if (!Porcupine || !PvRecorder) {
     try {
         nativeModuleLogger('Attempting standard require for native modules');
@@ -63,7 +60,6 @@ class WakewordHelper {
     this.logger = options.logger || console.log;
     this.porcupineParamsPath = this.resolvePorcupineParamsPath();
 
-    // Flush any logs collected during native module loading
     if (nativeModuleLogs.length > 0) {
       nativeModuleLogs.forEach(logEntry => {
         if (this.logger) {
@@ -90,7 +86,6 @@ class WakewordHelper {
   resolvePorcupineParamsPath() {
     this.log('Resolving Porcupine params path...');
 
-    // Priority 1: Check if we have a successful unpacked native module path
     if (nativeModulePath) {
       const p = path.join(nativeModulePath, '@picovoice/porcupine-node/lib/common/porcupine_params.pv');
       if (fs.existsSync(p)) {
@@ -99,9 +94,8 @@ class WakewordHelper {
       }
     }
 
-    // Priority 2: Standard location in node_modules (might be in ASAR, which is what we want to avoid)
     try {
-      // Use require.resolve to find the package directory if not already known
+
       const porcupineDir = path.dirname(require.resolve('@picovoice/porcupine-node/package.json'));
       const p = path.join(porcupineDir, 'lib/common/porcupine_params.pv');
       if (fs.existsSync(p)) {
@@ -112,7 +106,6 @@ class WakewordHelper {
       this.log(`Priority 2 resolution failed: ${e.message}`, 'warn');
     }
 
-    // Priority 3: Alternative locations relative to app path (fallback for various build structures)
     const searchDirs = [
         path.join(app.getAppPath(), 'node_modules/@picovoice/porcupine-node/lib/common'),
         path.join(process.resourcesPath, 'app.asar.unpacked/node_modules/@picovoice/porcupine-node/lib/common'),
@@ -135,7 +128,6 @@ class WakewordHelper {
   resolveModelPath() {
     const isPackaged = app.isPackaged;
 
-    // Detect platform and set the appropriate suffix
     const platform = process.platform;
     let platformSuffix = "windows";
     let osName = "Windows";
@@ -152,10 +144,9 @@ class WakewordHelper {
     this.log(`Architecture: ${process.arch}`);
     this.log(`App packaged: ${isPackaged}`);
 
-    // Build list of model file names for this platform
     const possibleNames = [
       `hey-control_en_${platformSuffix}_v4_0_0.ppn`,
-      // Fallback names if exact platform suffix doesn't match
+
       `hey-control_${platformSuffix}.ppn`,
       `hey-control_en_${platformSuffix}.ppn`,
       "hey-control_en_windows_v4_0_0.ppn",
@@ -164,25 +155,23 @@ class WakewordHelper {
 
     this.log(`Looking for model files: ${possibleNames.join(', ')}`);
 
-    // Build list of search directories
     const searchDirs = [];
     if (isPackaged) {
-      // 1. extraResources (standard for electron-builder)
+
       searchDirs.push(path.join(process.resourcesPath, "assets/wakeword"));
       searchDirs.push(path.join(process.resourcesPath, "wakeword"));
-      // 2. Unpacked ASAR (in case it was put there)
+
       searchDirs.push(path.join(process.resourcesPath, "app.asar.unpacked/assets/wakeword"));
       searchDirs.push(path.join(process.resourcesPath, "app.asar.unpacked/wakeword"));
 
-      // Mac specific path
       if (process.platform === 'darwin') {
           searchDirs.push(path.join(path.dirname(process.resourcesPath), "Resources/assets/wakeword"));
       }
     } else {
-      // Development
+
       searchDirs.push(path.join(__dirname, "../../../assets/wakeword"));
     }
-    // 3. Current Working Directory (portable fallback)
+
     searchDirs.push(path.join(process.cwd(), "assets/wakeword"));
     searchDirs.push(path.join(process.cwd(), "wakeword"));
 
@@ -198,7 +187,6 @@ class WakewordHelper {
 
       this.log(`Checking directory: ${dir}`);
 
-      // Try exact names first
       for (const name of possibleNames) {
         const p = path.join(dir, name);
         if (fs.existsSync(p)) {
@@ -211,7 +199,7 @@ class WakewordHelper {
       }
 
       if (!foundPath) {
-        // Try finding ANY .ppn file in this dir
+
         try {
           const files = fs.readdirSync(dir);
           this.log(`Files in directory: ${files.join(', ')}`);
@@ -229,8 +217,7 @@ class WakewordHelper {
     }
 
     if (foundPath) {
-      // CRITICAL FIX: If the path is inside app.asar (not unpacked) or a read-only resource,
-      // some native libraries fail. Best practice is to copy it to userData.
+
       try {
         const userDataPath = app.getPath('userData');
         const targetDir = path.join(userDataPath, 'models');
@@ -238,7 +225,6 @@ class WakewordHelper {
 
         const targetPath = path.join(targetDir, path.basename(foundPath));
 
-        // Copy if not exists or if source is newer
         const shouldCopy = !fs.existsSync(targetPath) ||
                            fs.statSync(foundPath).mtime > fs.statSync(targetPath).mtime;
 
@@ -269,7 +255,6 @@ class WakewordHelper {
       this.log("Initializing Porcupine...");
       this.log(`OS: ${process.platform}, Arch: ${process.arch}`);
 
-      // Diagnostic: Check internet connectivity as Picovoice needs it for licensing
       try {
           require('dns').lookup('picovoice.ai', (err) => {
               if (err) {
@@ -280,7 +265,6 @@ class WakewordHelper {
           });
       } catch (dnsErr) {}
 
-      // AGGRESSIVE KEY DISCOVERY
       let currentKey = process.env.PORCUPINE_ACCESS_KEY || this.accessKey;
 
       if (currentKey) {
@@ -288,7 +272,6 @@ class WakewordHelper {
       } else {
         this.log('Access key not found in process.env, checking secondary sources...');
 
-        // 1. Try Supabase local cache
         try {
           const supabaseService = require('../supabase-service');
           const cachedUser = supabaseService.checkCachedUser();
@@ -303,7 +286,6 @@ class WakewordHelper {
           this.log(`Supabase cache check failed: ${e.message}`, 'warn');
         }
 
-        // 2. Try SettingsManager (global)
         if (!currentKey) {
           try {
             const settingsPath = path.join(app.getPath('userData'), 'settings.json');
@@ -321,7 +303,6 @@ class WakewordHelper {
           }
         }
 
-        // 3. Try scanning for ANY user settings file
         if (!currentKey) {
           try {
             const userDataDir = app.getPath('userData');
@@ -352,7 +333,7 @@ class WakewordHelper {
 
       this.log(`Loading model from: ${this.modelPath}`);
       if (!fs.existsSync(this.modelPath)) {
-        // One last try: relative to process.cwd()
+
         const platformSuffix = process.platform === "darwin" ? "mac" : (process.platform === "linux" ? "linux" : "windows");
         const altPath = path.join(process.cwd(), `assets/wakeword/hey-control_en_${platformSuffix}_v4_0_0.ppn`);
         if (fs.existsSync(altPath)) {
@@ -371,7 +352,6 @@ class WakewordHelper {
             throw new Error("Porcupine native module not loaded. This usually means the library is not compatible with your system or was not correctly unpacked.");
           }
 
-          // Diagnostic: check if model exists
           if (!fs.existsSync(this.modelPath)) {
               this.log(`CRITICAL: Model file DOES NOT exist at ${this.modelPath}`, 'error');
               throw new Error(`Model file missing: ${this.modelPath}`);
@@ -389,7 +369,6 @@ class WakewordHelper {
           } catch (firstTryErr) {
             this.log(`Primary Porcupine initialization failed: ${firstTryErr.message}`, 'warn');
 
-            // Fallback: If we provided a path and it failed, try WITHOUT the path (use library default)
             if (this.porcupineParamsPath) {
                 this.log('Attempting fallback: Porcupine initialization without custom params path...');
                 this.porcupine = new Porcupine(
@@ -404,16 +383,14 @@ class WakewordHelper {
 
           this.log("Porcupine engine initialized successfully");
       } catch (e) {
-          // Log the actual error for dev/production debugging (it will show up in wakeword.log)
+
           const detailedError = e.message || String(e);
           this.log(`Porcupine initialization error details: ${detailedError}`, 'error');
 
-          // If it's already one of our specific errors, re-throw it
           if (detailedError.includes('native module not loaded') || detailedError.includes('Model file missing')) {
             throw e;
           }
 
-          // Distinguish between invalid key and other issues
           const isKeyError = detailedError.includes('Invalid') ||
                              detailedError.includes('AccessKey') ||
                              detailedError.includes('parse') ||
@@ -447,7 +424,6 @@ class WakewordHelper {
               this.log("No audio devices reported by PvRecorder, attempting to continue with default...", "warn");
           }
 
-          // Resilient recorder creation: try different device indices if default fails
           const deviceIndicesToTry = [-1, 0, 1, 2];
           let lastErr = null;
 
@@ -495,7 +471,6 @@ class WakewordHelper {
               }
             }
 
-            // Continue processing
             if (this.isListening) {
               setImmediate(processFrame);
             }
@@ -506,13 +481,12 @@ class WakewordHelper {
           });
       };
 
-      // Start the loop
       processFrame();
       return true;
 
     } catch (err) {
       this.log(`Failed to start: ${err.message}`, 'error');
-      // Re-throw to let the caller know initialization failed
+
       throw err;
     }
   }
@@ -531,7 +505,6 @@ class WakewordHelper {
         return { success: false, message: 'Wakeword model file missing' };
       }
 
-      // Try to instantiate Porcupine briefly to validate key
       const testPorcupine = new Porcupine(
         keyToTest,
         [this.modelPath],

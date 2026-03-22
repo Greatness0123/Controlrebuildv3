@@ -71,7 +71,7 @@ class AskBackend {
   }
 
   parseAIResponse(responseText) {
-    // Primary bracketed matches
+
     const screenshotMatch = /\[REQUEST_SCREENSHOT\]/.exec(responseText);
     const commandMatch = /\[REQUEST_COMMAND:\s*(.+?)\]/.exec(responseText);
     const browserOpenMatch = /\[BROWSER_OPEN:\s*(.+?)\]/.exec(responseText);
@@ -80,7 +80,6 @@ class AskBackend {
     const readBehaviorsMatch = /\[READ_BEHAVIORS\]/.exec(responseText);
     const writeBehaviorMatch = /\[WRITE_BEHAVIOR:\s*([\s\S]+?)\]/.exec(responseText);
 
-    // Fallback for unbracketed commands if they appear at the start of a line
     const fallbackCommandMatch = /^(?:REQUEST_COMMAND|COMMAND):\s*(.+)$/m.exec(responseText);
 
     let requestType = null;
@@ -108,7 +107,6 @@ class AskBackend {
       requestData = writeBehaviorMatch[1].trim();
     }
 
-    // Process [DISPLAY_CODE] blocks in-place for better flow
     const cleanText = responseText
       .replace(/\[DISPLAY_CODE:\s*([\w-]+)\s*\n([\s\S]+?)\]/g, (match, lang, code) => {
         return `\n\n\`\`\`${lang}\n${code.trim()}\n\`\`\`\n\n`;
@@ -128,7 +126,7 @@ class AskBackend {
 
   formatCitations(response) {
     try {
-      // Citations disabled per user request to minimize space and remove unclickable links
+
       return response.text();
     } catch (e) {
       console.error("[ASK JS] Error getting text from response:", e);
@@ -192,7 +190,6 @@ class AskBackend {
     let model = settings[`${provider}Model`] || settings.universalModel;
     let baseUrl = settings.universalBaseUrl;
 
-    // Default endpoints for known providers
     const endpoints = {
       'openai': 'https://api.openai.com/v1/chat/completions',
       'deepseek': 'https://api.deepseek.com/chat/completions',
@@ -207,7 +204,6 @@ class AskBackend {
 
     let url = baseUrl ? (baseUrl.endsWith('/chat/completions') ? baseUrl : `${baseUrl}/chat/completions`) : endpoints[provider];
 
-    // Handle Cloud Providers specifically
     if (provider === 'azure') {
       apiKey = settings.cloudCredentials;
       model = settings.cloudModel;
@@ -220,7 +216,6 @@ class AskBackend {
 
     if (!url) throw new Error(`Endpoint for provider ${provider} not found and no Base URL provided.`);
 
-    // Handle OpenRouter specific logic
     if (provider === 'openrouter') {
       apiKey = settings.openrouterApiKey || (require("../supabase-service").getKeys()?.openrouter);
       model = settings.openrouterModel === "custom" ? settings.openrouterCustomModel : settings.openrouterModel;
@@ -265,8 +260,6 @@ class AskBackend {
     }
 
     const body = { model, messages, stream: !!onChunk };
-
-    // MiniMax uses a slightly different body format for some models but v2 is OpenAI compatible
 
     const response = await fetch(url, {
       method: "POST",
@@ -403,7 +396,6 @@ class AskBackend {
 
     const provider = settings.modelProvider || "gemini";
 
-    // Special case: if OpenRouter is selected but the model is Gemini 1.5 Flash (SDK version), switch to gemini provider logic
     let effectiveProvider = provider;
     if (provider === "openrouter" && (settings.openrouterModel === "google/gemini-flash-1.5-sdk" || settings.openrouterModel === "gemini-native")) {
       effectiveProvider = "gemini";
@@ -454,9 +446,7 @@ class AskBackend {
 
         const onChunkCallback = (chunk) => {
           if (onResponse && typeof onResponse === 'function') {
-            // Check if chunk contains tool call markers
-            // If it does, we might want to suppress it from the UI or handle it specially.
-            // But for now, just stream everything.
+
             onResponse('ai_stream', { chunk });
           }
         };
@@ -532,7 +522,7 @@ class AskBackend {
           }
           continue;
         } else {
-          // Final response turn
+
           const finalAIResponse = cleanText || responseText;
 
           this.conversationHistory.push({ user: userRequest, ai: finalAIResponse });

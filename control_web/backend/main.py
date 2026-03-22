@@ -1,4 +1,3 @@
-"""Control Web Backend — FastAPI entry point."""
 import logging
 import asyncio
 from contextlib import asynccontextmanager
@@ -12,12 +11,10 @@ from app.auth import get_service_client
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
 logger = logging.getLogger(__name__)
 
-
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     logger.info("Control Web Backend starting...")
-    
-    # Background task for auto-shutdown
+
     async def cleanup_loop():
         db = get_service_client()
         while True:
@@ -34,7 +31,6 @@ async def lifespan(app: FastAPI):
     task.cancel()
     logger.info("Control Web Backend shutting down...")
 
-
 app = FastAPI(
     title="Control Web API",
     description="Backend for Control Web — VM management, AI agents, and desktop pairing",
@@ -42,7 +38,6 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# CORS - Allow explicit origins and regex for local development
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
@@ -57,13 +52,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Register routes
 app.include_router(vm_routes.router)
 app.include_router(chat_routes.router)
 app.include_router(pair_routes.router)
 app.include_router(secret_routes.router)
 app.include_router(payment_routes.router)
-
 
 @app.get("/")
 def root():
@@ -74,11 +67,9 @@ def root():
         "docs": "/docs",
     }
 
-
 @app.get("/health")
 def health():
     return {"status": "ok"}
-
 
 if __name__ == "__main__":
     import uvicorn

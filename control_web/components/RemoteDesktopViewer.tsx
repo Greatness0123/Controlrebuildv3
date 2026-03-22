@@ -60,9 +60,8 @@ export default function RemoteDesktopViewer({ deviceId, className }: RemoteDeskt
   statusRef.current = status;
   lastUpdateRef.current = lastUpdate;
 
-  // Throttle helper
   const lastMoveTimeRef = useRef<number>(0);
-  const THROTTLE_MS = 25;
+  const THROTTLE_MS = 10;
 
   useEffect(() => {
     if (!deviceId) return;
@@ -70,7 +69,6 @@ export default function RemoteDesktopViewer({ deviceId, className }: RemoteDeskt
     const supabase = getSupabaseClient();
     const channelName = `remote_control:${deviceId}`;
 
-    // Prevent re-connecting if already connected to this device
     if (channelRef.current) {
       channelRef.current.unsubscribe();
       channelRef.current = null;
@@ -98,7 +96,7 @@ export default function RemoteDesktopViewer({ deviceId, className }: RemoteDeskt
         console.log(`[Remote] Desktop present: ${isDesktopPresent}`);
         if (isDesktopPresent) {
            setStatus(prev => prev === 'connecting' ? 'online' : prev);
-           // Auto-request stream when desktop comes online
+
            if (statusRef.current === 'connecting' || statusRef.current === 'online') {
              setTimeout(() => {
                channel.send({
@@ -153,7 +151,6 @@ export default function RemoteDesktopViewer({ deviceId, className }: RemoteDeskt
         }
       });
 
-    // Monitor connectivity with a stable interval (no state deps)
     const interval = setInterval(() => {
       const curStatus = statusRef.current;
       const curLastUpdate = lastUpdateRef.current;
@@ -205,19 +202,16 @@ export default function RemoteDesktopViewer({ deviceId, className }: RemoteDeskt
     if (!img) return;
 
     const rect = img.getBoundingClientRect();
-    
-    // Check if click is within image boundaries
+
     if (e.clientX < rect.left || e.clientX > rect.right || e.clientY < rect.top || e.clientY > rect.bottom) {
         return;
     }
 
-    // Calculate relative position within the image
     const x = Math.round(((e.clientX - rect.left) / rect.width) * 1000);
     const y = Math.round(((e.clientY - rect.top) / rect.height) * 1000);
 
     handleAction(type, { x, y, button: e.button === 2 ? 'right' : 'left' });
   };
-
 
   if (status === 'connecting' && !screen) {
     return (
@@ -230,7 +224,7 @@ export default function RemoteDesktopViewer({ deviceId, className }: RemoteDeskt
 
   return (
     <div className={cn("relative bg-background flex flex-col overflow-hidden group", className)}>
-      {/* Compact Overlay Controls (Transparent) */}
+
       <div className="absolute top-2 right-2 flex items-center gap-1.5 z-40 opacity-40 hover:opacity-100 transition-opacity">
           {status === 'online' && !screen && (
               <button 
@@ -241,24 +235,24 @@ export default function RemoteDesktopViewer({ deviceId, className }: RemoteDeskt
               </button>
           )}
           
-          <div className="flex items-center gap-1 bg-black/80 backdrop-blur rounded-lg px-2 py-1 border border-white/10">
+          <div className="flex items-center gap-1 bg-black/80 backdrop-blur rounded-lg px-2 py-1 border border-white/10 overlay-element">
               <div className={cn(
                   "w-1.5 h-1.5 rounded-full animate-pulse",
                   status === 'streaming' ? "bg-emerald-500" : status === 'online' ? "bg-accent-primary" : "bg-zinc-600"
               )} />
-              <span className="text-[8px] font-black text-white/50 uppercase tracking-tighter">{status}</span>
+              <span className="text-[8px] font-black text-white uppercase tracking-tighter">{status}</span>
           </div>
 
           <div className="relative group/wf">
               <button 
                 onClick={() => setShowWorkflows(!showWorkflows)}
-                className="w-7 h-7 bg-black/80 backdrop-blur border border-white/10 rounded-lg flex items-center justify-center text-white/50 hover:text-white transition-colors"
+                className="w-7 h-7 bg-black/80 backdrop-blur border border-white/10 rounded-lg flex items-center justify-center text-white/50 hover:text-white transition-colors overlay-element"
                 title="Workflows"
               >
                 <Zap size={12} />
               </button>
               {showWorkflows && workflows.length > 0 && (
-                <div className="absolute right-0 mt-1 w-40 bg-zinc-950 border border-border rounded-xl shadow-2xl p-1 overflow-hidden z-[100]">
+                <div className="absolute right-0 mt-1 w-40 bg-zinc-950 border border-border rounded-xl shadow-2xl p-1 overflow-hidden z-[100] overlay-element">
                   {workflows.map(wf => (
                     <button
                       key={wf.id}
@@ -277,22 +271,21 @@ export default function RemoteDesktopViewer({ deviceId, className }: RemoteDeskt
 
           <button 
             onClick={() => window.open(`/remote/${deviceId}`, '_blank')}
-            className="w-7 h-7 bg-black/80 backdrop-blur border border-white/10 rounded-lg flex items-center justify-center text-white/50 hover:text-white transition-colors shadow-2xl"
+            className="w-7 h-7 bg-black/80 backdrop-blur border border-white/10 rounded-lg flex items-center justify-center text-white/50 hover:text-white transition-colors shadow-2xl overlay-element"
             title="Pop-out Viewer"
           >
               <Maximize2 size={12} />
           </button>
       </div>
 
-      {/* Stream Container */}
       <div 
         ref={containerRef}
         tabIndex={0}
         className="flex-1 relative cursor-crosshair overflow-hidden flex items-center justify-center bg-zinc-900/50 outline-none"
         onKeyDown={(e) => {
-          // Prevent browser shortcuts
+
           if (e.ctrlKey || e.metaKey || e.key === 'Tab') {
-              // Allow some through if needed, but mostly capture
+
           }
           handleAction('key_press', { key: e.key });
         }}
@@ -301,8 +294,7 @@ export default function RemoteDesktopViewer({ deviceId, className }: RemoteDeskt
           handleMouseEvent(e, 'click');
         }}
         onMouseMove={(e) => {
-            // Transmit move events even without buttons pressed for "realtime" feel
-            // but we'll use handleMouseEvent which already handles throttling/logic
+
             handleMouseEvent(e, 'mouse_move');
         }}
         onContextMenu={(e) => {
@@ -328,7 +320,6 @@ export default function RemoteDesktopViewer({ deviceId, className }: RemoteDeskt
             </div>
         )}
 
-        {/* Action Overlay Tips */}
         <div className="absolute bottom-4 left-1/2 -translate-x-1/2 px-3 py-1.5 bg-zinc-900/80 backdrop-blur border border-white/10 rounded-full text-[9px] text-zinc-400 font-medium opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
             Click to interact • Drag to move
         </div>

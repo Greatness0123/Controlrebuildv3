@@ -1,4 +1,3 @@
-"""VM management API routes."""
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from supabase import create_client
@@ -7,17 +6,14 @@ from app.services.vm_service import vm_service
 
 router = APIRouter(prefix="/api/vm", tags=["Virtual Machines"])
 
-
 class CreateVMRequest(BaseModel):
     name: str = "My Computer"
-
 
 @router.get("/list")
 async def list_vms(user: dict = Depends(get_current_user)):
     db = get_service_client()
     vms = await vm_service.list_vms(db, user["id"])
     return {"vms": vms}
-
 
 @router.post("/create")
 async def create_vm(req: CreateVMRequest, user: dict = Depends(get_current_user)):
@@ -30,7 +26,6 @@ async def create_vm(req: CreateVMRequest, user: dict = Depends(get_current_user)
     except RuntimeError as e:
         raise HTTPException(status_code=503, detail=str(e))
 
-
 @router.post("/{vm_id}/start")
 async def start_vm(vm_id: str, user: dict = Depends(get_current_user)):
     db = get_service_client()
@@ -39,7 +34,6 @@ async def start_vm(vm_id: str, user: dict = Depends(get_current_user)):
         return {"vm": vm}
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
-
 
 @router.post("/{vm_id}/stop")
 async def stop_vm(vm_id: str, user: dict = Depends(get_current_user)):
@@ -50,7 +44,6 @@ async def stop_vm(vm_id: str, user: dict = Depends(get_current_user)):
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
 
-
 @router.delete("/{vm_id}")
 async def destroy_vm(vm_id: str, user: dict = Depends(get_current_user)):
     db = get_service_client()
@@ -59,7 +52,6 @@ async def destroy_vm(vm_id: str, user: dict = Depends(get_current_user)):
         return {"success": True}
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
-
 
 @router.get("/{vm_id}/stats")
 async def get_vm_stats(vm_id: str, user: dict = Depends(get_current_user)):

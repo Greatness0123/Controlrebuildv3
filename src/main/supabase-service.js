@@ -3,7 +3,6 @@ const path = require('path');
 const fs = require('fs');
 const WebSocket = require('ws');
 
-
 if (!globalThis.WebSocket) {
     globalThis.WebSocket = WebSocket;
     console.log('[Supabase] Polyfilled globalThis.WebSocket with ws package');
@@ -48,7 +47,6 @@ const initSupabase = () => {
     return false;
 };
 
-// Initial attempt
 initSupabase();
 
 module.exports = {
@@ -109,7 +107,6 @@ module.exports = {
 
             if (error) throw error;
 
-            // Fetch the 12-digit ID from users table using the auth_id
             const { data: userData, error: userError } = await supabase
                 .from('users')
                 .select('*')
@@ -259,7 +256,6 @@ module.exports = {
                     throw error;
                 }
 
-                // Also store code on the user record so the web can look it up
                 await supabase
                     .from('users')
                     .update({ remote_pairing_code: code })
@@ -273,7 +269,7 @@ module.exports = {
             } catch (error) {
                 lastError = error;
                 console.warn(`[Supabase] Pairing code generation attempt ${i + 1} failed:`, error.message);
-                // Exponential backoff
+
                 await new Promise(resolve => setTimeout(resolve, 1000 * Math.pow(2, i)));
             }
         }
@@ -285,7 +281,6 @@ module.exports = {
         try {
             if (!supabase) return { success: false, status: 'off' };
 
-            // First check if it's already revoked
             const { data: existing, error: selectErr } = await supabase
                 .from('paired_devices')
                 .select('status')

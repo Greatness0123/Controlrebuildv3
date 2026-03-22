@@ -7,7 +7,7 @@ class HotkeyManager {
     }
 
     setupHotkeys(customHotkeys = null) {
-        // Use provided hotkeys or defaults
+
         const hotkeys = customHotkeys || {
             toggleChat: 'CommandOrControl+Space',
             stopAction: 'Alt+Z'
@@ -15,7 +15,6 @@ class HotkeyManager {
 
         console.log('Setting up hotkeys:', hotkeys);
 
-        // Toggle chat window
         if (hotkeys.toggleChat) {
             this.registerShortcut(hotkeys.toggleChat, 'toggle-chat', () => {
                 console.log('Toggle chat hotkey triggered');
@@ -23,7 +22,6 @@ class HotkeyManager {
             });
         }
 
-        // Stop AI action execution
         if (hotkeys.stopAction) {
             this.registerShortcut(hotkeys.stopAction, 'stop-action', () => {
                 console.log('Stop AI action hotkey triggered');
@@ -82,7 +80,7 @@ class HotkeyManager {
 
     enable() {
         this.isEnabled = true;
-        // Re-register all shortcuts
+
         this.setupHotkeys();
     }
 
@@ -92,12 +90,11 @@ class HotkeyManager {
     }
 
     emitToMain(event, data = {}) {
-        // Send to main process
+
         if (global.mainWindow && !global.mainWindow.isDestroyed()) {
             global.mainWindow.webContents.send('hotkey-triggered', { event, data });
         }
 
-        // Also emit to the main process if available
         if (process.emit) {
             process.emit('hotkey-triggered', { event, data });
         }

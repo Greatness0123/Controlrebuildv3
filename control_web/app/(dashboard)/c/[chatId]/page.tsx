@@ -74,7 +74,6 @@ export default function ChatSessionPage() {
     loadSession();
   }, [chatId]);
 
-  // Poll VM status every 15s
   useEffect(() => {
     const interval = setInterval(async () => {
       try {
@@ -102,7 +101,6 @@ export default function ChatSessionPage() {
     } catch { }
   };
 
-  // Determine viewer target - use the current session's vm or device
   const activeVmId = currentSession?.vm_id;
   const activeDeviceId = currentSession?.device_id;
   const activeVm = vms.find(v => v.id === activeVmId);
@@ -121,13 +119,13 @@ export default function ChatSessionPage() {
     <>
       {modal}
       <div className="flex-1 flex flex-col min-h-0 bg-background text-foreground">
-        {/* Session Header */}
+
         <header className="h-14 flex items-center justify-between px-4 border-b border-border bg-secondary shrink-0 relative z-30">
           <div className="flex items-center gap-4 min-w-0">
             <div className="flex items-center gap-2">
                <div className={cn(
                   "p-2 rounded-lg border transition-all",
-                  (!activeVmId && !activeDeviceId) ? "bg-red-500/10 text-red-500 border-red-500/20" : "bg-card border-border text-zinc-400"
+                  (!activeVmId && !activeDeviceId) ? "bg-red-500/10 text-red-500 border-red-500/20" : "bg-card border-border text-text-muted"
                 )}>
                   {activeDeviceId ? <Laptop size={14} /> : <Cpu size={14} />}
                </div>
@@ -140,17 +138,16 @@ export default function ChatSessionPage() {
 
             <div className="h-4 w-px bg-border mx-1 hidden md:block" />
 
-            {/* AI Controls in Header */}
             <div className="hidden lg:flex items-center gap-2">
               {aiState !== 'idle' && (
-                <div className="flex items-center gap-1 bg-white/5 border border-white/5 rounded-lg px-2 py-0.5">
+                <div className="flex items-center gap-1 bg-card border border-border rounded-lg px-2 py-0.5">
                   <button 
                     onClick={async () => {
                       const nextState = aiState === 'paused' ? 'running' : 'paused';
                       setAiState(nextState);
                       try { await chatApi.update(chatId, { ai_status: nextState } as any); } catch {}
                     }}
-                    className="hover:text-white text-zinc-500 transition-colors"
+                    className="hover:text-foreground text-text-muted transition-colors"
                   >
                     {aiState === 'paused' ? <PlayCircle size={12} /> : <PauseCircle size={12} />}
                   </button>
@@ -166,7 +163,7 @@ export default function ChatSessionPage() {
           </div>
 
           <div className="flex items-center gap-3">
-            {/* Target Selector */}
+
             <div className="relative group/selector">
               <button className="flex items-center gap-2 px-3 sm:px-4 py-2 bg-secondary border border-border rounded-xl text-[10px] font-black uppercase tracking-[0.2em] text-text-muted hover:text-foreground hover:bg-card-hover transition-all shadow-xl">
                 <span className="hidden sm:inline">{activeVm?.name || activeDevice?.name || 'Assign Target'}</span>
@@ -174,7 +171,7 @@ export default function ChatSessionPage() {
                 <ChevronDown size={12} className="opacity-50 transition-transform group-hover/selector:rotate-180" />
               </button>
               
-              <div className="absolute right-0 mt-2 w-72 bg-zinc-950 border border-border rounded-2xl shadow-2xl p-2 opacity-0 invisible group-hover/selector:opacity-100 group-hover/selector:visible transition-all z-50">
+              <div className="absolute right-0 mt-2 w-72 bg-secondary border border-border rounded-2xl shadow-2xl p-2 opacity-0 invisible group-hover/selector:opacity-100 group-hover/selector:visible transition-all z-50">
                 <div className="p-3">
                   <h4 className="text-[10px] font-black text-text-muted uppercase tracking-[0.2em] mb-3">Available Resources</h4>
                   <div className="space-y-1">
@@ -185,7 +182,7 @@ export default function ChatSessionPage() {
                         key={vm.id}
                         onClick={async () => {
                           await chatApi.update(chatId, { vm_id: vm.id, device_id: null });
-                          // Update local store immediately
+
                           const res = await chatApi.list();
                           setSessions(res.sessions);
                           setShowViewer(true);
@@ -210,7 +207,7 @@ export default function ChatSessionPage() {
                         key={device.id}
                         onClick={async () => {
                           await chatApi.update(chatId, { device_id: device.id, vm_id: null });
-                          // Update local store immediately
+
                           const res = await chatApi.list();
                           setSessions(res.sessions);
                           setShowViewer(true);
@@ -231,19 +228,18 @@ export default function ChatSessionPage() {
                   </div>
                 </div>
                 {(vms.filter(v => v.status === 'running').length === 0 && devices.filter(d => d.status === 'paired').length === 0) && (
-                  <div className="px-3 py-6 text-[9px] text-zinc-800 font-bold uppercase tracking-[0.2em] text-center border border-dashed border-white/5 rounded-xl m-1">No Active Nodes</div>
+                  <div className="px-3 py-6 text-[9px] text-text-muted font-bold uppercase tracking-[0.2em] text-center border border-dashed border-border rounded-xl m-1">No Active Nodes</div>
                 )}
-                <div className="mt-2 pt-2 border-t border-white/5">
-                  <Link href="/machines" className="block w-full py-2 bg-white/5 hover:bg-white/10 rounded-xl text-center text-[9px] font-black text-zinc-500 hover:text-white transition-all uppercase tracking-widest">
+                <div className="mt-2 pt-2 border-t border-border">
+                  <Link href="/machines" className="block w-full py-2 bg-card-hover hover:bg-card rounded-xl text-center text-[9px] font-black text-text-muted hover:text-foreground transition-all uppercase tracking-widest">
                     Manage Resources
                   </Link>
                 </div>
               </div>
             </div>
 
-            <div className="h-6 w-px bg-white/5 mx-1" />
+            <div className="h-6 w-px bg-border mx-1" />
 
-            {/* Desktop monitor toggle */}
             {hasTarget && (
               <button 
               onClick={() => setShowViewer(!showViewer)}
@@ -260,7 +256,7 @@ export default function ChatSessionPage() {
 
             <button
               onClick={handleDelete}
-              className="w-10 h-10 flex items-center justify-center hover:bg-red-500/10 hover:text-red-400 rounded-xl text-zinc-700 transition-all border border-transparent hover:border-red-500/20"
+              className="w-10 h-10 flex items-center justify-center hover:bg-red-500/10 hover:text-red-400 rounded-xl text-text-muted transition-all border border-transparent hover:border-red-500/20"
               title="Delete Session"
             >
               <Trash2 size={16} />
@@ -268,12 +264,11 @@ export default function ChatSessionPage() {
           </div>
         </header>
 
-        {/* Split View */}
         <div className="flex-1 flex flex-col md:flex-row min-h-0">
-          {/* Chat Panel — fills full width when monitor is hidden */}
+
           <div
             className={cn(
-              "flex flex-col min-h-0 border-white/5 transition-all duration-300",
+              "flex flex-col min-h-0 border-border transition-all duration-300",
               showViewer ? "hidden md:flex md:border-r" : "flex flex-1"
             )}
             style={showViewer ? { width: `${splitRatio}%`, minWidth: '280px' } : {}}
@@ -281,12 +276,11 @@ export default function ChatSessionPage() {
             <ChatPanel sessionId={chatId} />
           </div>
 
-          {/* Viewer Panel */}
           {showViewer && (
             <>
-              {/* Resizer */}
+
               <div
-                className="hidden md:flex w-1 bg-white/5 hover:bg-blue-500/50 cursor-col-resize transition-colors items-center justify-center shrink-0"
+                className="hidden md:flex w-1 bg-border hover:bg-blue-500/50 cursor-col-resize transition-colors items-center justify-center shrink-0"
                 onMouseDown={(e) => {
                   const startX = e.clientX;
                   const startRatio = splitRatio;
@@ -302,10 +296,10 @@ export default function ChatSessionPage() {
                   window.addEventListener('mouseup', onMouseUp);
                 }}
               >
-                <div className="w-1 h-8 bg-zinc-800 rounded-full" />
+                <div className="w-1 h-8 bg-border rounded-full" />
               </div>
 
-              <div className="flex-1 flex flex-col bg-zinc-900 overflow-hidden relative animate-in slide-in-from-right-10 duration-300">
+              <div className="flex-1 flex flex-col bg-secondary overflow-hidden relative animate-in slide-in-from-right-10 duration-300">
                 {activeDeviceId ? (
                   <RemoteDesktopViewer
                     key={`device-${activeDeviceId}`}
@@ -320,10 +314,10 @@ export default function ChatSessionPage() {
                     className="flex-1"
                   />
                 ) : (
-                  <div className="flex-1 flex flex-col items-center justify-center text-center p-8 text-zinc-700 gap-4">
+                  <div className="flex-1 flex flex-col items-center justify-center text-center p-8 text-text-muted gap-4">
                     <Monitor size={40} className="opacity-20" />
                     <p className="text-[10px] uppercase tracking-widest font-bold">No Resource Selected</p>
-                    <p className="text-[9px] text-zinc-700">Select a VM or paired device in the chat header</p>
+                    <p className="text-[9px] text-text-muted">Select a VM or paired device in the chat header</p>
                   </div>
                 )}
               </div>

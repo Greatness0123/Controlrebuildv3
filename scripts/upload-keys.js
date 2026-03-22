@@ -1,10 +1,3 @@
-/**
- * Utility script to upload API keys to Firebase config/api_keys
- * Supports uploading multiple Gemini and OpenRouter API keys for rotation.
- *
- * Interactive version - prompts for input.
- */
-
 const admin = require('firebase-admin');
 const path = require('path');
 const fs = require('fs');
@@ -41,13 +34,10 @@ async function uploadKeys() {
         const db = admin.firestore();
         console.log('✓ Firebase initialized');
 
-        // 1. Porcupine Key
         const porcupineKey = await ask('Enter Porcupine Access Key (current system key): ');
 
-        // 2. Gemini Model
         const geminiModel = await ask('Enter Gemini Model Name (default: gemini-2.0-flash): ') || 'gemini-2.0-flash';
 
-        // 3. Gemini Keys
         const geminiKeysInput = await ask('Enter Gemini API Keys (provide multiple keys separated by commas for automatic rotation): ');
         const geminiKeys = geminiKeysInput.split(',').map(k => k.trim()).filter(k => k);
 
@@ -55,7 +45,6 @@ async function uploadKeys() {
             console.warn('! No Gemini keys provided. Skipping Gemini update.');
         }
 
-        // 4. OpenRouter Keys
         const orKeysInput = await ask('Enter OpenRouter API Keys (provide multiple keys separated by commas for automatic rotation): ');
         const orKeys = orKeysInput.split(',').map(k => k.trim()).filter(k => k);
 

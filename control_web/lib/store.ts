@@ -1,6 +1,5 @@
 import { create } from 'zustand';
 
-// ─── Auth Store ───
 interface AuthState {
   user: any | null;
   loading: boolean;
@@ -19,7 +18,6 @@ export const useAuthStore = create<AuthState>((set) => ({
   setTheme: (theme) => set({ theme }),
 }));
 
-// ─── Chat Store ───
 interface ChatSession {
   id: string;
   title: string;
@@ -72,7 +70,6 @@ export const useChatStore = create<ChatState>((set) => ({
   setMousePos: (mousePos) => set({ mousePos }),
 }));
 
-// ─── VM Store ───
 interface VM {
   id: string;
   name: string;
@@ -101,7 +98,7 @@ export const useVMStore = create<VMState>((set) => ({
       vms: state.vms.map((vm) => (vm.id === id ? { ...vm, ...data } : vm)),
     })),
 }));
-// ─── Device Store ───
+
 interface Device {
   id: string;
   name: string;

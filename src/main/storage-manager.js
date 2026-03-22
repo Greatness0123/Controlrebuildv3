@@ -118,7 +118,7 @@ class StorageManager {
 
     addBehavior(behavior) {
         const data = this.readBehaviors();
-        // Check for duplicates (by name, case insensitive)
+
         const name = behavior.name.toLowerCase().trim();
         const existingIdx = data.behaviors.findIndex(b => b.name.toLowerCase().trim() === name);
 

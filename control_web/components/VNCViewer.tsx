@@ -67,7 +67,7 @@ export default function VNCViewer({ url, status = 'stopped', className }: VNCVie
 
   return (
     <div className={cn("relative group bg-background flex flex-col overflow-hidden", className)}>
-      {/* Compact Overlay Controls */}
+
       <div className="absolute top-2 right-2 flex items-center gap-1.5 z-40 opacity-40 hover:opacity-100 transition-opacity">
           <div className="flex items-center gap-1 bg-black/80 backdrop-blur rounded-lg px-2 py-1 border border-white/10">
               <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
@@ -91,7 +91,6 @@ export default function VNCViewer({ url, status = 'stopped', className }: VNCVie
           </button>
       </div>
 
-      {/* Viewer */}
       <div className="flex-1 relative overflow-hidden bg-zinc-900">
         {url ? (
           <iframe
@@ -127,7 +126,6 @@ export default function VNCViewer({ url, status = 'stopped', className }: VNCVie
         )}
       </div>
 
-      {/* Tip */}
       <div className="absolute bottom-4 left-1/2 -translate-x-1/2 px-3 py-1.5 bg-zinc-900/80 backdrop-blur border border-white/10 rounded-full text-[9px] text-zinc-400 font-medium opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
         Use mouse and keyboard to interact directly
       </div>

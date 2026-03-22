@@ -18,12 +18,11 @@ const connectionsSvg = document.getElementById('connections');
 const workflowList = document.getElementById('workflowList');
 const activeWorkflowName = document.getElementById('activeWorkflowName');
 
-// Initialize
 async function init() {
     setupEventListeners();
     await loadWorkflows();
     detectTheme();
-    // Ensure window can receive focus for inputs
+
     window.focus();
 }
 
@@ -131,7 +130,7 @@ function setupEventListeners() {
     document.getElementById('toggleSidebarBtn').onclick = () => {
         const sidebar = document.querySelector('.sidebar');
         sidebar.classList.toggle('collapsed');
-        // Redraw connections after transition
+
         setTimeout(updateConnections, 350);
     };
 
@@ -165,7 +164,6 @@ function setupEventListeners() {
         renderAppList(e.target.value);
     };
 
-    // Drag and drop for nodes
     document.addEventListener('mousedown', onMouseDown);
     document.addEventListener('mousemove', onMouseMove);
     document.addEventListener('mouseup', onMouseUp);
@@ -209,7 +207,6 @@ async function saveCurrentWorkflow() {
     currentWorkflow.edges = edges;
     currentWorkflow.steps = generateStepsFromNodes();
 
-    // Verify trigger still exists if it's a start node
     const hasStartNode = nodes.find(n => n.type.startsWith('start'));
     if (!hasStartNode) {
         currentWorkflow.trigger = { type: 'none' };
@@ -234,7 +231,6 @@ function generateStepsFromNodes() {
     let visited = new Set();
     let queue = nodes.filter(n => n.type.startsWith('start')).map(n => n.id);
 
-    // If no start nodes, start with all nodes that have no incoming edges
     if (queue.length === 0) {
         queue = nodes.filter(n => !edges.find(e => e.target === n.id)).map(n => n.id);
     }
@@ -310,7 +306,7 @@ function addNode(type) {
 }
 
 function renderCanvas() {
-    // Clear nodes except SVG
+
     const nodesInDom = canvas.querySelectorAll('.node');
     nodesInDom.forEach(n => n.remove());
 
@@ -428,7 +424,7 @@ function createNodeElement(n) {
 }
 
 function onMouseDown(e) {
-    // If clicking an input or textarea, don't start dragging
+
     if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.isContentEditable) {
         return;
     }
@@ -448,7 +444,6 @@ function onMouseDown(e) {
         const rect = nodeEl.getBoundingClientRect();
         const cRect = canvas.getBoundingClientRect();
 
-        // Offset of mouse from node's top-left in canvas-pixels
         dragOffset.x = (e.clientX - rect.left) / scale;
         dragOffset.y = (e.clientY - rect.top) / scale;
 
@@ -467,7 +462,6 @@ function onMouseMove(e) {
         if (isDragging && draggedElement) {
             const canvasRect = canvas.getBoundingClientRect();
 
-            // Position of mouse relative to canvas origin in canvas-pixels
             let x = (e.clientX - canvasRect.left) / scale - dragOffset.x;
             let y = (e.clientY - canvasRect.top) / scale - dragOffset.y;
 
@@ -504,7 +498,6 @@ function onMouseUp(e) {
                 const sourceId = activePort.type === 'out' ? activePort.nodeId : targetNode.id;
                 const targetId = activePort.type === 'in' ? activePort.nodeId : targetNode.id;
 
-                // Add edge
                 if (!edges.find(edge => edge.source === sourceId && edge.target === targetId)) {
                     edges.push({ id: `e_${sourceId}_${targetId}`, source: sourceId, target: targetId });
                     updateConnections();
@@ -528,23 +521,18 @@ function onWheel(e) {
         const container = document.getElementById('canvasContainer');
         const rect = container.getBoundingClientRect();
 
-        // Mouse position relative to container
         const mouseX = e.clientX - rect.left;
         const mouseY = e.clientY - rect.top;
 
-        // Current scroll positions
         const scrollX = container.scrollLeft;
         const scrollY = container.scrollTop;
 
-        // Mouse position in canvas pixels before zoom
         const canvasX = (scrollX + mouseX) / oldScale;
         const canvasY = (scrollY + mouseY) / oldScale;
 
-        // Update scale
         canvas.style.transform = `scale(${scale})`;
         canvas.style.transformOrigin = '0 0';
 
-        // New scroll positions to keep canvasX/Y under the mouse
         container.scrollLeft = canvasX * scale - mouseX;
         container.scrollTop = canvasY * scale - mouseY;
 
@@ -556,7 +544,6 @@ function updateConnections(mouseEvent = null) {
     connectionsSvg.innerHTML = '';
     const cRect = canvas.getBoundingClientRect();
 
-    // Draw temporary connection if dragging from a port
     if (activePort && mouseEvent) {
         const portRect = activePort.el.getBoundingClientRect();
         const x1 = (portRect.left - cRect.left + (5 * scale)) / scale;
@@ -566,7 +553,7 @@ function updateConnections(mouseEvent = null) {
 
         const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
         const dx = Math.abs(x1 - x2) * 0.5;
-        // Directional curve based on port type
+
         const cp1x = activePort.type === 'out' ? x1 + dx : x1 - dx;
         const cp2x = activePort.type === 'out' ? x2 - dx : x2 + dx;
         path.setAttribute('d', `M ${x1} ${y1} C ${cp1x} ${y1}, ${cp2x} ${y2}, ${x2} ${y2}`);
@@ -585,8 +572,6 @@ function updateConnections(mouseEvent = null) {
                 const sRect = sourcePort.getBoundingClientRect();
                 const tRect = targetPort.getBoundingClientRect();
 
-                // Convert screen positions of port centers back to canvas-space
-                // port is 10x10, so center is +5px. In screen-space, that's +5*scale.
                 const x1 = (sRect.left - cRect.left + (5 * scale)) / scale;
                 const y1 = (sRect.top - cRect.top + (5 * scale)) / scale;
                 const x2 = (tRect.left - cRect.left + (5 * scale)) / scale;
@@ -639,12 +624,10 @@ function detectTheme() {
         document.body.classList.toggle('dark-mode', isDark);
     };
 
-    // Check initial preference
     ipcRenderer.invoke('get-settings').then(settings => {
         updateTheme(settings.theme === 'dark');
     });
 
-    // Listen for changes
     ipcRenderer.on('settings-updated', (settings) => {
         updateTheme(settings.theme === 'dark');
     });

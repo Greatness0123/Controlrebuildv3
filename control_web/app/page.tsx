@@ -16,7 +16,7 @@ function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-const ROTATING_WORDS = ['Infrastructure', 'Virtual Nodes', 'Remote Bridges', 'Hyper-loops'];
+const ROTATING_WORDS = ['Infrastructure', 'Virtual Instances', 'Remote Bridges', 'Hyper-loops'];
 
 export default function LandingPage() {
   const { user } = useAuthStore();
@@ -39,7 +39,7 @@ export default function LandingPage() {
 
   return (
     <div ref={containerRef} className="min-h-screen bg-[#020202] text-white selection:bg-white selection:text-black overflow-x-hidden font-sans">
-      {/* Dynamic Background Noise/Glows */}
+
       <div className="fixed inset-0 pointer-events-none overflow-hidden z-0">
         <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] rounded-full bg-blue-600/10 blur-[120px] animate-pulse" />
         <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] rounded-full bg-purple-600/10 blur-[120px] animate-pulse" style={{ animationDelay: '2s' }} />
@@ -50,7 +50,6 @@ export default function LandingPage() {
         <div className="absolute inset-0 bg-gradient-to-b from-transparent via-black/50 to-black" />
       </div>
 
-      {/* Navigation */}
       <motion.nav 
         initial={{ y: -20, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
@@ -98,13 +97,13 @@ export default function LandingPage() {
       </motion.nav>
 
       <main className="relative z-10 pt-32 md:pt-48">
-        {/* Hero Section */}
+
         <section className="max-w-7xl mx-auto px-6 pb-32">
           <motion.div 
             style={{ opacity, scale }}
             className="flex flex-col items-center text-center"
           >
-            {/* Alpha Badge */}
+
             <motion.div 
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
@@ -188,7 +187,6 @@ export default function LandingPage() {
           </motion.div>
         </section>
 
-        {/* Bento Grid Features */}
         <section id="logic" className="max-w-7xl mx-auto px-6 py-32 border-t border-white/5">
           <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
             <BentoCard 
@@ -216,13 +214,12 @@ export default function LandingPage() {
               className="md:col-span-8 md:h-[350px]"
               icon={<Terminal className="text-zinc-400" />}
               title="Unified Signal Protocol"
-              desc="A single interface to rule every node. Shared memory, global clipboard, and low-level system access across all deployments."
+              desc="A single interface to rule every instance. Shared memory, global clipboard, and low-level system access across all deployments."
               bg="bg-gradient-to-br from-zinc-500/5 to-transparent"
             />
           </div>
         </section>
 
-        {/* Technical Specification Section */}
         <section id="protocol" className="max-w-7xl mx-auto px-6 py-32 bg-zinc-950/30 rounded-[64px] border border-white/5 mb-32 relative overflow-hidden">
           <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-blue-600/5 blur-[120px] rounded-full -translate-y-1/2 translate-x-1/2" />
           
@@ -262,7 +259,6 @@ export default function LandingPage() {
         </section>
       </main>
 
-      {/* Footer */}
       <footer className="border-t border-white/5 py-32 bg-zinc-950/20">
         <div className="max-w-7xl mx-auto px-6">
           <div className="flex flex-col md:flex-row justify-between items-start gap-16 mb-32">

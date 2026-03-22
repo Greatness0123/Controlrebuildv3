@@ -19,7 +19,7 @@ class VMService:
             self.docker_client = None
 
     def _get_free_port(self, base: int = 6080) -> int:
-        """Find an available port starting from base."""
+
         used_ports = set()
         if self.docker_client:
             for container in self.docker_client.containers.list():
@@ -33,11 +33,10 @@ class VMService:
         return port
 
     async def create_vm(self, db: Client, user_id: str, name: str, user_plan: str = "free") -> dict:
-        """Create a new VM container for a user."""
+
         if not self.docker_client:
             raise RuntimeError("Docker is not available on this system")
 
-        # Check plan limits
         limits = PLAN_LIMITS.get(user_plan, PLAN_LIMITS["free"])
         existing = db.table("virtual_machines").select("id").eq("user_id", user_id).execute()
         if len(existing.data) >= limits["max_vms"]:
@@ -73,7 +72,6 @@ class VMService:
                 },
             )
 
-            # Save to database
             vm_data = {
                 "user_id": user_id,
                 "name": name,
@@ -86,12 +84,11 @@ class VMService:
                 "last_active_at": datetime.now(timezone.utc).isoformat(),
             }
             result = db.table("virtual_machines").insert(vm_data).execute()
-            
-            # Disable screensaver and power management in background
+
             async def _disable_power_mgmt(cont):
                 await asyncio.sleep(10) # wait for X server
                 try:
-                    # DISPLAY :1 is standard for this image
+
                     cont.exec_run("xset s off", user="controluser", environment={"DISPLAY": ":1"})
                     cont.exec_run("xset -dpms", user="controluser", environment={"DISPLAY": ":1"})
                     cont.exec_run("pkill xscreensaver", user="controluser")
@@ -112,7 +109,7 @@ class VMService:
             raise
 
     async def start_vm(self, db: Client, vm_id: str, user_id: str) -> dict:
-        """Start a stopped VM."""
+
         vm = db.table("virtual_machines").select("*").eq("id", vm_id).eq("user_id", user_id).execute()
         if not vm.data:
             raise ValueError("VM not found")
@@ -124,8 +121,7 @@ class VMService:
         try:
             container = self.docker_client.containers.get(vm_data["container_id"])
             container.start()
-            
-            # Wait briefly and verify container is actually running
+
             import time
             for _ in range(5):
                 time.sleep(0.5)
@@ -141,7 +137,7 @@ class VMService:
             raise ValueError("Container not found — it may have been removed")
 
     async def stop_vm(self, db: Client, vm_id: str, user_id: str) -> dict:
-        """Stop a running VM."""
+
         logger.info(f"Stopping VM {vm_id} requested by user {user_id}")
         vm = db.table("virtual_machines").select("*").eq("id", vm_id).eq("user_id", user_id).execute()
         if not vm.data:
@@ -161,7 +157,7 @@ class VMService:
             return {**vm_data, "status": "stopped"}
 
     async def destroy_vm(self, db: Client, vm_id: str, user_id: str) -> bool:
-        """Destroy a VM and its container."""
+
         vm = db.table("virtual_machines").select("*").eq("id", vm_id).eq("user_id", user_id).execute()
         if not vm.data:
             raise ValueError("VM not found")
@@ -178,7 +174,7 @@ class VMService:
         return True
 
     async def list_vms(self, db: Client, user_id: str) -> list:
-        """List all VMs for a user, refreshing status from Docker."""
+
         result = db.table("virtual_machines").select("*").eq("user_id", user_id).order("created_at").execute()
         vms = result.data
 
@@ -187,7 +183,7 @@ class VMService:
                 if vm.get("container_id"):
                     try:
                         container = self.docker_client.containers.get(vm["container_id"])
-                        # Handle various Docker states
+
                         if container.status == "running":
                             actual_status = "running"
                         elif container.status in ["restarting", "created", "starting"]:
@@ -206,28 +202,25 @@ class VMService:
         return vms
     
     async def get_vm_stats(self, vm_id: str, container_id: str) -> dict:
-        """Get live resource stats from a running container."""
+
         if not self.docker_client:
             return {"cpu": 0, "memory": 0, "memory_limit": 0}
         try:
             container = self.docker_client.containers.get(container_id)
             stats = container.stats(stream=False)
-            
-            # CPU calculation
+
             cpu_delta = stats["cpu_stats"]["cpu_usage"]["total_usage"] - stats["precpu_stats"]["cpu_usage"]["total_usage"]
             system_delta = stats["cpu_stats"]["system_cpu_usage"] - stats["precpu_stats"]["system_cpu_usage"]
             num_cpus = stats["cpu_stats"].get("online_cpus", 1)
             cpu_percent = (cpu_delta / system_delta) * num_cpus * 100 if system_delta > 0 else 0
 
-            # Memory
             mem_usage = stats["memory_stats"].get("usage", 0)
             mem_limit = stats["memory_stats"].get("limit", 0)
 
-            # Storage (Approximate via container filesystem)
             storage_used = 0
             storage_limit = 20 * 1024 # default 20GB in MB
             try:
-                # Run df -m / inside container
+
                 df_res = container.exec_run("df -m /")
                 if df_res.exit_code == 0:
                     lines = df_res.output.decode().split('\n')
@@ -250,7 +243,7 @@ class VMService:
             return {"cpu": 0, "memory": 0, "memory_limit": 0}
 
     async def update_activity(self, db: Client, vm_id: str):
-        """Update last active timestamp for a VM."""
+
         try:
             db.table("virtual_machines").update({
                 "last_active_at": datetime.now(timezone.utc).isoformat()
@@ -259,9 +252,9 @@ class VMService:
             logger.error(f"Failed to update VM activity: {e}")
 
     async def cleanup_inactive_vms(self, db: Client):
-        """Shutdown VMs that have been inactive for more than 30 minutes."""
+
         try:
-            # Get all running VMs
+
             result = db.table("virtual_machines").select("*").eq("status", "running").execute()
             vms = result.data
             
@@ -284,7 +277,7 @@ class VMService:
             logger.error(f"Error during VM cleanup: {e}")
 
     def get_vm_password_info(self):
-        """Research/utility: how to check password from console."""
+
         return {
             "method": "Check environment variables OR VNC config files",
             "console_command": "env | grep VNC_PASSWORD",
@@ -292,6 +285,4 @@ class VMService:
             "note": "Control VMs are now configured with VNC_PASSWORD='' for passwordless access."
         }
 
-
-# Singleton
 vm_service = VMService()

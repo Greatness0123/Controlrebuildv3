@@ -56,7 +56,7 @@ export default function UpgradeButton({ planName, amount, isPopular, disabled }:
         console.log("Payment response:", response);
         if (response.status === "successful") {
           toast.success("Payment successful! Your plan will be updated shortly.");
-          // Redirect to workspace with success param
+
           window.location.href = '/workspace?payment=success';
         } else {
           toast.error("Payment failed or was cancelled.");
@@ -74,8 +74,8 @@ export default function UpgradeButton({ planName, amount, isPopular, disabled }:
       onClick={handleClick}
       disabled={disabled}
       className={`w-full py-4 rounded-xl font-black text-[10px] uppercase tracking-[0.2em] transition-all flex items-center justify-center gap-2 ${isPopular
-          ? "bg-black text-white hover:bg-zinc-800"
-          : "bg-white text-black hover:bg-zinc-200"
+          ? "bg-accent-foreground text-accent-primary hover:opacity-90"
+          : "bg-accent-primary text-accent-foreground hover:opacity-90"
         } ${disabled ? "opacity-50 pointer-events-none" : ""}`}
     >
       {disabled ? "Current Plan" : (

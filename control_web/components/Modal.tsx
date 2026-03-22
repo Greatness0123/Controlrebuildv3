@@ -3,8 +3,6 @@
 import { useState, useEffect, useRef, ReactNode } from 'react';
 import { X, AlertCircle, CheckCircle2, Info, AlertTriangle } from 'lucide-react';
 
-// ─── Types ───────────────────────────────────────────────────────────────────
-
 export type ModalVariant = 'info' | 'success' | 'error' | 'warning' | 'confirm' | 'prompt';
 
 export interface ModalProps {
@@ -20,8 +18,6 @@ export interface ModalProps {
   placeholder?: string;
   dismissible?: boolean;
 }
-
-// ─── Icon & colour maps ───────────────────────────────────────────────────────
 
 const variantConfig: Record<ModalVariant, {
   icon: ReactNode;
@@ -60,8 +56,6 @@ const variantConfig: Record<ModalVariant, {
   },
 };
 
-// ─── Component ────────────────────────────────────────────────────────────────
-
 export default function Modal({
   open,
   onClose,
@@ -82,7 +76,6 @@ export default function Modal({
   const isConfirm = variant === 'confirm';
   const isPrompt = variant === 'prompt';
 
-  // Reset input value when modal opens
   useEffect(() => {
     if (open && isPrompt) {
       setInputValue(defaultValue);
@@ -92,7 +85,6 @@ export default function Modal({
     }
   }, [open, isPrompt, defaultValue]);
 
-  // Escape key closes
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (e.key === 'Escape' && open) onClose();
@@ -114,18 +106,17 @@ export default function Modal({
       role="dialog"
       aria-modal="true"
     >
-      {/* Backdrop */}
+
       <div
         className="absolute inset-0 bg-black/70 backdrop-blur-sm"
         onClick={dismissible ? onClose : undefined}
       />
 
-      {/* Panel */}
       <div
-        className="relative w-full max-w-sm bg-zinc-900 border border-white/10 rounded-2xl shadow-2xl shadow-black/60 animate-fade-in-up overflow-hidden"
+        className="relative w-full max-w-sm bg-card border border-border rounded-2xl shadow-2xl animate-fade-in-up overflow-hidden"
         style={{ animationDuration: '0.2s' }}
       >
-        {/* Top accent strip */}
+
         <div className={`h-0.5 w-full ${
           variant === 'error' ? 'bg-red-500' :
           variant === 'success' ? 'bg-green-500' :
@@ -135,29 +126,27 @@ export default function Modal({
         }`} />
 
         <div className="p-6">
-          {/* Header */}
+
           <div className="flex items-start justify-between mb-4">
             <div className="flex items-center gap-3">
               <div className={`w-10 h-10 rounded-xl flex items-center justify-center border ${cfg.iconBg}`}>
                 {cfg.icon}
               </div>
-              <h2 className="text-base font-bold text-white">{title}</h2>
+              <h2 className="text-base font-bold text-foreground">{title}</h2>
             </div>
             <button
               onClick={onClose}
-              className="p-1.5 text-zinc-600 hover:text-white hover:bg-white/5 rounded-lg transition-all ml-2 shrink-0"
+              className="p-1.5 text-text-muted hover:text-foreground hover:bg-card-hover rounded-lg transition-all ml-2 shrink-0"
               aria-label="Close"
             >
               <X size={14} />
             </button>
           </div>
 
-          {/* Message */}
-          <p className="text-sm text-zinc-400 leading-relaxed mb-4 pl-[3.25rem]">
+          <p className="text-sm text-text-secondary leading-relaxed mb-4 pl-[3.25rem]">
             {message}
           </p>
 
-          {/* Input field for prompt variant */}
           {isPrompt && (
             <div className="pl-[3.25rem] mb-6">
               <input
@@ -169,17 +158,16 @@ export default function Modal({
                   if (e.key === 'Enter') handleConfirm();
                 }}
                 placeholder={placeholder}
-                className="w-full bg-white/[0.03] border border-white/10 rounded-xl px-4 py-2 text-sm text-white focus:outline-none focus:border-purple-500/50 transition-all"
+                className="w-full bg-secondary border border-border rounded-xl px-4 py-2 text-sm text-foreground focus:outline-none focus:border-purple-500/50 transition-all"
               />
             </div>
           )}
 
-          {/* Actions */}
           <div className="flex gap-2 justify-end">
             {(isConfirm || isPrompt) && (
               <button
                 onClick={onClose}
-                className="px-4 py-2 text-xs font-semibold rounded-xl bg-white/5 border border-white/10 text-zinc-300 hover:bg-white/10 transition-all"
+                className="px-4 py-2 text-xs font-semibold rounded-xl bg-card border border-border text-text-secondary hover:bg-card-hover transition-all"
               >
                 {cancelLabel || 'Cancel'}
               </button>
@@ -197,4 +185,3 @@ export default function Modal({
     </div>
   );
 }
-

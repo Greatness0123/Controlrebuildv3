@@ -11,8 +11,7 @@ from app.config import GEMINI_API_KEY
 
 logger = logging.getLogger(__name__)
 
-# ─── System Prompt ────────────────────────────────────────────────────────────
-SYSTEM_PROMPT = """You are Control AI, an autonomous agent that controls a virtual computer or paired remote desktop to complete tasks for the user.
+ACT_SYSTEM_PROMPT = """You are Control AI, an autonomous agent that controls a virtual computer or paired remote desktop to complete tasks for the user.
 
 You can see the computer's screen via screenshots and perform these actions:
 
@@ -58,10 +57,23 @@ SECURE VAULT:
 - SECRET_TYPE(secret_id, field) — Automatically type a secret's field (username or password) into the target machine.
 
 RESPONSE FORMAT (strict JSON):
-{"thought": "your step-by-step reasoning", "action": "ACTION_NAME", "params": {"key": "value"}}
-"""
+{"thought": "your step-by-step reasoning", "action": "ACTION_NAME", "params": {"key": "value"}}"""
 
-# ─── Provider Adapters ────────────────────────────────────────────────────────
+ASK_SYSTEM_PROMPT = """You are Control AI, a highly knowledgeable assistant. The user is asking you a question — they do NOT want you to control a computer or perform actions.
+
+Respond naturally and helpfully, like a knowledgeable expert. Use markdown formatting for code blocks, lists, and emphasis where appropriate.
+
+RULES:
+1. Answer the question directly and thoroughly.
+2. Use clear, well-structured responses with markdown.
+3. If the question is about code, include code examples.
+4. Do NOT output JSON action commands — just respond in plain text/markdown.
+5. Be concise but complete.
+6. If the user asks something you're unsure about, say so honestly.
+7. You may reference the user's computer setup context if relevant to answering their question.""" 
+
+# Alias for backward compat
+SYSTEM_PROMPT = ACT_SYSTEM_PROMPT
 
 async def _call_gemini(model: str, api_key: str, messages: list, image_b64: Optional[str] = None) -> str:
     """Call Google Gemini API."""
@@ -69,14 +81,12 @@ async def _call_gemini(model: str, api_key: str, messages: list, image_b64: Opti
     genai.configure(api_key=api_key)
     
     gemini_model = genai.GenerativeModel(model)
-    
-    # Build parts
+
     parts = []
     for msg in messages:
         if msg["role"] == "user":
             parts.append(msg["content"])
-    
-    # Add screenshot if provided
+
     if image_b64:
         parts.insert(0, {"mime_type": "image/png", "data": image_b64})
     
@@ -89,23 +99,22 @@ async def _call_gemini(model: str, api_key: str, messages: list, image_b64: Opti
         logger.error(f"Gemini error: {e}")
         return f"Gemini connection error: {str(e)}"
 
-
 async def _call_openai_compat(
     model: str, api_key: str, messages: list, image_b64: Optional[str] = None,
-    base_url: str = "https://api.openai.com/v1"
+    base_url: str = "https://api.openai.com/v1", **kwargs
 ) -> str:
-    """Call OpenAI-compatible API (OpenAI, OpenRouter, xAI, etc.)."""
+
     headers = {
         "Authorization": f"Bearer {api_key}",
         "Content-Type": "application/json",
     }
-    
-    # Build messages for OpenAI format
-    formatted_messages: List[Dict[str, Any]] = [{"role": "system", "content": SYSTEM_PROMPT}]
+
+    system_prompt = kwargs.get("system_prompt", SYSTEM_PROMPT)
+    formatted_messages: List[Dict[str, Any]] = [{"role": "system", "content": system_prompt}]
     
     for msg in messages:
         if msg["role"] == "user" and image_b64 and msg == messages[-1]:
-            # Add image to last user message
+
             content: List[Dict[str, Any]] = [
                 {"type": "image_url", "image_url": {"url": f"data:image/png;base64,{image_b64}"}},
                 {"type": "text", "text": msg["content"]}
@@ -136,11 +145,10 @@ async def _call_openai_compat(
             data = await resp.json()
             return data["choices"][0]["message"]["content"].strip()
 
-
 async def _call_anthropic(
     model: str, api_key: str, messages: list, image_b64: Optional[str] = None
 ) -> str:
-    """Call Anthropic Claude API."""
+
     headers = {
         "x-api-key": api_key,
         "anthropic-version": "2023-06-01",
@@ -180,9 +188,8 @@ async def _call_anthropic(
             data = await resp.json()
             return data["content"][0]["text"].strip()
 
-
 async def _call_ollama(model: str, messages: list, image_b64: Optional[str] = None) -> str:
-    """Call local Ollama instance."""
+
     formatted_messages = [{"role": "system", "content": SYSTEM_PROMPT}]
     for msg in messages:
         if msg["role"] == "user" and image_b64 and msg == messages[-1]:
@@ -207,11 +214,8 @@ async def _call_ollama(model: str, messages: list, image_b64: Optional[str] = No
             data = await resp.json()
             return data["message"]["content"].strip()
 
-
-# ─── Screenshot Tool ──────────────────────────────────────────────────────────
-
 async def _take_screenshot_vm(agent_port: Optional[int]) -> Optional[str]:
-    """Take screenshot from VM agent, returns base64."""
+
     if not agent_port: return None
     import websockets
     try:
@@ -225,14 +229,13 @@ async def _take_screenshot_vm(agent_port: Optional[int]) -> Optional[str]:
         logger.error(f"Screenshot error from VM: {e}")
         return None
 
-
 async def _execute_vm_action(agent_port: Optional[int], action: str, params: Dict[str, Any]) -> Optional[Dict]:
-    """Execute an action on VM via WebSocket agent."""
+
     if not agent_port: return {"error": "No agent port"}
     import websockets
     try:
         async with websockets.connect(f"ws://127.0.0.1:{agent_port}", open_timeout=5) as ws:
-            # Map action names to agent commands
+
             cmd_map = {
                 "click": "click", "double_click": "double_click", "right_click": "right_click",
                 "move": "move", "type": "type", "key": "key_press", "key_press": "key_press",
@@ -255,9 +258,8 @@ async def _execute_vm_action(agent_port: Optional[int], action: str, params: Dic
         logger.error(f"VM action error ({action}): {e}")
         return {"error": str(e)}
 
-
 async def _web_scrape(url: str) -> str:
-    """Fetch and return readable text content of a URL."""
+
     try:
         from bs4 import BeautifulSoup
         headers = {"User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36"}
@@ -272,35 +274,30 @@ async def _web_scrape(url: str) -> str:
     except Exception as e:
         return f"Error fetching {url}: {e}"
 
-
-# ─── Agent Executor ───────────────────────────────────────────────────────────
-
 class AgentExecutor:
     def __init__(self):
         pass
 
     async def _get_provider_config(self, db: Client, user_id: str) -> Dict:
-        """Fetch AI provider configuration for this user from DB."""
+
         try:
-            # Try user-specific config first
+
             res = db.table("app_config").select("value").eq("key", f"api_keys_{user_id}").execute()
             if res.data:
                 return res.data[0].get("value", {})
-            
-            # Fall back to global config
+
             res = db.table("app_config").select("value").eq("key", "api_keys").execute()
             if res.data:
                 return res.data[0].get("value", {})
         except Exception as e:
             logger.error(f"Error fetching provider config: {e}")
-        
-        # Defaults
+
         return {"provider": "gemini", "gemini_model": "gemini-2.5-flash"}
 
     async def _call_ai(
         self, config: Dict, messages: list, image_b64: Optional[str] = None
     ) -> str:
-        """Route to the correct AI provider based on config."""
+
         provider = config.get("provider", "gemini")
         
         if provider == "gemini":
@@ -349,32 +346,28 @@ class AgentExecutor:
             return await _call_ollama(model, messages, image_b64)
         
         else:
-            # Default to Gemini with server key
+
             key = GEMINI_API_KEY
             if not key:
                 raise ValueError("No AI provider configured. Go to Settings > AI to set up a provider.")
             return await _call_gemini("gemini-2.5-flash", key, messages, image_b64)
 
     async def execute_task(
-        self, db: Client, session_id: str, user_message: str, session_data: dict
+        self, db: Client, session_id: str, user_message: str, session_data: dict, mode: str = "act"
     ) -> AsyncGenerator[dict, None]:
-        """Execute a task and stream results back."""
-        
+
         vm_data = session_data.get("virtual_machines") or {}
         device_id = session_data.get("device_id")
         user_id = session_data.get("user_id", "")
-        
-        # Get provider config
+
         provider_config = await self._get_provider_config(db, user_id)
-        
-        # Save user message
+
         db.table("chat_messages").insert({
             "session_id": session_id,
             "role": "user",
             "content": user_message,
         }).execute()
 
-        # Auto-title session
         try:
             session = db.table("chat_sessions").select("title").eq("id", session_id).execute()
             if session.data and session.data[0].get("title") == "New Chat":
@@ -386,27 +379,24 @@ class AgentExecutor:
         try:
             target_name = vm_data.get("name") or (f"Remote Desktop ({device_id[:8]})" if device_id else "No Target")
             agent_port = vm_data.get("agent_port")
-            
-            # Conversation history for multi-turn context
+
             conversation: list = []
-            
-            # Detect data URLs in user message for multimodal support
+
             uploaded_image = None
             if "data:image/" in user_message and ";base64," in user_message:
                 try:
-                    # Extract from [Attached file: data:image/png;base64,...] or similar
+
                     parts = user_message.split("data:image/")
                     if len(parts) > 1:
                         img_part = parts[1].split("]")[0]
                         mime = "image/" + img_part.split(";")[0]
                         b64 = img_part.split(",")[1]
                         uploaded_image = b64
-                        # Clean up message for cleaner conversation
+
                         user_message = user_message.split("[Attached file:")[0].strip()
                 except:
                     pass
 
-            # Add initial context
             initial_msg = (
                 f"Target: {target_name}\n"
                 f"Mode: {'VM' if vm_data else 'Remote Desktop' if device_id else 'Chat Only'}\n"
@@ -417,14 +407,12 @@ class AgentExecutor:
             max_steps = 30
             step = 0
             last_screenshot: Optional[str] = uploaded_image # Start with uploaded image if present
-            
-            # Ensure agent_port is int or None
+
             final_agent_port: Optional[int] = int(agent_port) if agent_port else None
 
             while step < max_steps:
                 step += 1
 
-                # Check stop/pause signals
                 try:
                     session_res = db.table("chat_sessions").select("ai_status").eq("id", session_id).execute()
                     current_status = session_res.data[0].get("ai_status", "running") if session_res.data else "running"
@@ -443,8 +431,25 @@ class AgentExecutor:
 
                 yield {"type": "thinking", "content": f"Step {step} — thinking..."}
 
-                # Call AI with screenshot context
+                if mode == "ask":
+                    try:
+                        provider_config["system_prompt"] = ASK_SYSTEM_PROMPT
+                        response_text = await self._call_ai(
+                            provider_config, conversation, last_screenshot
+                        )
+                        yield {"type": "message", "content": response_text}
+                        yield {"type": "done"}
+                        
+                        db.table("chat_messages").insert({
+                            "session_id": session_id, "role": "assistant", "content": response_text
+                        }).execute()
+                        return
+                    except Exception as e:
+                        yield {"type": "error", "content": f"AI error: {str(e)}"}
+                        return
+
                 try:
+                    provider_config["system_prompt"] = ACT_SYSTEM_PROMPT
                     response_text = await self._call_ai(
                         provider_config, conversation, last_screenshot
                     )
@@ -458,9 +463,8 @@ class AgentExecutor:
                     yield {"type": "error", "content": f"AI error: {str(e)}"}
                     break
 
-                # Parse action
                 try:
-                    # Clean up JSON if wrapped in markdown
+
                     clean_text = response_text
                     if "```json" in clean_text:
                         clean_text = clean_text.split("```json")[1].split("```")[0].strip()
@@ -473,7 +477,7 @@ class AgentExecutor:
                     params = action_data.get("params", {})
 
                 except (json.JSONDecodeError, ValueError):
-                    # Plain text response — save and continue
+
                     db.table("chat_messages").insert({
                         "session_id": session_id, "role": "assistant", "content": response_text
                     }).execute()
@@ -481,12 +485,10 @@ class AgentExecutor:
                     conversation.append({"role": "assistant", "content": response_text})
                     break
 
-                # Yield thought
                 if thought:
                     yield {"type": "thought", "content": thought}
                 yield {"type": "action", "action": action, "params": params}
 
-                # Save to DB
                 db.table("chat_messages").insert({
                     "session_id": session_id,
                     "role": "assistant",
@@ -495,10 +497,8 @@ class AgentExecutor:
                     "action_data": params,
                 }).execute()
 
-                # Add AI response to conversation
                 conversation.append({"role": "assistant", "content": response_text})
 
-                # ── Handle actions ──────────────────────────────────────────
                 action_result = ""
                 last_screenshot = None  # Reset screenshot each step
 
@@ -537,7 +537,7 @@ class AgentExecutor:
                             secret = res.data[0]
                             val = secret.get("password") if field == "password" else secret.get("username")
                             if val:
-                                # Execute type action
+
                                 if agent_port:
                                     await _execute_vm_action(agent_port, "type", {"text": val})
                                 elif device_id:
@@ -554,7 +554,7 @@ class AgentExecutor:
                         action_result = f"Vault operation failed: {e}"
 
                 elif action == "SCREENSHOT":
-                    # Take screenshot from VM or signal desktop
+
                     if final_agent_port:
                         screenshot = await _take_screenshot_vm(final_agent_port)
                         if screenshot:
@@ -563,7 +563,7 @@ class AgentExecutor:
                         else:
                             action_result = "Screenshot failed — VM agent may not be running."
                     elif device_id:
-                        # Request screenshot from desktop via Supabase channel
+
                         try:
                             db.channel(f"remote_control:{device_id}").send({
                                 "type": "broadcast",
@@ -587,7 +587,7 @@ class AgentExecutor:
                 elif action == "TERMINAL":
                     command = params.get("command", "")
                     if device_id:
-                        # Check terminal permissions
+
                         try:
                             perm_res = db.table("app_config").select("value")\
                                 .eq("key", f"terminal_permission_{user_id}").execute()
@@ -598,11 +598,11 @@ class AgentExecutor:
                         if term_perm == "never":
                             action_result = "Terminal execution is disabled. Change in Settings > Security."
                         elif term_perm == "ask":
-                            # Signal frontend to ask for permission
+
                             yield {"type": "terminal_permission", "command": command}
                             break
                         else:
-                            # Always run — broadcast to desktop
+
                             try:
                                 db.channel(f"remote_control:{device_id}").send({
                                     "type": "broadcast",
@@ -613,21 +613,20 @@ class AgentExecutor:
                             except Exception as e:
                                 action_result = f"Error: {e}"
                     elif final_agent_port:
-                        # Run in VM
+
                         result = await _execute_vm_action(final_agent_port, "terminal", {"command": command})
                         action_result = result.get("data", {}).get("output", "") if isinstance(result, dict) else str(result)
                     else:
                         action_result = "No target connected for terminal commands."
 
                 else:
-                    # All other actions (CLICK, TYPE, MOVE, SCROLL, KEY, BROWSER_NAVIGATE, etc.)
+
                     action_lower = action.lower()
                     
                     if final_agent_port:
                         result = await _execute_vm_action(final_agent_port, action_lower, params)
                         action_result = json.dumps(result) if result else "Action executed."
-                        
-                        # Auto-screenshot after action for visual verification
+
                         await asyncio.sleep(0.8)
                         screenshot = await _take_screenshot_vm(final_agent_port)
                         if screenshot:
@@ -646,7 +645,6 @@ class AgentExecutor:
                     else:
                         action_result = "No target connected. Attach a VM or paired device first."
 
-                # Add action result to conversation for next iteration
                 if action_result:
                     conversation.append({"role": "user", "content": f"Action result: {action_result}"})
 
@@ -666,6 +664,4 @@ class AgentExecutor:
             yield {"type": "error", "content": error_msg}
             yield {"type": "done"}
 
-
-# Singleton
 agent_executor = AgentExecutor()

@@ -5,12 +5,12 @@ import Link from 'next/link';
 import { useChatStore, useVMStore, useDeviceStore, useAuthStore } from '@/lib/store';
 import { chatApi, vmApi } from '@/lib/api';
 import { toast } from 'sonner';
-import { 
-  Send, User, Bot, Terminal, MousePointer2, Camera, Loader2, 
-  Sparkles, AlertCircle, Cpu, Laptop, ChevronDown, Check, Paperclip, 
-  HandMetal, Square, PlayCircle, PauseCircle, MousePointer, 
+import {
+  Send, User, Bot, Terminal, MousePointer2, Camera, Loader2,
+  Sparkles, AlertCircle, Cpu, Laptop, ChevronDown, Check, Paperclip,
+  HandMetal, Square, PlayCircle, PauseCircle, MousePointer,
   X, FileText, Image as ImageIcon, ShieldAlert, Command, ChevronRight, ChevronLeft,
-  Mic, MicOff
+  Mic, MicOff, Cog, Search, Type, ArrowDown, Globe
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -27,7 +27,7 @@ interface ChatPanelProps {
 
 export default function ChatPanel({ sessionId }: ChatPanelProps) {
   const { user } = useAuthStore();
-  const { 
+  const {
     messages, setMessages, addMessage, isStreaming, setStreaming, sessions, setSessions,
     aiState, setAiState, mousePos, setMousePos
   } = useChatStore();
@@ -37,15 +37,14 @@ export default function ChatPanel({ sessionId }: ChatPanelProps) {
   const [error, setError] = useState('');
   const [hitlRequired, setHitlRequired] = useState(false);
   const [terminalRequest, setTerminalRequest] = useState<{ command: string } | null>(null);
-  
-  // File upload state
+  const [mode, setMode] = useState<'act' | 'ask'>('act');
+
   const [attachedFile, setAttachedFile] = useState<{ url: string; name: string; type: string } | null>(null);
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  
+
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  // STT State
   const [isListening, setIsListening] = useState(false);
   const recognitionRef = useRef<any>(null);
 
@@ -110,14 +109,12 @@ export default function ChatPanel({ sessionId }: ChatPanelProps) {
 
   const session = useMemo(() => sessions.find(s => s.id === sessionId), [sessions, sessionId]);
 
-
   const activeTarget = useMemo(() => {
     if (session?.vm_id) return { type: 'vm', id: session.vm_id, name: vms.find(v => v.id === session.vm_id)?.name || 'Unknown VM' };
     if (session?.device_id) return { type: 'device', id: session.device_id, name: devices.find(d => d.id === session.device_id)?.name || 'Unknown Device' };
     return null;
   }, [session, vms, devices]);
 
-  // Auto-select running VM if none active
   useEffect(() => {
     if (!activeTarget && vms.length > 0 && session) {
       const runningVM = vms.find(v => v.status === 'running');
@@ -148,7 +145,6 @@ export default function ChatPanel({ sessionId }: ChatPanelProps) {
     }
   }, [messages]);
 
-  // File upload handler
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -170,6 +166,20 @@ export default function ChatPanel({ sessionId }: ChatPanelProps) {
     }
   };
 
+  const handleStop = async (e?: React.MouseEvent) => {
+    e?.preventDefault();
+    if (!sessionId) return;
+    try {
+      await chatApi.update(sessionId, { ai_status: 'stopped' });
+      setStreaming(false);
+      isSendingRef.current = false;
+      toast.info('Stopping AI agent...');
+    } catch (err) {
+      console.error('Failed to stop AI:', err);
+      toast.error('Could not stop AI.');
+    }
+  };
+
   const isSendingRef = useRef(false);
 
   const handleSend = async (e?: React.FormEvent, customMsg?: string) => {
@@ -183,12 +193,11 @@ export default function ChatPanel({ sessionId }: ChatPanelProps) {
     setError('');
     setStreaming(true);
     setAiState('running');
-    
+
     const fileUrl = attachedFile?.url;
     const fileName = attachedFile?.name;
     setAttachedFile(null);
 
-    // Optimistically add the user message
     const displayMsg = fileName ? `${userMsg}\n📎 ${fileName}` : userMsg;
     addMessage({
       id: Math.random().toString(),
@@ -199,7 +208,7 @@ export default function ChatPanel({ sessionId }: ChatPanelProps) {
     } as any);
 
     try {
-      const stream = chatApi.sendMessage(sessionId, userMsg, fileUrl);
+      const stream = chatApi.sendMessage(sessionId, userMsg, fileUrl, mode);
 
       for await (const event of stream) {
         if (event.type === 'message' || event.type === 'thought') {
@@ -283,16 +292,14 @@ export default function ChatPanel({ sessionId }: ChatPanelProps) {
 
   return (
     <div className="flex-1 flex flex-col min-h-0 bg-background border-r border-border relative">
-      {/* Header removed as it is now in ChatSessionPage */}
 
-      {/* Terminal Permission Request */}
       {terminalRequest && (
-        <div className="mx-4 mt-3 p-4 bg-secondary border border-amber-500/20 rounded-2xl animate-in fade-in">
+        <div className="mx-4 mt-3 p-4 bg-card border border-amber-500/20 rounded-2xl animate-in fade-in">
           <div className="flex items-start gap-3">
             <ShieldAlert size={18} className="text-amber-500 shrink-0 mt-0.5" />
             <div className="flex-1 min-w-0">
               <p className="text-xs font-bold text-foreground mb-1">Terminal Command Requested</p>
-              <code className="text-[11px] text-amber-400 bg-background px-2 py-1 rounded block truncate mr-2">
+              <code className="text-[11px] text-amber-500 bg-secondary px-2 py-1 rounded block truncate mr-2">
                 {terminalRequest.command}
               </code>
               <p className="text-[10px] text-text-muted mt-2">AI wants to run this command on your device.</p>
@@ -301,7 +308,7 @@ export default function ChatPanel({ sessionId }: ChatPanelProps) {
           <div className="flex gap-2 mt-3">
             <button
               onClick={handleTerminalApprove}
-              className="flex-1 py-2 bg-accent-primary text-accent-foreground text-[10px] font-black uppercase tracking-widest rounded-xl hover:bg-opacity-90 transition-all font-bold"
+              className="flex-1 py-2 bg-accent-primary text-accent-foreground text-[10px] font-black uppercase tracking-widest rounded-xl hover:opacity-90 transition-all"
             >
               Allow
             </button>
@@ -315,130 +322,176 @@ export default function ChatPanel({ sessionId }: ChatPanelProps) {
         </div>
       )}
 
-      {/* Messages */}
-      <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-6 scroll-smooth pb-10">
-        <div className="max-w-3xl mx-auto w-full space-y-6">
-        {messages.length === 0 ? (
-          <div className="h-full flex flex-col items-center justify-center text-center px-6 animate-in fade-in duration-1000 max-w-lg mx-auto">
-            <div className="flex flex-col items-center justify-center mb-10">
-              <div className="w-16 h-16 flex items-center justify-center mb-8 group hover:scale-105 transition-transform duration-500">
-                <Command size={48} strokeWidth={1.5} className="text-text-muted opacity-20" />
+      <div
+        ref={scrollRef}
+        className={cn(
+          "flex-1 p-4 scroll-smooth pb-10 flex flex-col",
+          messages.length === 0 ? "overflow-hidden" : "overflow-y-auto"
+        )}
+      >
+        <div className="max-w-3xl mx-auto w-full flex-1 flex flex-col space-y-4">
+          {messages.length === 0 ? (
+            <div className="flex-1 flex flex-col items-center justify-center text-center px-6 animate-in fade-in duration-1000 max-w-lg mx-auto py-32 pt-32">
+              <div className="flex flex-col items-center justify-center mb-8">
+                <div className="w-16 h-16 bg-card border border-border flex items-center justify-center rounded-2xl mb-8 shadow-2xl group hover:scale-110 transition-all duration-500">
+                  <Command size={32} strokeWidth={1.5} className="text-foreground" />
+                </div>
+                <h1 className="text-4xl font-black text-foreground mb-2 tracking-tighter font-walter leading-tight">
+                  {(() => {
+                    const hr = new Date().getHours();
+                    if (hr < 12) return "Good Morning";
+                    if (hr < 18) return "Good Afternoon";
+                    return "Good Evening";
+                  })()}, <br />{user?.user_metadata?.first_name || user?.user_metadata?.name || user?.email?.split('@')[0] || 'Explorer'}.
+                </h1>
               </div>
-              <h1 className="text-3xl font-black text-foreground mb-2 tracking-tighter">
-                {(() => {
-                  const hr = new Date().getHours();
-                  let g = "Good Evening";
-                  if (hr < 12) g = "Good Morning";
-                  else if (hr < 18) g = "Good Afternoon";
-                  return g;
-                })()}, {user?.user_metadata?.first_name || user?.user_metadata?.name || user?.email?.split('@')[0] || 'Explorer'}.
-              </h1>
-              <p className="text-text-muted text-sm font-medium leading-relaxed">
-                Control Node initialized. Cross-machine signaling is active. <br/>
-                How can I assist your workflow today?
-              </p>
             </div>
-            {/* Suggestions removed for cleaner UI */}
-          </div>
-        ) : (
-          messages.map((msg) => (
-            <MessageBubble key={msg.id} msg={msg} />
-          ))
-        )}
-        {isStreaming && (
-          <div className="flex gap-4 items-start animate-in fade-in slide-in-from-bottom-2">
-            <div className="w-8 h-8 rounded-lg bg-white flex items-center justify-center shrink-0 shadow-lg shadow-white/10">
-              <Sparkles size={14} className="text-black animate-pulse" />
+          ) : (
+            messages.map((msg) => (
+              <MessageBubble key={msg.id} msg={msg} />
+            ))
+          )}
+          {isStreaming && (
+            <div className="flex gap-3 items-start animate-in fade-in slide-in-from-bottom-2 px-1">
+              <div className="w-7 h-7 rounded-lg bg-accent-primary flex items-center justify-center shrink-0">
+                <Sparkles size={12} className="text-accent-foreground animate-pulse" />
+              </div>
+              <div className="flex-1 space-y-2 mt-1.5">
+                <div className="h-2 w-24 bg-border rounded-full animate-pulse" />
+                <div className="h-2 w-48 bg-border/50 rounded-full animate-pulse" />
+              </div>
             </div>
-            <div className="flex-1 space-y-2 mt-1">
-              <div className="h-2 w-24 bg-white/10 rounded-full animate-pulse" />
-              <div className="h-2 w-48 bg-white/5 rounded-full animate-pulse" />
-            </div>
-          </div>
-        )}
+          )}
         </div>
       </div>
 
-      {/* Attached File Preview */}
       {attachedFile && (
-        <div className="mx-4 mb-2 flex items-center gap-2 px-3 py-2 bg-zinc-900 border border-white/10 rounded-xl">
+        <div className="mx-4 mb-2 flex items-center gap-2 px-3 py-2 bg-card border border-border rounded-xl">
           {attachedFile.type === 'image' ? (
-            <ImageIcon size={14} className="text-blue-400 shrink-0" />
+            <ImageIcon size={14} className="text-blue-500 shrink-0" />
           ) : (
-            <FileText size={14} className="text-zinc-400 shrink-0" />
+            <FileText size={14} className="text-text-muted shrink-0" />
           )}
-          <span className="text-[11px] text-zinc-300 truncate font-medium flex-1">{attachedFile.name}</span>
+          <span className="text-[11px] text-text-secondary truncate font-medium flex-1">{attachedFile.name}</span>
           <button
             onClick={() => setAttachedFile(null)}
-            className="text-zinc-600 hover:text-white transition-colors shrink-0"
+            className="text-text-muted hover:text-foreground transition-colors shrink-0"
           >
             <X size={12} />
           </button>
         </div>
       )}
 
-      {/* Input */}
       <div className="p-4 border-t border-border bg-secondary pb-[calc(1rem+env(safe-area-inset-bottom))]">
-        <div className="max-w-4xl mx-auto">
+        <div className="max-w-4xl mx-auto flex flex-col gap-2">
 
-          <form 
+          <div className="flex bg-background border border-border p-1 rounded-full self-start shadow-sm pl-1 pr-1 w-max relative">
+            <div 
+              className={cn(
+                "absolute top-1 bottom-1 w-[calc(50%-4px)] rounded-full transition-all duration-300 ease-out z-0 blur-[2px]",
+                mode === 'act' ? "bg-accent-primary/20 left-1 translate-x-0" : "bg-sky-500/20 left-1 translate-x-[calc(100%+8px)]"
+              )} 
+            />
+            <div 
+              className={cn(
+                "absolute top-1 bottom-1 w-[calc(50%-4px)] rounded-full transition-all duration-300 ease-out z-0 shadow-sm",
+                mode === 'act' ? "bg-accent-primary left-1 translate-x-0" : "bg-sky-500 left-1 translate-x-[calc(100%+8px)]"
+              )} 
+            />
+            <button
+              onClick={() => setMode('act')}
+              className={cn(
+                "relative z-10 px-4 py-1 text-[11px] font-bold uppercase tracking-widest rounded-full transition-colors",
+                mode === 'act' ? "text-accent-foreground" : "text-text-muted hover:text-foreground"
+              )}
+            >
+              Control
+            </button>
+            <button
+              onClick={() => setMode('ask')}
+              className={cn(
+                "relative z-10 px-4 py-1 text-[11px] font-bold uppercase tracking-widest rounded-full transition-colors",
+                mode === 'ask' ? "text-white" : "text-text-muted hover:text-foreground"
+              )}
+            >
+              Ask
+            </button>
+          </div>
+
+          <form
             onSubmit={handleSend}
-            className="relative flex items-end gap-2 bg-background border border-border rounded-2xl p-1.5 focus-within:border-primary/20 transition-all shadow-xl"
+            className="relative flex items-end gap-2 bg-background border border-border rounded-2xl p-1.5 focus-within:border-border transition-all shadow-xl"
           >
-          {/* Hidden file input */}
-          <input
-            type="file"
-            ref={fileInputRef}
-            onChange={handleFileSelect}
-            className="hidden"
-            accept="image/*,.txt,.md,.csv,.json,.pdf,.py,.js,.ts,.tsx,.jsx,.html,.css"
-          />
-          <button
-            type="button"
-            onClick={() => fileInputRef.current?.click()}
-            disabled={uploading}
-            className="mb-1 p-2.5 text-zinc-600 hover:text-zinc-400 transition-colors disabled:opacity-50 shrink-0"
-            title="Attach file"
-          >
-            {uploading ? <Loader2 size={18} className="animate-spin" /> : <Paperclip size={18} />}
-          </button>
 
-          <button
-            type="button"
-            onClick={toggleListening}
-            className={cn(
-              "mb-1 p-2.5 transition-all duration-300 rounded-lg shrink-0",
-              isListening 
-                ? "bg-red-500/10 text-red-500 animate-pulse shadow-[0_0_15px_rgba(239,68,68,0.2)]" 
-                : "text-zinc-600 hover:text-zinc-400"
-            )}
-            title={isListening ? "Stop listening" : "Voice input"}
-          >
-            {isListening ? <MicOff size={18} /> : <Mic size={18} />}
-          </button>
+            <input
+              type="file"
+              ref={fileInputRef}
+              onChange={handleFileSelect}
+              className="hidden"
+              accept="image/*,.txt,.md,.csv,.json,.pdf,.py,.js,.ts,.tsx,.jsx,.html,.css"
+            />
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={uploading}
+              className="mb-1 p-2.5 text-text-muted hover:text-text-secondary transition-colors disabled:opacity-50 shrink-0"
+              title="Attach file"
+            >
+              {uploading ? <Loader2 size={18} className="animate-spin" /> : <Paperclip size={18} />}
+            </button>
 
-          <textarea
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault();
-                handleSend();
-              }
-            }}
-            placeholder="Tell Control what to do..."
-            rows={1}
-            className="flex-1 bg-transparent border-none focus:outline-none text-sm p-2.5 resize-none max-h-40 placeholder:text-zinc-700 min-h-[42px] leading-relaxed"
-          />
+            <button
+              type="button"
+              onClick={toggleListening}
+              className={cn(
+                "mb-1 p-2.5 transition-all duration-300 rounded-lg shrink-0",
+                isListening
+                  ? "bg-red-500/10 text-red-500 animate-pulse shadow-[0_0_15px_rgba(239,68,68,0.2)]"
+                  : "text-text-muted hover:text-text-secondary"
+              )}
+              title={isListening ? "Stop listening" : "Voice input"}
+            >
+              {isListening ? <MicOff size={18} /> : <Mic size={18} />}
+            </button>
 
-          <button
-            type="submit"
-            disabled={(!input.trim() && !attachedFile) || isStreaming}
-            className="mb-1 p-2.5 bg-accent-primary text-accent-foreground rounded-xl hover:bg-opacity-90 disabled:opacity-30 transition-all shadow-sm shrink-0"
-          >
-            {isStreaming ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
-          </button>
-        </form>
+            <textarea
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault();
+                  handleSend();
+                }
+              }}
+              placeholder={mode === 'act' ? "Tell Control what to do..." : "Ask a question..."}
+              rows={1}
+              className="flex-1 bg-transparent border-none focus:outline-none text-sm p-2.5 resize-none max-h-40 placeholder:text-text-muted min-h-[42px] leading-relaxed text-foreground"
+            />
+
+            <button
+              type={isStreaming ? "button" : "submit"}
+              onClick={isStreaming ? handleStop : undefined}
+              disabled={(!input.trim() && !attachedFile) && !isStreaming}
+              className={cn(
+                "mb-1 p-2.5 rounded-xl transition-all shadow-sm shrink-0",
+                isStreaming
+                  ? "bg-red-500/10 text-red-500 hover:bg-red-500/20 shadow-[0_0_15px_rgba(239,68,68,0.1)]"
+                  : mode === 'ask' 
+                    ? "bg-sky-500 text-white hover:opacity-90 disabled:opacity-30" 
+                    : "bg-accent-primary text-accent-foreground hover:opacity-90 disabled:opacity-30"
+              )}
+              title={isStreaming ? "Stop AI" : "Send message"}
+            >
+              {isStreaming ? (
+                <div className="relative flex items-center justify-center">
+                  <Loader2 size={16} className="animate-spin opacity-20 absolute" />
+                  <Square size={14} className="fill-current relative z-10" />
+                </div>
+              ) : (
+                <Send size={16} />
+              )}
+            </button>
+          </form>
         </div>
         <p className="text-[9px] text-text-muted mt-3 text-center uppercase tracking-widest font-bold">
           AI can make mistakes. Verify important actions.
@@ -448,61 +501,74 @@ export default function ChatPanel({ sessionId }: ChatPanelProps) {
   );
 }
 
+/* ─── Message Bubble ─── */
 function MessageBubble({ msg }: { msg: any }) {
   const isUser = msg.role === 'user';
   const isAction = msg.role === 'action';
 
   if (isAction) {
+    const actionIcon = getActionIcon(msg.action_type);
     return (
-      <div className="flex justify-start px-2 opacity-80">
-        <div className="flex-1 max-w-[85%] space-y-1">
-          <div className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest mb-1 flex items-center gap-2 px-1">
-            <ActionIcon type={msg.action_type} />
-            {msg.action_type}
-          </div>
-          <div className="text-xs text-zinc-400 font-mono bg-white/[0.02] p-3 rounded-xl border border-white/5 break-words whitespace-pre-wrap">
-            {msg.content}
-            {msg.action_data && Object.keys(msg.action_data).length > 0 && (
-              <pre className="mt-2 text-[10px] text-zinc-600 bg-black/20 p-2 rounded">
-                {JSON.stringify(msg.action_data, null, 2)}
-              </pre>
-            )}
+      <div className="flex items-start gap-3 px-1">
+        <div className="w-5 h-5 rounded-full bg-card border border-border flex items-center justify-center shrink-0 mt-0.5">
+          {actionIcon}
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="text-xs text-text-secondary font-medium items-center flex gap-2">
+            <span className="font-bold text-foreground text-xs">{formatActionType(msg.action_type)}</span>
+            <span className="text-text-muted text-[11px] truncate">{msg.content}</span>
           </div>
         </div>
       </div>
     );
   }
 
-  return (
-    <div className={cn("flex items-start", isUser ? "justify-end" : "justify-start")}>
-      <div className={cn("max-w-[85%] space-y-1", isUser && "text-right flex flex-col items-end")}>
-        <div className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest px-1">
-          {isUser ? 'You' : 'Control AI'}
-        </div>
-        <div className={cn(
-          "text-sm p-4 rounded-2xl transition-all duration-200 break-words overflow-visible",
-          isUser 
-            ? "bg-zinc-900 text-white border border-white/5 rounded-tr-none shadow-sm" 
-            : "bg-white/5 text-zinc-300 border border-white/[0.02] rounded-tl-none leading-relaxed"
-        )}>
-          <div className={cn("prose prose-sm max-w-none", isUser ? "prose-invert" : "dark:prose-invert")}>
-             <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.content}</ReactMarkdown>
+  if (isUser) {
+    return (
+      <div className="flex flex-col items-end">
+        <span className="text-[10px] font-bold text-text-muted uppercase tracking-widest px-1 mb-1">You</span>
+        <div className="max-w-[85%] text-sm p-4 rounded-2xl rounded-tr-sm bg-accent-primary/10 text-foreground break-words border border-accent-primary/20">
+          <div className="prose prose-sm max-w-none dark:prose-invert">
+            <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.content}</ReactMarkdown>
           </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Assistant message
+  return (
+    <div className="flex flex-col items-start px-2">
+      <span className="text-[10px] font-bold text-text-muted uppercase tracking-widest px-1 mb-1">Control AI</span>
+      <div className="max-w-[95%] text-sm px-1 py-1 break-words leading-relaxed text-foreground">
+        <div className="prose prose-sm max-w-none dark:prose-invert">
+          <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.content}</ReactMarkdown>
         </div>
       </div>
     </div>
   );
 }
 
-function ActionIcon({ type }: { type: string }) {
+function formatActionType(type: string): string {
+  if (!type) return 'Action';
+  return type.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+}
+
+function getActionIcon(type: string) {
+  const size = 10;
   switch (type?.toLowerCase()) {
     case 'click':
     case 'double_click':
-    case 'right_click': return <MousePointer2 size={14} className="text-blue-400" />;
-    case 'terminal': return <Terminal size={14} className="text-green-400" />;
-    case 'screenshot': return <Camera size={14} className="text-purple-400" />;
+    case 'right_click': return <MousePointer2 size={size} className="text-blue-500" />;
+    case 'type':
+    case 'keyboard': return <Type size={size} className="text-emerald-500" />;
+    case 'terminal': return <Terminal size={size} className="text-green-500" />;
+    case 'screenshot': return <Camera size={size} className="text-purple-500" />;
+    case 'scroll': return <ArrowDown size={size} className="text-orange-500" />;
+    case 'search':
+    case 'find': return <Search size={size} className="text-cyan-500" />;
     case 'browser_navigate':
-    case 'browser_get_content': return <Bot size={14} className="text-cyan-400" />;
-    default: return <Sparkles size={14} className="text-zinc-500" />;
+    case 'browser_get_content': return <Globe size={size} className="text-cyan-500" />;
+    default: return <Cog size={size} className="text-text-muted" />;
   }
 }

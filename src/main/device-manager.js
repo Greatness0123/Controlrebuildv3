@@ -3,10 +3,6 @@ const fs = require('fs-extra');
 const path = require('path');
 const os = require('os');
 
-/**
- * DeviceManager ensures the desktop app has a persistent identity
- * and stores pairing state locally.
- */
 class DeviceManager {
     constructor() {
         this.configPath = null;

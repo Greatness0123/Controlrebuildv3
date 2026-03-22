@@ -1,6 +1,3 @@
-// Import Firebase service (assuming it's shared)
-// In a real app, this would be imported from a shared file
-
 class LoginPage {
     constructor() {
         this.db = new SupabaseService();
@@ -17,7 +14,6 @@ class LoginPage {
             await this.login();
         });
 
-        // Auto-focus email field
         emailInput.focus();
     }
 
@@ -27,7 +23,6 @@ class LoginPage {
         const errorMessage = document.getElementById('errorMessage');
         const loginBtn = document.getElementById('loginBtn');
 
-        // Validation
         if (!email || !password) {
             this.showError('Please enter both email and password');
             return;
@@ -40,7 +35,7 @@ class LoginPage {
             const result = await this.db.signIn(email, password);
 
             if (result.success) {
-                // Redirect to dashboard
+
                 window.location.href = 'index.html';
             } else {
                 this.showError(result.message || 'Invalid email or password');
@@ -76,7 +71,6 @@ class LoginPage {
     }
 }
 
-// Initialize when DOM is loaded
 document.addEventListener('DOMContentLoaded', () => {
     new LoginPage();
 });

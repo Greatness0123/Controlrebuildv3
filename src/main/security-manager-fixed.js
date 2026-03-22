@@ -5,7 +5,7 @@ const path = require('path');
 class SecurityManager {
     constructor() {
         const { app } = require('electron');
-        // Use userData path for configuration to avoid permission issues in production
+
         const userDataPath = app.getPath('userData');
         this.configPath = path.join(userDataPath, 'security.json');
 
@@ -88,11 +88,10 @@ class SecurityManager {
         return this.pinEnabled && this.pinHash !== null;
     }
 
-    // verifyPin now implements a simple rate-limit/lockout policy
     verifyPin(pin) {
         const now = Date.now();
         pin = String(pin || '').trim();
-        // If lockout has expired, clear it
+
         if (this.lockoutUntil && now >= this.lockoutUntil) {
             this.lockoutUntil = null;
             this.failedAttempts = 0;
@@ -123,7 +122,6 @@ class SecurityManager {
             return { valid: false, message: 'Incorrect PIN' };
         }
 
-        // successful verification: reset counters
         this.failedAttempts = 0;
         this.lockoutUntil = null;
         this.saveConfig();
@@ -133,7 +131,7 @@ class SecurityManager {
 
     _recordFailedAttempt() {
         this.failedAttempts = (this.failedAttempts || 0) + 1;
-        // after 5 failed attempts, lock for 1 minute
+
         if (this.failedAttempts >= 5) {
             this.lockoutUntil = Date.now() + 60 * 1000; // 1 minute
             this.failedAttempts = 0; // reset counter after locking
@@ -163,30 +161,25 @@ class SecurityManager {
         return this.isLocked && this.isEnabled();
     }
 
-    // Generate a random temporary PIN for testing
     generateTempPin() {
         return Math.floor(1000 + Math.random() * 9000).toString();
     }
 
-    // Check if PIN is set
     hasPin() {
         return this.pinHash !== null;
     }
 
-    // Change PIN (requires current PIN for security)
     async changePin(currentPin, newPin) {
-        // First verify current PIN
+
         const verification = this.verifyPin(currentPin);
         if (!verification.valid) {
             return { success: false, message: 'Current PIN is incorrect' };
         }
 
-        // Set new PIN
         const res = await this.setPin(newPin);
         return { success: res.success, message: res.message || 'PIN changed' };
     }
 
-    // Reset PIN (emergency reset - removes PIN entirely)
     async resetPin() {
         this.pinHash = null;
         this.pinEnabled = false;
@@ -202,7 +195,6 @@ class SecurityManager {
         return { success: true, message: 'PIN reset successfully' };
     }
 
-    // Get security status
     getSecurityStatus() {
         return {
             pinEnabled: this.pinEnabled,

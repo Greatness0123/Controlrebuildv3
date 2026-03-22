@@ -92,12 +92,11 @@ class WorkflowManager {
         try {
             const data = fs.readJsonSync(this.workflowsFile);
 
-            // Ensure importedWorkflows is an array
             const toImport = Array.isArray(importedWorkflows) ? importedWorkflows : [importedWorkflows];
 
             let count = 0;
             toImport.forEach(wf => {
-                // Generate new IDs to avoid collisions, but keep name and structure
+
                 const newWf = { ...wf, id: uuidv4() };
                 data.workflows.push(newWf);
                 count++;

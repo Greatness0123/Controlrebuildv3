@@ -23,7 +23,7 @@ class AppUtils {
                 }
                 try {
                     const apps = JSON.parse(stdout);
-                    // Standardize output: { name, path/id }
+
                     const result = apps.map(app => ({
                         name: app.Name,
                         id: app.AppID

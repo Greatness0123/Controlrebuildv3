@@ -6,11 +6,11 @@ class Dashboard {
     }
 
     async init() {
-        // Check authentication
+
         this.currentUser = await this.db.getCurrentUser();
 
         if (!this.currentUser) {
-            // Redirect to login if not authenticated
+
             window.location.href = 'login.html';
             return;
         }
@@ -20,17 +20,15 @@ class Dashboard {
     }
 
     setupEventListeners() {
-        // Copy User ID
+
         document.getElementById('copyUserId').addEventListener('click', () => {
             this.copyToClipboard('userId');
         });
 
-        // Logout
         document.getElementById('logoutBtn').addEventListener('click', () => {
             this.logout();
         });
 
-        // Password modal
         document.getElementById('changePasswordBtn').addEventListener('click', () => {
             this.showPasswordModal();
         });
@@ -44,7 +42,6 @@ class Dashboard {
             this.changePassword();
         });
 
-        // Close modal on outside click
         document.getElementById('passwordModal').addEventListener('click', (e) => {
             if (e.target.id === 'passwordModal') {
                 this.hidePasswordModal();
@@ -56,7 +53,7 @@ class Dashboard {
         if (!this.currentUser) return;
 
         try {
-            // Update profile information
+
             const name = this.currentUser.name || 'User';
             const names = name.trim().split(/\s+/);
             const initials = names.length > 1
@@ -68,7 +65,6 @@ class Dashboard {
             document.getElementById('profileEmail').textContent = this.currentUser.email || '';
             document.getElementById('userId').textContent = this.currentUser.app_id || 'Not Linked';
 
-            // Update stats
             const stats = document.querySelectorAll('.stat-value');
             if (stats.length >= 3) {
                 stats[0].textContent = this.currentUser.tasksCompleted || 0;
@@ -76,13 +72,11 @@ class Dashboard {
                 stats[2].textContent = (this.currentUser.successRate || 0) + '%';
             }
 
-            // Update password info
             const lastChanged = this.currentUser.passwordLastChanged ? new Date(this.currentUser.passwordLastChanged) : new Date();
             const monthsAgo = Math.floor((new Date() - lastChanged) / (1000 * 60 * 60 * 24 * 30));
             document.getElementById('passwordInfo').textContent =
                 `Last changed ${monthsAgo} month${monthsAgo !== 1 ? 's' : ''} ago`;
 
-            // Update plan
             const planBadge = document.querySelector('.plan-badge');
             if (planBadge && this.currentUser.plan) {
                 planBadge.textContent = this.currentUser.plan;
@@ -98,7 +92,7 @@ class Dashboard {
         navigator.clipboard.writeText(text).then(() => {
             this.showToast('ID copied to clipboard!', 'success');
         }).catch(() => {
-            // Fallback for older browsers
+
             const textArea = document.createElement('textarea');
             textArea.value = text;
             document.body.appendChild(textArea);
@@ -123,7 +117,6 @@ class Dashboard {
         const newPassword = document.getElementById('newPassword').value;
         const confirmPassword = document.getElementById('confirmPassword').value;
 
-        // Validation
         if (newPassword.length < 8) {
             this.showToast('Password must be at least 8 characters long', 'error');
             return;
@@ -180,10 +173,8 @@ class Dashboard {
     }
 }
 
-// Initialize dashboard when DOM is loaded
 document.addEventListener('DOMContentLoaded', () => {
     new Dashboard();
 });
 
-// Export for use in other files
 window.Dashboard = Dashboard;

@@ -137,7 +137,7 @@ class EntryWindow {
     }
 
     setupEventListeners() {
-        // Mode toggle
+
         this.loginMode = 'id'; // 'id' or 'email'
         const toggleBtn = document.getElementById('toggleLoginMode');
         const idGroup = document.getElementById('idLoginGroup');
@@ -162,29 +162,24 @@ class EntryWindow {
             }
         });
 
-        // Connect button
         this.connectButton.addEventListener('click', () => {
             this.authenticate();
         });
 
-        // Start button (authenticated state)
         this.startButton.addEventListener('click', () => {
             this.startApplication();
         });
 
-        // Switch account
         document.getElementById('switchAccount').addEventListener('click', (e) => {
             e.preventDefault();
             this.switchAccount();
         });
 
-        // Get ID link - opens dashboard
         document.getElementById('getLink').addEventListener('click', (e) => {
             e.preventDefault();
             this.openDashboard();
         });
 
-        // Input validation for ID
         this.userIdInput.addEventListener('input', (e) => {
             if (this.loginMode === 'id') {
                 this.formatUserId(e.target);
@@ -197,13 +192,11 @@ class EntryWindow {
             }
         });
 
-        // Keyboard support for email/password
         const passwordInput = document.getElementById('passwordInput');
         passwordInput.addEventListener('keypress', (e) => {
             if (e.key === 'Enter') this.authenticate();
         });
 
-        // Window controls
         document.getElementById('minimizeButton').addEventListener('click', () => {
             this.minimizeWindow();
         });
@@ -216,7 +209,6 @@ class EntryWindow {
             this.closeWindow();
         });
 
-        // Online/Offline listeners
         window.addEventListener('offline', () => {
             this.showError('You are offline. Please check your internet connection.');
             this.showLoading(false);
@@ -230,7 +222,7 @@ class EntryWindow {
     }
 
     formatUserId(input) {
-        // Allow only numbers
+
         const value = input.value.replace(/[^0-9]/g, '');
         input.value = value;
     }
@@ -295,10 +287,8 @@ class EntryWindow {
             this.currentUser = result.user;
             this.showSuccess('Authentication successful!');
 
-            // Update UI with user info
             this.updateUserInfo(result.user);
 
-            // Show authenticated state after delay
             setTimeout(() => {
                 this.showAuthenticatedState();
             }, 1000);
@@ -308,7 +298,7 @@ class EntryWindow {
     }
 
     updateUserInfo(user) {
-        // Create avatar from first letter of name
+
         const avatar = (user.name || 'U').charAt(0).toUpperCase();
         document.getElementById('userAvatar').textContent = avatar;
         document.getElementById('userName').textContent = user.name || 'User';
@@ -333,7 +323,7 @@ class EntryWindow {
 
     async startApplication() {
         if (this.isAuthenticated && window.entryAPI) {
-            // Minimize entry window instead of closing it
+
             console.log('[EntryWindow] Start button clicked, minimizing entry window');
             await window.entryAPI.minimizeWindow();
         }
@@ -366,7 +356,6 @@ class EntryWindow {
         }
     }
 
-    // Window controls
     async minimizeWindow() {
         if (window.entryAPI) {
             await window.entryAPI.minimizeWindow();
@@ -387,7 +376,6 @@ class EntryWindow {
         }
     }
 
-    // UI helpers
     showLoading(show) {
         if (show) {
             this.connectButton.classList.add('loading');
@@ -416,7 +404,6 @@ class EntryWindow {
     }
 }
 
-// Initialize when DOM is loaded
 document.addEventListener('DOMContentLoaded', () => {
     new EntryWindow();
 });

@@ -40,7 +40,7 @@ async def create_secret(req: SecretCreate, user: dict = Depends(get_current_user
 @router.patch("/{secret_id}", response_model=SecretResponse)
 async def update_secret(secret_id: str, req: SecretCreate, user: dict = Depends(get_current_user)):
     svc = get_service_client()
-    # Check ownership
+
     existing = svc.table("secrets").select("id").eq("id", secret_id).eq("user_id", user["id"]).execute()
     if not existing.data:
         raise HTTPException(status_code=404, detail="Secret not found")
@@ -51,7 +51,7 @@ async def update_secret(secret_id: str, req: SecretCreate, user: dict = Depends(
 @router.delete("/{secret_id}")
 async def delete_secret(secret_id: str, user: dict = Depends(get_current_user)):
     svc = get_service_client()
-    # Check ownership
+
     existing = svc.table("secrets").select("id").eq("id", secret_id).eq("user_id", user["id"]).execute()
     if not existing.data:
         raise HTTPException(status_code=404, detail="Secret not found")

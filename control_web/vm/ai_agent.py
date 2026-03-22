@@ -10,7 +10,6 @@ from websockets.server import serve
 from PIL import Image
 import io
 
-# Disable failsafe for container environment
 pyautogui.FAILSAFE = False
 os.environ['DISPLAY'] = ':1'
 

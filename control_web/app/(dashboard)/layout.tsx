@@ -31,7 +31,6 @@ export default function WorkspaceLayout({ children }: { children: ReactNode }) {
   const [editingSessionId, setEditingSessionId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState('');
 
-  // ── Auth check ───────────────────────────────────────────────────────────
   useEffect(() => {
     const supabase = getSupabaseClient();
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -45,7 +44,6 @@ export default function WorkspaceLayout({ children }: { children: ReactNode }) {
     return () => subscription.unsubscribe();
   }, [router, setUser, setLoading]);
 
-  // ── Theme: read from localStorage on mount, apply class ──────────────────
   useEffect(() => {
     const saved = localStorage.getItem('theme') as 'light' | 'dark' | null;
     const initial = saved || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
@@ -60,10 +58,8 @@ export default function WorkspaceLayout({ children }: { children: ReactNode }) {
     document.documentElement.classList.toggle('dark', next === 'dark');
   };
 
-  // ── Close mobile sidebar on route change ─────────────────────────────────
   useEffect(() => { setMobileOpen(false); }, [pathname]);
 
-  // ── Load data ────────────────────────────────────────────────────────────
   useEffect(() => {
     if (!user) return;
     Promise.all([
@@ -118,8 +114,8 @@ export default function WorkspaceLayout({ children }: { children: ReactNode }) {
 
   if (loading || !user) {
     return (
-      <div className="min-h-screen bg-black text-white flex items-center justify-center">
-        <Loader2 className="w-6 h-6 animate-spin text-zinc-500" />
+      <div className="min-h-screen bg-background text-foreground flex items-center justify-center">
+        <Loader2 className="w-6 h-6 animate-spin text-text-muted" />
       </div>
     );
   }
@@ -129,21 +125,18 @@ export default function WorkspaceLayout({ children }: { children: ReactNode }) {
   const SidebarContent = ({ isMobile = false }: { isMobile?: boolean }) => (
     <>
       {modal}
-      {/* Logo / Header */}
+
       <div className="h-14 flex items-center px-3 border-b border-border shrink-0">
         <div className="flex items-center gap-2 flex-1 min-w-0">
-          {/* Logo — outline style, colour by mode */}
-          <div className={cn(
-            "w-7 h-7 flex items-center justify-center shrink-0 transition-all group-hover:scale-110",
-            theme === 'dark' ? "text-white" : "text-black"
-          )}>
+
+          <div className="w-7 h-7 flex items-center justify-center shrink-0 transition-all group-hover:scale-110 text-foreground">
             <Command size={16} strokeWidth={2.5} />
           </div>
           {(sidebarOpen || isMobile) && (
             <span className="text-[13px] font-black tracking-tighter truncate">CONTROL</span>
           )}
         </div>
-        {/* Desktop collapse toggle */}
+
         {!isMobile && (
           <button
             onClick={() => setSidebarOpen(!sidebarOpen)}
@@ -153,15 +146,14 @@ export default function WorkspaceLayout({ children }: { children: ReactNode }) {
             {sidebarOpen ? <ChevronLeft size={14} /> : <ChevronRight size={14} />}
           </button>
         )}
-        {/* Mobile close */}
+
         {isMobile && (
-          <button onClick={() => setMobileOpen(false)} className="p-1.5 text-zinc-500">
+          <button onClick={() => setMobileOpen(false)} className="p-1.5 text-text-muted">
             <X size={16} />
           </button>
         )}
       </div>
 
-      {/* New Chat Button */}
       <div className="p-2 shrink-0">
         <button
           onClick={handleNewChat}
@@ -184,10 +176,9 @@ export default function WorkspaceLayout({ children }: { children: ReactNode }) {
         </button>
       </div>
 
-      {/* Chat History — only when expanded */}
       {(sidebarOpen || isMobile) && (
         <div className="flex-1 overflow-y-auto px-2 space-y-0.5 min-h-0">
-          <div className="text-[9px] font-bold text-zinc-600 uppercase tracking-widest px-2 py-2">Recent Chats</div>
+          <div className="text-[9px] font-bold text-text-muted uppercase tracking-widest px-2 py-2">Recent Chats</div>
           {sessions.map((session) => (
             <div key={session.id} className="relative group/session">
               {editingSessionId === session.id ? (
@@ -201,7 +192,7 @@ export default function WorkspaceLayout({ children }: { children: ReactNode }) {
                       if (e.key === 'Escape') setEditingSessionId(null);
                     }}
                     onBlur={() => handleRename(session.id)}
-                    className="flex-1 bg-white/5 border border-white/10 rounded px-2 py-1 text-xs text-white focus:outline-none"
+                    className="flex-1 bg-card border border-border rounded px-2 py-1 text-xs text-foreground focus:outline-none"
                   />
                 </div>
               ) : (
@@ -221,14 +212,14 @@ export default function WorkspaceLayout({ children }: { children: ReactNode }) {
                   <div className="absolute right-1.5 top-1/2 -translate-y-1/2 hidden group-hover/session:flex items-center gap-0.5 bg-secondary p-0.5 rounded-md border border-border z-10">
                     <button
                       onClick={() => { setEditingSessionId(session.id); setEditTitle(session.title); }}
-                      className="p-1 hover:bg-card rounded text-zinc-500 hover:text-foreground transition-all"
+                      className="p-1 hover:bg-card rounded text-text-muted hover:text-foreground transition-all"
                       title="Rename"
                     >
                       <Edit2 size={10} />
                     </button>
                     <button
                       onClick={() => handleDeleteSession(session.id, session.title)}
-                      className="p-1 hover:bg-red-500/20 rounded text-zinc-600 hover:text-red-400 transition-all"
+                      className="p-1 hover:bg-red-500/20 rounded text-text-muted hover:text-red-400 transition-all"
                       title="Delete"
                     >
                       <Trash size={10} />
@@ -241,11 +232,9 @@ export default function WorkspaceLayout({ children }: { children: ReactNode }) {
         </div>
       )}
 
-      {/* Spacer when collapsed */}
       {!sidebarOpen && !isMobile && <div className="flex-1" />}
 
-      {/* Nav Links */}
-      <div className="p-2 space-y-0.5 border-t border-white/5 shrink-0">
+      <div className="p-2 space-y-0.5 border-t border-border shrink-0">
         <NavLink href="/workspace" icon={<LayoutDashboard size={14} />} label="Workspace" active={pathname === '/workspace'} collapsed={isCollapsed && !isMobile} />
         <NavLink href="/machines" icon={<Cpu size={14} />} label="Machines" active={pathname === '/machines'} collapsed={isCollapsed && !isMobile} />
         <NavLink href="/pair" icon={<LinkIcon size={14} />} label="Pair Device" active={pathname === '/pair'} collapsed={isCollapsed && !isMobile} />
@@ -254,8 +243,7 @@ export default function WorkspaceLayout({ children }: { children: ReactNode }) {
         <NavLink href="/settings" icon={<Settings size={14} />} label="Settings" active={pathname === '/settings'} collapsed={isCollapsed && !isMobile} />
       </div>
 
-      {/* User & Theme */}
-      <div className="p-2 border-t border-white/5 space-y-0.5 shrink-0">
+      <div className="p-2 border-t border-border space-y-0.5 shrink-0">
         <button
           onClick={toggleTheme}
           className={cn(
@@ -281,7 +269,7 @@ export default function WorkspaceLayout({ children }: { children: ReactNode }) {
         <button
           onClick={handleSignOut}
           className={cn(
-            "w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs text-zinc-600 hover:bg-red-500/10 hover:text-red-400 transition-all",
+            "w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs text-text-muted hover:bg-red-500/10 hover:text-red-400 transition-all",
             (sidebarOpen || isMobile) ? "" : "justify-center"
           )}
           title="Sign Out"
@@ -297,7 +285,7 @@ export default function WorkspaceLayout({ children }: { children: ReactNode }) {
     <div className={cn(
       "h-[100dvh] flex overflow-hidden bg-background text-foreground"
     )}>
-      {/* Mobile backdrop */}
+
       {mobileOpen && (
         <div
           className="fixed inset-0 bg-black/60 z-30 md:hidden backdrop-blur-sm"
@@ -305,7 +293,6 @@ export default function WorkspaceLayout({ children }: { children: ReactNode }) {
         />
       )}
 
-      {/* Mobile sidebar */}
       <aside className={cn(
         "fixed inset-y-0 left-0 z-[60] w-72 flex flex-col border-r border-border bg-secondary/90 backdrop-blur-xl transition-transform duration-250 ease-in-out md:hidden",
         mobileOpen ? 'translate-x-0' : '-translate-x-full'
@@ -313,7 +300,6 @@ export default function WorkspaceLayout({ children }: { children: ReactNode }) {
         <SidebarContent isMobile />
       </aside>
 
-      {/* Desktop sidebar */}
       <aside className={cn(
         "hidden md:flex flex-col border-r border-border bg-secondary/80 transition-all duration-200 shrink-0",
         sidebarOpen ? 'w-60' : 'w-14'
@@ -321,9 +307,8 @@ export default function WorkspaceLayout({ children }: { children: ReactNode }) {
         <SidebarContent />
       </aside>
 
-      {/* Main content */}
       <main className="flex-1 flex flex-col min-w-0 overflow-hidden relative">
-        {/* Mobile top bar */}
+
         <div className="md:hidden flex items-center h-12 px-2 border-b border-border bg-secondary/80 shrink-0 gap-1.5">
           <button
             onClick={() => setMobileOpen(true)}
@@ -333,17 +318,13 @@ export default function WorkspaceLayout({ children }: { children: ReactNode }) {
           </button>
           
           <div className="flex items-center gap-2 min-w-0">
-            {/* Logo — outline style */}
-            <div className={cn(
-              "w-6 h-6 flex items-center justify-center shrink-0",
-              theme === 'dark' ? "text-white" : "text-black"
-            )}>
+
+            <div className="w-6 h-6 flex items-center justify-center shrink-0 text-foreground">
               <Command size={14} strokeWidth={2.5} />
             </div>
             <span className="text-sm font-black tracking-tighter truncate">CONTROL</span>
           </div>
 
-          {/* Mobile: Open Workspace button */}
           <Link
             href="/workspace"
             className="ml-auto flex items-center gap-1.5 px-3 py-1.5 bg-card border border-border rounded-lg text-[10px] font-bold text-text-secondary hover:text-foreground hover:bg-card-hover transition-all"
@@ -375,7 +356,7 @@ function NavLink({
       href={href}
       className={cn(
         "flex items-center h-10 px-3 rounded-xl text-xs transition-all relative group",
-        active ? 'bg-white/10 text-white font-bold' : 'text-zinc-500 hover:bg-white/5 hover:text-white',
+        active ? 'bg-card-hover text-foreground font-bold' : 'text-text-muted hover:bg-card hover:text-foreground',
         "gap-3"
       )}
     >
@@ -383,10 +364,10 @@ function NavLink({
         {icon}
       </div>
       {!collapsed && <span className="truncate">{label}</span>}
-      {/* Premium Tooltip when collapsed */}
+
       {collapsed && (
-        <div className="absolute left-full ml-4 px-3 py-2 bg-black border border-white/10 rounded-xl text-[10px] font-black text-white uppercase tracking-widest opacity-0 group-hover:opacity-100 translate-x-[-10px] group-hover:translate-x-0 transition-all pointer-events-none z-50 shadow-2xl">
-          <div className="absolute left-[-4px] top-1/2 -translate-y-1/2 w-2 h-2 bg-black border-l border-b border-white/10 rotate-45" />
+        <div className="absolute left-full ml-4 px-3 py-2 bg-secondary border border-border rounded-xl text-[10px] font-black text-foreground uppercase tracking-widest opacity-0 group-hover:opacity-100 translate-x-[-10px] group-hover:translate-x-0 transition-all pointer-events-none z-50 shadow-2xl">
+          <div className="absolute left-[-4px] top-1/2 -translate-y-1/2 w-2 h-2 bg-secondary border-l border-b border-border rotate-45" />
           {label}
         </div>
       )}

@@ -23,7 +23,6 @@ async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> 
   return res.json();
 }
 
-// ─── VM API ───
 export const vmApi = {
   list: () => apiFetch<{ vms: any[] }>('/api/vm/list'),
   create: (name: string) => apiFetch<{ vm: any }>('/api/vm/create', {
@@ -35,7 +34,6 @@ export const vmApi = {
   stats: (id: string) => apiFetch<{ stats: any }>(`/api/vm/${id}/stats`),
 };
 
-// ─── Chat API ───
 export const chatApi = {
   list: () => apiFetch<{ sessions: any[] }>('/api/chat/list'),
   create: (vmId?: string, deviceId?: string) =>
@@ -53,7 +51,6 @@ export const chatApi = {
   delete: (sessionId: string) =>
     apiFetch<{ success: boolean }>(`/api/chat/${sessionId}`, { method: 'DELETE' }),
 
-  // File upload
   uploadFile: async (sessionId: string, file: File): Promise<{ file_url: string; file_type: string; filename: string }> => {
     const token = await getAccessToken();
     const formData = new FormData();
@@ -71,7 +68,6 @@ export const chatApi = {
     return res.json();
   },
 
-  // Provider config
   getProviderConfig: () => apiFetch<{ config: any }>('/api/chat/provider-config'),
   saveProviderConfig: (config: any) =>
     apiFetch<{ success: boolean }>('/api/chat/provider-config', {
@@ -79,7 +75,6 @@ export const chatApi = {
       body: JSON.stringify(config),
     }),
 
-  // Terminal permissions
   getTerminalPermission: () => apiFetch<{ permission: string }>('/api/chat/terminal-permission'),
   setTerminalPermission: (permission: string) =>
     apiFetch<{ success: boolean; permission: string }>('/api/chat/terminal-permission', {
@@ -87,8 +82,7 @@ export const chatApi = {
       body: JSON.stringify(permission),
     }),
 
-  // SSE stream with optional file
-  sendMessage: async function* (sessionId: string, message: string, fileUrl?: string) {
+  sendMessage: async function* (sessionId: string, message: string, fileUrl?: string, mode?: string) {
     const token = await getAccessToken();
     const res = await fetch(`${BACKEND_URL}/api/chat/${sessionId}/send`, {
       method: 'POST',
@@ -96,7 +90,7 @@ export const chatApi = {
         'Content-Type': 'application/json',
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
       },
-      body: JSON.stringify({ message, file_url: fileUrl }),
+      body: JSON.stringify({ message, file_url: fileUrl, mode: mode || 'act' }),
     });
     if (!res.ok) throw new Error('Failed to send message');
     if (!res.body) return;
@@ -124,7 +118,6 @@ export const chatApi = {
   },
 };
 
-// ─── Pairing API ───
 export const pairApi = {
   generate: (deviceName: string) =>
     apiFetch<{ device_id: string; code: string; expires_at: string }>('/api/pair/generate', {
@@ -144,7 +137,6 @@ export const pairApi = {
     apiFetch<{ success: boolean }>(`/api/pair/${deviceId}`, { method: 'DELETE' }),
 };
 
-// ─── Vault API ───
 export const vaultApi = {
   list: () => apiFetch<any[]>('/api/secrets/list'),
   create: (data: any) => apiFetch<any>('/api/secrets/', {
@@ -156,7 +148,6 @@ export const vaultApi = {
   delete: (id: string) => apiFetch<{ success: boolean }>(`/api/secrets/${id}`, { method: 'DELETE' }),
 };
 
-// ─── Config API ───
 export const configApi = {
   get: (key: string) => apiFetch<{ value: any }>(`/api/config/${key}`),
   set: (key: string, value: any) =>

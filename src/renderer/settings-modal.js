@@ -45,7 +45,7 @@ class SettingsModal {
     }
 
     initializeLucideIcons() {
-        // Lucide is replaced by Font Awesome
+
     }
 
     setupTabs() {
@@ -58,11 +58,9 @@ class SettingsModal {
                 const tabId = item.getAttribute('data-tab');
                 if (!tabId) return;
 
-                // Update sidebar
                 sidebarItems.forEach(i => i.classList.remove('active'));
                 item.classList.add('active');
 
-                // Update content
                 tabContents.forEach(content => {
                     content.classList.remove('active');
                     if (content.id === tabId) {
@@ -70,7 +68,6 @@ class SettingsModal {
                     }
                 });
 
-                // Update title
                 if (tabTitle) {
                     tabTitle.textContent = item.querySelector('.sidebar-label').textContent;
                 }
@@ -87,7 +84,6 @@ class SettingsModal {
                 const provider = card.getAttribute('data-provider');
                 this.settings.modelProvider = provider;
 
-                // Update UI
                 cards.forEach(c => c.classList.remove('active'));
                 card.classList.add('active');
 
@@ -102,7 +98,6 @@ class SettingsModal {
             });
         });
 
-        // Remote Access Toggles
         document.getElementById('remoteAccessToggle')?.addEventListener('change', async (e) => {
             const enabled = e.target.checked;
             document.getElementById('remotePairingSection').style.display = enabled ? 'block' : 'none';
@@ -138,7 +133,7 @@ class SettingsModal {
                 loader.style.display = 'block';
 
                 try {
-                    // Force regenerate if we already had a code
+
                     const code = await window.settingsAPI.getRemotePairingCode(null, hasCode);
                     if (code) {
                         codeDisplay.textContent = code;
@@ -190,8 +185,7 @@ class SettingsModal {
             if (currentCode !== status.pairing.pairing_code) {
                 pairingCodeDisplay.textContent = status.pairing.pairing_code;
                 if (copyBtn) copyBtn.style.display = 'block';
-                
-                // Update button text to Regenerate if we have a code
+
                 const generateBtnText = document.getElementById('generateBtnText');
                 if (generateBtnText) generateBtnText.textContent = 'Regenerate';
             }
@@ -240,14 +234,13 @@ class SettingsModal {
     }
 
     setupEventListeners() {
-        // Theme Select
+
         document.getElementById('themeSelect')?.addEventListener('change', (e) => {
             this.settings.theme = e.target.value;
             this.updateTheme();
             this.saveSettings();
         });
 
-        // Toggles mapping
         const toggleMap = {
             'borderStreakToggle': 'borderStreakEnabled',
             'voiceResponseToggle': 'voiceResponse',
@@ -289,7 +282,6 @@ class SettingsModal {
             }
         });
 
-        // Provider Inputs
         const providerInputs = [
             'geminiApiKey', 'geminiModel', 'openaiApiKey', 'openaiModel', 'openaiBaseUrl',
             'anthropicApiKey', 'anthropicModel', 'openrouterApiKey', 'openrouterModel',
@@ -303,7 +295,6 @@ class SettingsModal {
             });
         });
 
-        // Voice Settings
         document.getElementById('ttsVoiceSelect')?.addEventListener('change', (e) => {
             this.settings.ttsVoice = e.target.value;
             this.saveSettings();
@@ -325,7 +316,6 @@ class SettingsModal {
             }
         });
 
-        // Action Buttons
         document.getElementById('logoutButton')?.addEventListener('click', async () => {
             const confirmed = await window.settingsAPI?.showConfirmModal({
                 title: 'Log Out',
@@ -398,7 +388,6 @@ class SettingsModal {
             this.showPinModal('change');
         });
 
-        // Hotkeys
         document.getElementById('editToggleChatBtn')?.addEventListener('click', () => this.recordHotkey('toggleChat'));
         document.getElementById('editStopActionBtn')?.addEventListener('click', () => this.recordHotkey('stopAction'));
         document.getElementById('resetHotkeysBtn')?.addEventListener('click', () => {
@@ -407,7 +396,6 @@ class SettingsModal {
             this.saveSettings();
         });
 
-        // PIN Modal
         document.getElementById('pinCancelButton')?.addEventListener('click', () => {
             const modal = document.getElementById('pinModal');
             if (modal) modal.style.display = 'none';
@@ -418,9 +406,8 @@ class SettingsModal {
             this.handlePinConfirm();
         });
 
-        // Close on blur (click outside)
         window.addEventListener('mousedown', (e) => {
-            // New: Don't close if clicking inside a modal or popup
+
             if (e.target.closest('.modal-overlay')) return;
             
             const win = document.querySelector('.settings-window');
@@ -488,7 +475,7 @@ class SettingsModal {
     }
 
     updateUI() {
-        // Update Toggles
+
         const toggleMap = {
             'borderStreakToggle': 'borderStreakEnabled',
             'voiceResponseToggle': 'voiceResponse',
@@ -509,7 +496,6 @@ class SettingsModal {
             }
         });
 
-        // Update Provider Inputs
         const providerInputs = [
             'geminiApiKey', 'geminiModel', 'openaiApiKey', 'openaiModel', 'openaiBaseUrl',
             'anthropicApiKey', 'anthropicModel', 'openrouterApiKey', 'openrouterModel',
@@ -521,7 +507,6 @@ class SettingsModal {
             if (el) el.value = this.settings[id] || '';
         });
 
-        // Update Provider Cards
         const provider = this.settings.modelProvider || 'gemini';
         document.querySelectorAll('.provider-card').forEach(c => c.classList.remove('active'));
         const card = document.querySelector(`.provider-card[data-provider="${provider}"]`);
@@ -532,7 +517,6 @@ class SettingsModal {
             if (config) config.classList.add('active');
         }
 
-        // Update Layout Cards
         const layout = this.settings.layout || 'classic';
         const layoutCard = document.querySelector(`.layout-card[data-layout="${layout}"]`);
         if (layoutCard) {
@@ -540,7 +524,6 @@ class SettingsModal {
             layoutCard.classList.add('active');
         }
 
-        // Voice Slider
         if (document.getElementById('ttsRateSlider')) {
             document.getElementById('ttsRateSlider').value = this.settings.ttsRate || 1.0;
             document.getElementById('ttsRateValue').textContent = (this.settings.ttsRate || 1.0).toFixed(1);
@@ -550,7 +533,6 @@ class SettingsModal {
         this.updateUserInfo();
         this.updateHotkeysUI();
 
-        // Restore Remote Access toggle
         const remoteToggle = document.getElementById('remoteAccessToggle');
         const pairingSection = document.getElementById('remotePairingSection');
         if (remoteToggle && this.settings.remoteAccessEnabled) {
@@ -582,7 +564,6 @@ class SettingsModal {
             const planBadge = document.querySelector('.plan-badge');
             if (planBadge) planBadge.textContent = (this.currentUser.plan || 'Free Plan').toUpperCase();
 
-            // Usage Limits
             const actUsed = this.currentUser.actUsed || 0;
             const askUsed = this.currentUser.askUsed || 0;
             const plan = (this.currentUser.plan || 'free').toLowerCase();
@@ -596,7 +577,6 @@ class SettingsModal {
                 document.getElementById('askLimitText').textContent = `${askUsed} / ${askLimitStr}`;
             }
 
-            // Stats
             const totalTokens = this.currentUser.totalTokens || 0;
             const dailyTokens = Object.values(this.currentUser.dailyTokenData || {}).reduce((a, b) => a + (b || 0), 0);
             
@@ -743,8 +723,7 @@ class SettingsModal {
                 row.style.borderRadius = '8px';
                 row.style.border = '1px solid var(--border-color)';
                 row.style.marginBottom = '12px';
-                
-                // Icon mapping matching chat window
+
                 let iconClass = 'fas fa-bolt';
                 const cmd = skill.name.toLowerCase();
                 if (cmd.includes('web')) iconClass = 'fas fa-globe';
@@ -764,8 +743,6 @@ class SettingsModal {
                 `;
                 container.appendChild(row);
             });
-
-            // this.initializeLucideIcons(); // No longer needed for FA
 
             container.querySelectorAll('.delete-skill-btn').forEach(btn => {
                 btn.addEventListener('click', async (e) => {

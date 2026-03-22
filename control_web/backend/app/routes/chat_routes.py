@@ -1,4 +1,3 @@
-"""Chat session API routes with SSE streaming and file upload support."""
 import json
 import os
 import uuid
@@ -13,7 +12,6 @@ from app.services.vm_service import vm_service
 
 router = APIRouter(prefix="/api/chat", tags=["Chat"])
 
-# Supported file types
 ALLOWED_IMAGE_TYPES = {"image/png", "image/jpeg", "image/webp", "image/gif"}
 ALLOWED_TEXT_TYPES = {
     "text/plain", "text/markdown", "text/csv",
@@ -24,11 +22,9 @@ ALLOWED_TEXT_TYPES = {
 ALLOWED_TYPES = ALLOWED_IMAGE_TYPES | ALLOWED_TEXT_TYPES
 MAX_FILE_SIZE = 20 * 1024 * 1024  # 20MB
 
-
 class CreateSessionRequest(BaseModel):
     vm_id: Optional[str] = None
     device_id: Optional[str] = None
-
 
 class UpdateSessionRequest(BaseModel):
     vm_id: Optional[str] = None
@@ -36,13 +32,12 @@ class UpdateSessionRequest(BaseModel):
     title: Optional[str] = None
     ai_status: Optional[str] = None
 
-
 class SendMessageRequest(BaseModel):
     message: str
     model: Optional[str] = "gemini-2.5-flash"
     file_url: Optional[str] = None
     file_type: Optional[str] = None
-
+    mode: Optional[str] = "act"  # 'ask' for questions, 'act' for computer actions
 
 class SaveProviderConfigRequest(BaseModel):
     provider: str
@@ -58,7 +53,6 @@ class SaveProviderConfigRequest(BaseModel):
     xai_model: Optional[str] = "grok-2-vision-1212"
     ollama_model: Optional[str] = "llava"
 
-
 @router.get("/list")
 async def list_sessions(user: dict = Depends(get_current_user)):
     db = get_service_client()
@@ -67,7 +61,6 @@ async def list_sessions(user: dict = Depends(get_current_user)):
         .order("updated_at", desc=True)\
         .execute()
     return {"sessions": result.data}
-
 
 @router.post("/create")
 async def create_session(req: CreateSessionRequest, user: dict = Depends(get_current_user)):
@@ -84,7 +77,6 @@ async def create_session(req: CreateSessionRequest, user: dict = Depends(get_cur
     result = db.table("chat_sessions").insert(session_data).execute()
     return {"session": result.data[0]}
 
-
 @router.get("/{session_id}/messages")
 async def get_messages(session_id: str, user: dict = Depends(get_current_user)):
     db = get_service_client()
@@ -99,7 +91,6 @@ async def get_messages(session_id: str, user: dict = Depends(get_current_user)):
         .execute()
     return {"messages": result.data}
 
-
 @router.post("/{session_id}/send")
 async def send_message(
     session_id: str, req: SendMessageRequest, user: dict = Depends(get_current_user)
@@ -113,19 +104,16 @@ async def send_message(
         raise HTTPException(status_code=404, detail="Session not found")
 
     session_data = session.data[0]
-    # Inject user_id so agent can look up provider config
+
     session_data["user_id"] = user["id"]
 
-    # Update VM activity heartbeat if applicable
     if session_data.get("vm_id"):
         await vm_service.update_activity(db, session_data["vm_id"])
 
-    # Optionally attach file info to message for context
     message = req.message
     if req.file_url:
         message += f"\n\n[Attached file: {req.file_url}]"
 
-    # Save user message to database
     db.table("chat_messages").insert({
         "session_id": session_id,
         "role": "user",
@@ -133,7 +121,7 @@ async def send_message(
     }).execute()
 
     async def event_stream():
-        async for event in agent_executor.execute_task(db, session_id, message, session_data):
+        async for event in agent_executor.execute_task(db, session_id, message, session_data, mode=req.mode or "act"):
             yield f"data: {json.dumps(event)}\n\n"
 
     return StreamingResponse(
@@ -146,22 +134,19 @@ async def send_message(
         },
     )
 
-
 @router.post("/{session_id}/upload")
 async def upload_file(
     session_id: str,
     file: UploadFile = File(...),
     user: dict = Depends(get_current_user),
 ):
-    """Upload a file and attach it to a chat session."""
+
     db = get_service_client()
 
-    # Verify session ownership
     session = db.table("chat_sessions").select("user_id").eq("id", session_id).execute()
     if not session.data or session.data[0]["user_id"] != user["id"]:
         raise HTTPException(status_code=404, detail="Session not found")
 
-    # Validate file type
     content_type = file.content_type or "application/octet-stream"
     ext = os.path.splitext(file.filename or "")[1].lower()
     
@@ -174,12 +159,10 @@ async def upload_file(
             detail=f"File type '{content_type}' not supported. Allowed: images, text files, PDFs, code files."
         )
 
-    # Read and size-check
     contents = await file.read()
     if len(contents) > MAX_FILE_SIZE:
         raise HTTPException(status_code=413, detail="File too large. Maximum size is 20MB.")
 
-    # For images, return as base64 data URL for AI consumption
     if content_type in ALLOWED_IMAGE_TYPES:
         b64 = base64.b64encode(contents).decode()
         data_url = f"data:{content_type};base64,{b64}"
@@ -191,13 +174,11 @@ async def upload_file(
             "size": len(contents),
         }
 
-    # For text/code files, return decoded content
     try:
         text_content = contents.decode("utf-8")
     except UnicodeDecodeError:
         text_content = contents.decode("latin-1")
 
-    # Truncate very large files
     if len(text_content) > 50000:
         text_content = text_content[:50000] + "\n...[truncated]"
 
@@ -208,7 +189,6 @@ async def upload_file(
         "filename": file.filename,
         "size": len(contents),
     }
-
 
 @router.patch("/{session_id}")
 async def update_session(
@@ -234,7 +214,6 @@ async def update_session(
         return {"session": result.data[0] if result.data else {}}
     return {"session": {}}
 
-
 @router.delete("/{session_id}")
 async def delete_session(session_id: str, user: dict = Depends(get_current_user)):
     db = get_service_client()
@@ -246,17 +225,15 @@ async def delete_session(session_id: str, user: dict = Depends(get_current_user)
     db.table("chat_sessions").delete().eq("id", session_id).execute()
     return {"success": True}
 
-
 @router.post("/provider-config")
 async def save_provider_config(
     req: SaveProviderConfigRequest, user: dict = Depends(get_current_user)
 ):
-    """Save AI provider configuration for this user."""
+
     db = get_service_client()
     
     config_data = req.dict(exclude_none=True)
-    
-    # Upsert user-specific config
+
     existing = db.table("app_config").select("id")\
         .eq("key", f"api_keys_{user['id']}").execute()
     
@@ -272,10 +249,9 @@ async def save_provider_config(
     
     return {"success": True}
 
-
 @router.get("/provider-config")
 async def get_provider_config(user: dict = Depends(get_current_user)):
-    """Get AI provider configuration for this user."""
+
     db = get_service_client()
     
     res = db.table("app_config").select("value")\
@@ -283,7 +259,7 @@ async def get_provider_config(user: dict = Depends(get_current_user)):
     
     if res.data:
         config = res.data[0].get("value", {})
-        # Mask API keys in response (show only first 8 chars)
+
         masked = {}
         for k, v in config.items():
             if "api_key" in k and v:
@@ -294,12 +270,11 @@ async def get_provider_config(user: dict = Depends(get_current_user)):
     
     return {"config": {"provider": "gemini"}}
 
-
 @router.post("/terminal-permission")
 async def set_terminal_permission(
     permission: str, user: dict = Depends(get_current_user)
 ):
-    """Set terminal execution permission (always/ask/never)."""
+
     if permission not in ("always", "ask", "never"):
         raise HTTPException(status_code=400, detail="Invalid permission value")
 
@@ -314,10 +289,9 @@ async def set_terminal_permission(
     
     return {"success": True, "permission": permission}
 
-
 @router.get("/terminal-permission")
 async def get_terminal_permission(user: dict = Depends(get_current_user)):
-    """Get terminal execution permission setting."""
+
     db = get_service_client()
     key = f"terminal_permission_{user['id']}"
     

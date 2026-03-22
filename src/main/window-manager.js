@@ -23,12 +23,11 @@ class WindowManager {
     }
 
     async initializeWindows() {
-        // Optimized: Only create core windows initially. Others are lazy-loaded on demand.
+
         console.log('[WindowManager] Initializing core windows...');
         await this.createMainWindow();
         await this.createEntryWindow();
 
-        // Setup window management
         this.setupWindowManagement();
     }
 
@@ -37,7 +36,7 @@ class WindowManager {
         const visible = global.appSettings?.windowVisibility !== false;
         try {
             window.setContentProtection(!visible);
-            // setVisibleOnAllWorkspaces can sometimes be finicky depending on the OS/Electron version
+
             window.setVisibleOnAllWorkspaces(visible, { visibleOnFullScreen: true });
         } catch (e) {
             console.warn('[WindowManager] Could not apply setVisibleOnAllWorkspaces:', e.message);
@@ -74,7 +73,7 @@ class WindowManager {
             }
         });
         this.mainWindow.setAlwaysOnTop(true, 'floating')
-        // Make window click-through only when not interactive
+
         this.mainWindow.setIgnoreMouseEvents(!this.isInteractive, { forward: !this.isInteractive });
 
         await this.mainWindow.loadFile(
@@ -84,8 +83,6 @@ class WindowManager {
         this.windows.set('main', this.mainWindow);
         this.applyCurrentVisibility(this.mainWindow);
 
-        // Note: do not auto-show the main overlay here to avoid flicker during startup.
-        // The main process will decide when to show windows after initialization.
     }
 
     async createChatWindow() {
@@ -138,10 +135,8 @@ class WindowManager {
         this.windows.set('chat', chatWindow);
         this.applyCurrentVisibility(chatWindow);
 
-        // Make chat window draggable
         this.setupDraggableWindow(chatWindow);
 
-        // Add crash listeners for debugging
         chatWindow.webContents.on('render-process-gone', (event, details) => {
             console.error('[WindowManager] Chat window renderer process gone:', details.reason, details.exitCode);
         });
@@ -150,7 +145,6 @@ class WindowManager {
             console.error('[WindowManager] Chat window became unresponsive');
         });
 
-        // Forward console logs to terminal
         chatWindow.webContents.on('console-message', (event, level, message, line, sourceId) => {
             console.log(`[Chat Renderer ${level}] ${message} (${sourceId}:${line})`);
         });
@@ -199,22 +193,18 @@ class WindowManager {
         this.windows.set('settings', settingsWindow);
         this.applyCurrentVisibility(settingsWindow);
 
-        // Make settings window draggable
         this.setupDraggableWindow(settingsWindow);
 
-        // Close settings when it loses focus (click outside closes it).
-        // Use a longer debounce to avoid hiding during transient focus shifts (e.g., scrolling or touch interactions).
         settingsWindow.on('blur', () => {
             setTimeout(() => {
                 try {
                     if (!settingsWindow.isDestroyed() && !settingsWindow.isFocused()) {
-                        // NEW: Don't close if a modal is active (flag set by renderer or main)
+
                         if (settingsWindow.isModalActive) {
                             console.log('[WindowManager] Settings window blurred but modal is active, not hiding');
                             return;
                         }
 
-                        // Check if another window we manage just gained focus
                         const focusedWindow = BrowserWindow.getFocusedWindow();
                         const isOtherManagedWindowFocused = Array.from(this.windows.values()).some(w => w === focusedWindow);
 
@@ -272,7 +262,6 @@ class WindowManager {
         this.applyCurrentVisibility(workflowWindow);
         this.setupDraggableWindow(workflowWindow);
     }
-
 
     async createLiteWindow() {
         console.log('[WindowManager] Creating lite window...');
@@ -345,16 +334,15 @@ class WindowManager {
         this.windows.set('entry', entryWindow);
         this.applyCurrentVisibility(entryWindow);
 
-        // Make entry window draggable via IPC
         this.setupDraggableWindow(entryWindow);
     }
 
     setupDraggableWindow(window) {
-        // Redundant with main.js IPC listener but kept as hook for future window-specific drag logic
+
     }
 
     setupWindowManagement() {
-        // Keep windows on screen and handle multiple displays
+
         screen.on('display-metrics-changed', () => {
             this.ensureWindowsOnScreen();
         });
@@ -382,7 +370,7 @@ class WindowManager {
                 }
 
                 if (!onScreen) {
-                    // Move window to primary display
+
                     window.setPosition(
                         primaryDisplay.workArea.x + 100,
                         primaryDisplay.workArea.y + 100
@@ -396,7 +384,6 @@ class WindowManager {
         let browserWindow = this.windows.get(windowType);
         console.log(`[WindowManager] showWindow('${windowType}'):`, { exists: !!browserWindow, destroyed: browserWindow?.isDestroyed?.() });
 
-        // If window doesn't exist or is destroyed, recreate it
         if (!browserWindow || browserWindow.isDestroyed()) {
             console.log(`[WindowManager] Window ${windowType} not found or destroyed, recreating...`);
             if (windowType === 'entry') await this.createEntryWindow();
@@ -423,7 +410,6 @@ class WindowManager {
 
             console.log(`[WindowManager] showWindow: Showing and focusing ${windowType}. Current state: chatVisible=${this.chatVisible}`);
 
-            // Always show and focus to ensure it's on top and active
             browserWindow.show();
             browserWindow.focus();
 
@@ -440,9 +426,9 @@ class WindowManager {
             if (windowType === 'chat') {
                 this.chatVisible = false;
             }
-            // Always restore overlay to non-interactive default after closing a window
+
             this.setInteractive(false);
-            // Only show floating button if it's enabled in settings
+
             this.showFloatingButtonIfEnabled();
 
             browserWindow.hide();
@@ -495,7 +481,6 @@ class WindowManager {
         }
     }
 
-    // Hide floating button only if it's enabled in settings (respects user toggle)
     hideFloatingButtonIfEnabled() {
         const mainWindow = this.windows.get('main');
         if (mainWindow && !mainWindow.isDestroyed()) {
@@ -503,14 +488,13 @@ class WindowManager {
         }
     }
 
-    // Show floating button only if it's enabled in settings (respects user toggle)
     showFloatingButtonIfEnabled() {
         const mainWindow = this.windows.get('main');
         if (mainWindow && !mainWindow.isDestroyed()) {
             const enabled = global.appSettings?.floatingButtonVisible !== false;
             console.log(`[WindowManager] showFloatingButtonIfEnabled - floatingButtonVisible=${enabled}`);
             if (enabled) {
-                // Send a direct show request - overlay will still respect its own settings guard
+
                 mainWindow.webContents.send('show-floating-button');
             } else {
                 console.log('[WindowManager] Skipping showFloatingButtonIfEnabled: floating button disabled in settings');
@@ -523,10 +507,9 @@ class WindowManager {
         this.isInteractive = interactive;
         const mainWindow = this.windows.get('main');
         if (mainWindow && !mainWindow.isDestroyed()) {
-            // Toggle click-through behavior
+
             mainWindow.setIgnoreMouseEvents(!interactive, { forward: !interactive });
 
-            // Notify renderer about interaction mode
             mainWindow.webContents.send('interaction-mode-changed', { interactive });
         }
     }
@@ -539,7 +522,6 @@ class WindowManager {
         const enabled = global.appSettings?.edgeGlowEnabled !== false;
         console.log('[WindowManager] showVisualEffect called:', effectType, 'edgeGlowEnabled=', enabled);
 
-        // Always allow task-inactive to ensure UI resets correctly even if setting was just disabled
         if (!enabled && effectType !== 'task-inactive') {
             console.log('[WindowManager] Skipping showVisualEffect because edge glow disabled in settings');
             return;
@@ -577,7 +559,6 @@ class WindowManager {
                     window.setContentProtection(!visible);
                     window.setVisibleOnAllWorkspaces(visible, { visibleOnFullScreen: true });
 
-                    // Nudge to force OS-level refresh of capture state
                     const isAlwaysOnTop = window.isAlwaysOnTop();
                     window.setAlwaysOnTop(!isAlwaysOnTop);
                     setTimeout(() => {

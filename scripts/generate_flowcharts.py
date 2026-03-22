@@ -2,15 +2,13 @@ from PIL import Image, ImageDraw, ImageFont
 import os
 
 def create_flowchart(title, steps, filename):
-    # Image size
+
     width = 800
     height = 100 + (len(steps) * 100)
 
-    # Create white image
     img = Image.new('RGB', (width, height), color=(255, 255, 255))
     draw = ImageDraw.Draw(img)
 
-    # Try to load a font
     try:
         font = ImageFont.truetype("arial.ttf", 20)
         title_font = ImageFont.truetype("arial.ttf", 30)
@@ -18,12 +16,11 @@ def create_flowchart(title, steps, filename):
         font = ImageFont.load_default()
         title_font = ImageFont.load_default()
 
-    # Draw Title
     draw.text((width/2 - 50, 20), title, fill=(0, 0, 0), font=title_font)
 
     y = 80
     for i, step in enumerate(steps):
-        # Draw Box
+
         box_w = 600
         box_h = 60
         x1 = (width - box_w) / 2
@@ -33,22 +30,18 @@ def create_flowchart(title, steps, filename):
 
         draw.rectangle([x1, y1, x2, y2], outline=(0, 0, 0), width=2)
 
-        # Draw Text
         draw.text((x1 + 20, y1 + 20), f"{i+1}. {step}", fill=(0, 0, 0), font=font)
 
-        # Draw Arrow
         if i < len(steps) - 1:
             draw.line([(width/2, y2), (width/2, y2 + 40)], fill=(0, 0, 0), width=2)
-            # Arrow head
+
             draw.polygon([(width/2 - 10, y2 + 30), (width/2 + 10, y2 + 30), (width/2, y2 + 40)], fill=(0, 0, 0))
 
         y += 100
 
-    # Save
     img.save(filename)
     print(f"Flowchart saved to {filename}")
 
-# 1. Overall Flow
 overall_steps = [
     "User Input (Text or Voice)",
     "Main Process receives request via IPC",
@@ -60,7 +53,6 @@ overall_steps = [
     "Renderer displays response and Edge-TTS speaks it"
 ]
 
-# 2. Ask Flow
 ask_steps = [
     "User asks a question",
     "Ask Backend initializes Gemini with Search Tool",
@@ -70,7 +62,6 @@ ask_steps = [
     "Tokens tracked and reported to Firebase"
 ]
 
-# 3. Act Flow
 act_steps = [
     "User describes a task",
     "Act Backend captures initial screenshot",
@@ -80,7 +71,6 @@ act_steps = [
     "Completion status and tokens updated in Firebase"
 ]
 
-# 4. Wake Word Flow
 wakeword_steps = [
     "Microphone listens via PvRecorder",
     "Porcupine engine processes audio frames",

@@ -1,8 +1,4 @@
 #!/usr/bin/env python3
-"""
-Terminal access script for ACT backend (Gemini)
-Run this script directly to use ACT mode from terminal
-"""
 
 import sys
 import json
@@ -39,4 +35,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

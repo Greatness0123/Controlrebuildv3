@@ -1,15 +1,9 @@
-/**
- * Vosk Server Manager
- * Manages startup and lifecycle of the Vosk STT server (streaming WebSocket version)
- */
-
 const { spawn, execSync } = require('child_process');
 const path = require('path');
 const os = require('os');
 const fs = require('fs-extra');
 const util = require('util');
 const exec = util.promisify(require('child_process').exec);
-// const VoskStreamingClient = require('./vosk-streaming-client'); // Removed
 
 class VoskServerManager {
     constructor() {
@@ -43,7 +37,6 @@ class VoskServerManager {
         }
         searchDirs.push(process.cwd());
 
-        // --- 1. Look for compiled executable FIRST (no Python needed) ---
         const exeName = process.platform === 'win32' ? 'vosk_server_v2.exe' : 'vosk_server_v2';
         const binarySubDirs = ['assets/binaries', 'binaries'];
         this.executablePath = null;
@@ -66,7 +59,6 @@ class VoskServerManager {
             console.log('[Vosk] No compiled executable found, will fall back to Python script.');
         }
 
-        // --- 2. Find vosk_server_v2.py (fallback) ---
         this.serverScriptPath = null;
         for (const dir of searchDirs) {
             const p = path.join(dir, "vosk_server_v2.py");
@@ -81,7 +73,6 @@ class VoskServerManager {
             console.error(`[Vosk] Server script not found. Fallback: ${this.serverScriptPath}`);
         }
 
-        // --- 3. Find vosk-model ---
         this.modelPath = null;
         const modelSubDirs = ["assets/vosk-model", "vosk-model"];
         for (const dir of searchDirs) {
@@ -101,12 +92,9 @@ class VoskServerManager {
         }
     }
 
-    /**
-     * Find Python executable
-     */
     async findPythonExecutable() {
         try {
-            // Try common Python commands
+
             const commands = ['python', 'python3', 'py'];
             let lastError = 'No commands tried';
 
@@ -117,7 +105,6 @@ class VoskServerManager {
                         timeout: 5000
                     });
 
-                    // Verify it has vosk and websockets installed
                     try {
                         console.log(`[Vosk] Verifying dependencies for: ${cmd}`);
                         await exec(`${cmd} -c "import vosk; import websockets"`, { timeout: 5000 });
@@ -129,7 +116,7 @@ class VoskServerManager {
                         continue;
                     }
                 } catch (err) {
-                    // Command not found
+
                     continue;
                 }
             }
@@ -140,13 +127,10 @@ class VoskServerManager {
         }
     }
 
-    /**
-     * Check if server is ready by attempting a connection
-     */
     async waitForServer(maxAttempts = 15, delayMs = 1000) {
         const net = require('net');
         for (let i = 0; i < maxAttempts; i++) {
-            // Check if process is still alive
+
             if (this.serverProcess && this.serverProcess.exitCode !== null) {
                 console.error(`[Vosk] Server process died during startup with code: ${this.serverProcess.exitCode}`);
                 return false;
@@ -177,9 +161,6 @@ class VoskServerManager {
         return false;
     }
 
-    /**
-     * Check if port is in use and try to kill the process if it is
-     */
     async ensurePortAvailable(port) {
         return new Promise(async (resolve) => {
             const isUsed = await new Promise((res) => {
@@ -200,9 +181,9 @@ class VoskServerManager {
                 console.log(`[Vosk] Port ${port} is in use. Attempting to clear it...`);
                 try {
                     if (process.platform === 'win32') {
-                        // More robust way to find and kill process on port
+
                         try {
-                            // First, get the PID
+
                             const findCmd = `netstat -aon | findstr LISTENING | findstr :${port}`;
                             const output = execSync(findCmd).toString();
                             const lines = output.split('\n');
@@ -218,7 +199,7 @@ class VoskServerManager {
                             }
                         } catch (cmdErr) {
                             console.warn(`[Vosk] Failed to kill process on port ${port} using netstat: ${cmdErr.message}`);
-                            // Fallback to the one-liner if needed, but wrap in try
+
                             try {
                                 const fallbackCmd = `for /f "tokens=5" %a in ('netstat -aon ^| findstr LISTENING ^| findstr :${port}') do taskkill /f /pid %a`;
                                 execSync(fallbackCmd, { stdio: 'ignore' });
@@ -239,9 +220,6 @@ class VoskServerManager {
         });
     }
 
-    /**
-     * Start the Vosk server
-     */
     async start() {
         try {
             if (this.isRunning) {
@@ -249,7 +227,6 @@ class VoskServerManager {
                 return true;
             }
 
-            // Ensure port is available
             await this.ensurePortAvailable(this.port);
 
             if (!fs.existsSync(this.modelPath)) {
@@ -260,13 +237,11 @@ class VoskServerManager {
 
             console.log('Starting Vosk server V2...');
 
-            // Create log files
             const logStream = fs.createWriteStream(this.logFile, { flags: 'a' });
             const errorStream = fs.createWriteStream(this.errorFile, { flags: 'a' });
 
-            // Determine how to start the server
             if (this.useExecutable && this.executablePath && fs.existsSync(this.executablePath)) {
-                // --- Use compiled executable (no Python needed) ---
+
                 console.log(`[Vosk] Starting with compiled executable: ${this.executablePath}`);
 
                 this.serverProcess = spawn(this.executablePath, [
@@ -279,7 +254,7 @@ class VoskServerManager {
                     env: { ...process.env }
                 });
             } else {
-                // --- Fallback: use Python script ---
+
                 console.log('[Vosk] Using Python script fallback...');
                 if (!this.pythonExePath) {
                     this.pythonExePath = await this.findPythonExecutable();
@@ -300,11 +275,9 @@ class VoskServerManager {
                 });
             }
 
-            // Pipe output to log files
             this.serverProcess.stdout.pipe(logStream);
             this.serverProcess.stderr.pipe(errorStream);
 
-            // Handle process errors
             this.serverProcess.on('error', (error) => {
                 console.error('Failed to start Vosk server:', error);
                 this.isRunning = false;
@@ -316,7 +289,6 @@ class VoskServerManager {
                 this.serverProcess = null;
             });
 
-            // Wait for server to be ready
             console.log(`[Vosk] Waiting for server to initialize (max 15s)...`);
             const ready = await this.waitForServer();
 
@@ -339,23 +311,18 @@ class VoskServerManager {
         }
     }
 
-    /**
-     * Stop the Vosk server
-     */
     stop() {
         try {
             if (this.serverProcess) {
                 console.log('Stopping Vosk server...');
 
-                // Try graceful shutdown first
                 if (process.platform === 'win32') {
-                    // Windows
+
                     require('child_process').exec(`taskkill /PID ${this.serverProcess.pid} /T /F`);
                 } else {
-                    // Unix-like
+
                     this.serverProcess.kill('SIGTERM');
 
-                    // Force kill after timeout
                     setTimeout(() => {
                         if (this.serverProcess && !this.serverProcess.killed) {
                             this.serverProcess.kill('SIGKILL');
@@ -372,23 +339,14 @@ class VoskServerManager {
         }
     }
 
-    /**
-     * Get Vosk client
-     */
     getClient() {
         return this.client;
     }
 
-    /**
-     * Check if server is running
-     */
     isServerRunning() {
         return this.isRunning;
     }
 
-    /**
-     * Get server logs
-     */
     getLogs() {
         try {
             const logs = fs.readFileSync(this.logFile, 'utf-8');
