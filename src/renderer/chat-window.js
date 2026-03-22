@@ -19,9 +19,9 @@ class ChatWindow {
         // this.blueprintContent = document.getElementById('blueprintContent');
         // this.blueprintToggle = document.getElementById('blueprintToggle');
 
-        // Mode toggle elements
-        this.modeAct = document.getElementById('modeAct');
-        this.modeAsk = document.getElementById('modeAsk');
+        // Mode toggle elements (REMOVED)
+        this.modeAct = null;
+        this.modeAsk = null;
 
         this.isTyping = false;
         this.isRecording = false;
@@ -78,15 +78,8 @@ class ChatWindow {
         this.updateSendButton();
         await this.loadSettings();
 
-        // Restore last mode from settings or user details
-        let lastMode = this.settings?.lastMode;
-        if (this.settings?.userDetails?.lastMode) {
-            lastMode = this.settings.userDetails.lastMode;
-        }
-
-        if (lastMode) {
-            this.setMode(lastMode);
-        }
+        // Mode is now always 'act' internally as the model decides
+        this.setMode('act');
 
         if (this.settings.layout === 'lite' && window.chatAPI && window.chatAPI.showWindow) {
             window.chatAPI.showWindow('lite');
@@ -908,24 +901,8 @@ class ChatWindow {
     }
 
     async setMode(mode) {
-        this.currentMode = mode;
-        if (mode === 'act') {
-            this.modeAct.classList.add('active');
-            this.modeAsk.classList.remove('active');
-            this.chatInput.placeholder = "Describe a task to execute...";
-        } else {
-            this.modeAsk.classList.add('active');
-            this.modeAct.classList.remove('active');
-            this.chatInput.placeholder = "Ask a question or explain code...";
-        }
-
-        if (window.chatAPI && window.chatAPI.saveSettings) {
-            try {
-                await window.chatAPI.saveSettings({ lastMode: mode });
-            } catch (error) {
-                console.error('Failed to save last mode:', error);
-            }
-        }
+        this.currentMode = 'act'; // Always act
+        this.chatInput.placeholder = "Describe a task or ask a question...";
 
         this.updateRateLimitDisplay();
 
@@ -1715,7 +1692,7 @@ class ChatWindow {
     }
 
     addStreamChunk(chunk) {
-        // Aggressively clear any thinking/processing indicators when we start receiving chunks
+        if (chunk.includes('{')) return;
         this.forceStopThinking();
 
         const container = this.getOrCreateAIResponseContainer();
@@ -1724,19 +1701,35 @@ class ChatWindow {
         if (!this.currentAIStreamingElement) {
             const div = document.createElement('div');
             div.className = 'text-block';
+            div.style.cssText = 'background: var(--bg-secondary); border: 1px solid var(--border); padding: 16px; border-radius: 16px; margin-top: 8px;';
             container.appendChild(div);
             this.currentAIStreamingElement = div;
         }
 
-        // We use innerHTML but need to be careful with partial markdown.
-        // For streaming, a simple text replacement or a specialized partial markdown renderer is better.
-        // For now, let's use textContent for safety until we have a full block.
         this.currentAIStreamingElement.innerHTML = this.parseMarkdown(this.currentAIStreamingText);
         this.scrollToBottom();
     }
 
     getSectionContent(container, type) {
-        // Sections removed per user request, always return container
+        if (type === 'thinking') {
+            let thinking = container.querySelector('.thinking-section');
+            if (!thinking) {
+                thinking = document.createElement('div');
+                thinking.className = 'thinking-section';
+                thinking.style.opacity = '0.6';
+                container.appendChild(thinking);
+            }
+            return thinking;
+        }
+        if (type === 'actions') {
+            let actions = container.querySelector('.actions-section');
+            if (!actions) {
+                actions = document.createElement('div');
+                actions.className = 'actions-section';
+                container.appendChild(actions);
+            }
+            return actions;
+        }
         return container;
     }
 
@@ -1777,87 +1770,26 @@ class ChatWindow {
         if (sender === 'ai') {
             const container = this.getOrCreateAIResponseContainer();
 
-            // If we have an active streaming element, use it instead of creating a new one
-            if (this.currentAIStreamingElement) {
-                const div = this.currentAIStreamingElement;
-                div.innerHTML = this.parseMarkdown(safeText);
+            const isThought = !isFinal && (safeText.length < 300 || safeText.toLowerCase().includes('thinking'));
 
-                // Reset streaming state
-                this.currentAIStreamingElement = null;
-                this.currentAIStreamingText = "";
-
-                if (this.currentMode === 'ask') {
-                    const messageEl = container.closest('.message');
-                    messageEl.querySelector('.message-actions')?.remove();
-                    this.addMessageActions(messageEl, safeText, 'ai');
-                }
-
-                this.scrollToBottom();
-                return div;
-            }
-
-            // If it's a final message, append it to the main container outside collapsible sections
-            if (isFinal) {
+            if (isThought) {
+                const section = this.getSectionContent(container, 'thinking');
                 const div = document.createElement('div');
-                // Only add final-response class (which adds a top border) if there's already content
-                const hasExistingContent = Array.from(container.children).some(c => c.style.display !== 'none');
-                div.className = 'text-block' + (hasExistingContent ? ' final-response' : '');
+                div.className = 'thought-block';
+                div.style.cssText = 'background: transparent; border-left: 2px solid var(--border); border-radius: 0; padding: 4px 12px; margin: 8px 0; font-style: italic; font-size: 12px;';
                 div.innerHTML = this.parseMarkdown(safeText);
-                container.appendChild(div);
-
-                if (this.currentMode === 'ask') {
-                    this.addMessageActions(container.closest('.message'), safeText, 'ai');
-                }
-
+                section.appendChild(div);
                 this.scrollToBottom();
                 return div;
             }
 
-            const sectionContent = this.getSectionContent(container, 'thinking');
             const div = document.createElement('div');
+            div.className = 'text-block';
+            div.style.cssText = 'background: var(--bg-secondary); border: 1px solid var(--border); padding: 16px; border-radius: 16px; margin-top: 8px;';
+            div.innerHTML = this.parseMarkdown(safeText);
+            container.appendChild(div);
 
-            const isShort = safeText.length < 200 && !safeText.includes('\n');
-            const isVeryLong = safeText.length > 800;
-
-            if (isShort) {
-                div.className = 'thought-block';
-                div.innerHTML = this.parseMarkdown(safeText);
-            } else {
-                div.className = 'text-block';
-                if (isVeryLong) {
-                    const collapsibleWrapper = document.createElement('div');
-                    collapsibleWrapper.className = 'collapsible-text';
-                    collapsibleWrapper.innerHTML = this.parseMarkdown(safeText);
-
-                    const readMoreBtn = document.createElement('button');
-                    readMoreBtn.className = 'read-more-btn';
-                    readMoreBtn.innerHTML = '<span>Read More</span> <i class="fas fa-chevron-down"></i>';
-
-                    readMoreBtn.onclick = () => {
-                        const isExpanded = collapsibleWrapper.classList.toggle('expanded');
-                        readMoreBtn.innerHTML = isExpanded ?
-                            '<span>Show Less</span> <i class="fas fa-chevron-up"></i>' :
-                            '<span>Read More</span> <i class="fas fa-chevron-down"></i>';
-                        this.scrollToBottom();
-                    };
-
-                    div.appendChild(collapsibleWrapper);
-                    div.appendChild(readMoreBtn);
-                } else {
-                    div.innerHTML = this.parseMarkdown(safeText);
-                }
-            }
-
-            sectionContent.appendChild(div);
-
-            // Add actions only if it's the main response and not just a thought (simplified for Ask mode)
-            if (this.currentMode === 'ask') {
-                const messageEl = container.closest('.message');
-                // Remove existing actions if any to avoid duplication as parts arrive
-                messageEl.querySelector('.message-actions')?.remove();
-                this.addMessageActions(messageEl, safeText, 'ai');
-            }
-
+            this.addMessageActions(container.closest('.message'), safeText, 'ai');
             this.scrollToBottom();
             return div;
         }
@@ -1902,9 +1834,7 @@ class ChatWindow {
         }
 
         messageDiv.appendChild(contentDiv);
-        if (this.currentMode === 'ask') {
-            this.addMessageActions(messageDiv, safeText, sender);
-        }
+        this.addMessageActions(messageDiv, safeText, sender);
         this.messagesContainer.appendChild(messageDiv);
         this.scrollToBottom();
         this.checkAndShowWelcomeScreen();
@@ -1918,6 +1848,7 @@ class ChatWindow {
 
         const actionCard = document.createElement('div');
         actionCard.className = `action-card fade-in ${status || ''}`;
+        actionCard.style.cssText = 'border-left: none; margin-left: 0; padding-left: 0; gap: 12px; margin-bottom: 12px;';
         actionCard.dataset.actionId = actionId;
 
         // Map common task words to icons
@@ -1933,28 +1864,17 @@ class ChatWindow {
         if (t.includes('waiting')) icon = 'fa-clock';
 
         actionCard.innerHTML = `
-            <div class="action-icon">
+            <div class="action-icon" style="margin-left: 0; background: var(--bg-secondary); width: 32px; height: 32px; border-radius: 8px; border: 1px solid var(--border); display: flex; align-items: center; justify-content: center;">
                 <i class="fas ${icon}" ${!icon ? 'style="display:none"' : ''}></i>
             </div>
-            <div style="flex:1">
-                <div class="action-title">${text}</div>
-                <div class="action-details" style="display:none"></div>
+            <div style="flex:1; background: var(--bg-secondary); border: 1px solid var(--border); padding: 8px 12px; border-radius: 12px;">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <div class="action-title" style="font-size: 11px; text-transform: uppercase; letter-spacing: 1px;">${text}</div>
+                    <div class="action-status-dot" style="width: 6px; height: 6px; border-radius: 50%; background: #10b981; box-shadow: 0 0 8px #10b981;"></div>
+                </div>
+                <div class="action-details" style="display:none; font-size: 11px; margin-top: 4px; opacity: 0.7;"></div>
             </div>
-            <button class="icon-btn log-toggle" title="View Logs">
-                <i class="fas fa-terminal" style="font-size: 10px;"></i>
-            </button>
         `;
-
-        const logBtn = actionCard.querySelector('.log-toggle');
-        const detailsDiv = actionCard.querySelector('.action-details');
-        if (logBtn && detailsDiv) {
-            logBtn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                const isHidden = window.getComputedStyle(detailsDiv).display === 'none';
-                detailsDiv.style.display = isHidden ? 'block' : 'none';
-                logBtn.classList.toggle('active');
-            });
-        }
 
         sectionContent.appendChild(actionCard);
         this.scrollToBottom();
@@ -2465,7 +2385,6 @@ class ChatWindow {
     }
 
     addMessageActions(container, text, sender) {
-        if (this.currentMode !== 'ask') return;
 
         // Remove existing actions to avoid duplicates
         container.querySelector('.message-actions')?.remove();
