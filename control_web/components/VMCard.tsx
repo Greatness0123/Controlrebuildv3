@@ -125,15 +125,6 @@ export default function VMCard({ vm }: { vm: any }) {
             </div>
             <div>
               <h3 className="text-sm font-black text-foreground uppercase tracking-tight">{vm.name}</h3>
-              <div className="flex items-center gap-1.5 mt-0.5">
-                <span className="text-[9px] text-text-muted font-bold uppercase tracking-widest">{vm.os_type || 'Cloud-OS v2'}</span>
-                {vm.status === 'running' && (
-                  <>
-                    <span className="w-1 h-1 rounded-full bg-border" />
-                    <span className="text-[8px] text-emerald-500 font-black uppercase tracking-widest">Active Tunnel</span>
-                  </>
-                )}
-              </div>
             </div>
           </div>
             <div className="flex items-center gap-2">
@@ -228,8 +219,8 @@ export default function VMCard({ vm }: { vm: any }) {
                         disabled={loading}
                         className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-accent-primary text-accent-foreground text-[9px] font-black uppercase tracking-widest rounded-xl hover:bg-opacity-90 transition-all disabled:opacity-50"
                     >
-                        {loading ? <Loader2 size={12} className="animate-spin" /> : null}
-                        <span className="hidden sm:inline">Start Machine</span>
+                        {loading ? <Loader2 size={12} className="animate-spin" /> : <Play size={12} fill="currentColor" />}
+                        <span>Start Machine</span>
                     </button>
                 ) : (
                     <button

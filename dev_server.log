@@ -1,0 +1,31 @@
+
+> control@1.0.0 dev
+> cross-env NODE_ENV=development electron .
+
+[Main] Loading environment from: /app/.env
+[dotenv@17.2.3] injecting env (2) from .env -- tip: 🗂️ backup and recover secrets: https://dotenvx.com/ops
+⚠️  Node.js 18 and below are deprecated and will no longer be supported in future versions of @supabase/supabase-js. Please upgrade to Node.js 20 or later. For more information, visit: https://github.com/orgs/supabase/discussions/37217
+[Supabase] Polyfilled globalThis.WebSocket with ws package
+[Supabase] Initializing with URL: https://gdvitudsmqktiutyyndv.supabase.co
+✓ Supabase Client initialized (stateless mode)
+[WAKEWORD JS] [INFO] Attempting standard require for native modules
+[WAKEWORD JS] [INFO] Native modules loaded via standard require
+[WakewordManager] [HELPER] Resolving Porcupine params path...
+[WakewordManager] [HELPER] Found Porcupine params via require.resolve: /app/node_modules/@picovoice/porcupine-node/lib/common/porcupine_params.pv
+[WakewordManager] [NATIVE] Attempting standard require for native modules
+[WakewordManager] [NATIVE] Native modules loaded via standard require
+[WakewordManager] [HELPER] Detected OS: Linux (platform: linux)
+[WakewordManager] [HELPER] Architecture: x64
+[WakewordManager] [HELPER] App packaged: false
+[WakewordManager] [HELPER] Looking for model files: hey-control_en_linux_v4_0_0.ppn, hey-control_linux.ppn, hey-control_en_linux.ppn, hey-control_en_windows_v4_0_0.ppn, hey-control.ppn
+[WakewordManager] [HELPER] Searching for model file...
+[WakewordManager] [HELPER] Search directories: /app/assets/wakeword, /app/assets/wakeword, /app/wakeword
+[WakewordManager] [HELPER] Checking directory: /app/assets/wakeword
+[WakewordManager] [HELPER] SUCCESS: Found model at /app/assets/wakeword/hey-control_en_linux_v4_0_0.ppn
+[WakewordManager] [HELPER] Copying model to persistent storage: /home/jules/.config/control/models/hey-control_en_linux_v4_0_0.ppn
+[EdgeTTS] Initialized with robust Python-bridge implementation
+[Vosk] No compiled executable found, will fall back to Python script.
+[Vosk] Found server script at: /app/vosk_server_v2.py
+[Vosk] Model not found. Fallback: /app/assets/vosk-model
+[6275:0324/120333.767467:ERROR:ozone_platform_x11.cc(240)] Missing X server or $DISPLAY
+[6275:0324/120333.767541:ERROR:env.cc(257)] The platform failed to initialize.  Exiting.

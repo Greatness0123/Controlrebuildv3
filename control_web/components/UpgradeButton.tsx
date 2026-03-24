@@ -57,7 +57,7 @@ export default function UpgradeButton({ planName, amount, isPopular, disabled }:
         if (response.status === "successful") {
           toast.success("Payment successful! Your plan will be updated shortly.");
 
-          window.location.href = '/workspace?payment=success';
+          window.location.href = '/pricing?payment=success';
         } else {
           toast.error("Payment failed or was cancelled.");
         }

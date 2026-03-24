@@ -1,0 +1,24 @@
+
+> control-web@0.1.0 dev
+> next dev
+
+ ⚠ Port 3000 is in use, trying 3001 instead.
+  ▲ Next.js 14.2.3
+  - Local:        http://localhost:3001
+
+ ✓ Starting...
+ ✓ Ready in 4.8s
+ ○ Compiling /workspace ...
+ ✓ Compiled /workspace in 6s (670 modules)
+ GET /workspace 200 in 6722ms
+ ✓ Compiled in 881ms (343 modules)
+ ○ Compiling /settings/account ...
+ ✓ Compiled /settings/account in 4.5s (689 modules)
+ GET /settings/account 200 in 4720ms
+ ✓ Compiled /pair in 405ms (707 modules)
+ ⚠ Fast Refresh had to perform a full reload due to a runtime error.
+ GET /pair 200 in 495ms
+ ○ Compiling /pricing ...
+ ✓ Compiled /pricing in 574ms (725 modules)
+ GET /pricing 200 in 665ms
+ GET /workspace 200 in 38ms

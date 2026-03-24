@@ -7,7 +7,7 @@ import { chatApi, vmApi, pairApi } from '@/lib/api';
 import { useChatStore, useVMStore, useDeviceStore, useAuthStore } from '@/lib/store';
 import { useModal } from '@/lib/useModal';
 import { 
-  Cpu, MessageSquare, Plus, Monitor, Zap, ArrowRight, Loader2, Settings, Server, Activity
+  Plus, Monitor, Zap, Loader2, Settings, Server, LayoutDashboard, Cpu, LinkIcon
 } from 'lucide-react';
 
 function cn(...classes: (string | undefined | null | false)[]) {
@@ -30,13 +30,6 @@ export default function WorkspaceHome() {
     return "Good evening";
   };
 
-  const getPlanLimits = () => {
-    const plan = user?.user_metadata?.plan?.toLowerCase() || 'free';
-    if (plan === 'master') return 10;
-    if (plan === 'pro') return 5;
-    return 1; 
-  };
-
   useEffect(() => {
     const load = async () => {
       try {
@@ -53,18 +46,16 @@ export default function WorkspaceHome() {
     load();
   }, [setDevices, setVMs, setSessions]);
 
-  const handleStartSession = async (vmId?: string, deviceId?: string) => {
+  const handleStartSession = async () => {
     if (isCreatingChat) return;
     setIsCreatingChat(true);
     try {
-      const targetVm = vmId || vms.find(v => v.status === 'running')?.id;
-      const targetDevice = deviceId || devices.find(d => d.status === 'paired')?.id;
+      const runningVm = vms.find(v => v.status === 'running')?.id;
+      const pairedDevice = devices.find(d => d.status === 'paired')?.id;
       
-      const res = await chatApi.create(targetVm, targetDevice);
+      const res = await chatApi.create(runningVm, pairedDevice);
       setSessions([res.session, ...sessions]);
-
-      const query = (vmId || deviceId) ? '?monitor=true' : '';
-      router.push(`/c/${res.session.id}${query}`);
+      router.push(`/c/${res.session.id}`);
     } catch (err: any) {
       alert((err.message || "Failed to start session."), { title: 'Session Error', variant: 'error' });
     } finally {
@@ -72,190 +63,70 @@ export default function WorkspaceHome() {
     }
   };
 
-  const activeVms = vms.filter(v => v.status === 'running');
-  const activeDevices = devices.filter(d => d.status === 'paired');
-
   return (
     <>
       {modal}
-      <div className="flex-1 overflow-y-auto w-full relative bg-background">
-        <div className="absolute inset-0 bg-[linear-gradient(var(--border-primary)_1px,transparent_1px),linear-gradient(90deg,var(--border-primary)_1px,transparent_1px)] bg-[size:40px_40px] pointer-events-none opacity-30" />
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-[600px] bg-gradient-to-b from-secondary/10 to-transparent pointer-events-none" />
-        
-        <div className="max-w-7xl mx-auto p-6 sm:p-10 lg:p-12 relative z-10 w-full">
+      <div className="flex-1 overflow-y-auto w-full bg-background">
+        <div className="max-w-5xl mx-auto p-6 sm:p-10 lg:p-12">
 
-          <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-10 mb-20 border-l border-border pl-8 py-2">
-            <div>
-              <div className="inline-flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.4em] text-text-muted mb-4">
-                <Activity size={12} /> <span className="hidden sm:inline">Operational Overview</span>
-              </div>
-              <h1 className="text-4xl sm:text-6xl font-light tracking-tight mb-4 text-foreground leading-[1.1]">
-                {greeting()}, <br/><span className="font-black bg-gradient-to-r from-foreground via-text-secondary to-text-muted bg-clip-text text-transparent">
-                  {user?.user_metadata?.first_name || user?.user_metadata?.name || user?.email?.split('@')[0] || 'Explorer'}.
-                </span>
-              </h1>
-              <p className="text-text-muted text-sm max-w-sm font-medium leading-relaxed hidden sm:block">
-                Connect your AI agents to distributed compute resources across cloud and physical instances.
-              </p>
-            </div>
-            
-            <div className="flex items-center gap-3">
-              {(user?.user_metadata?.plan?.toLowerCase() || 'free') === 'free' && (
-                <Link
-                  href="/pricing"
-                  className="px-6 py-4 bg-blue-600/10 border border-blue-600/20 text-blue-500 rounded-xl font-black text-[10px] uppercase tracking-[0.2em] hover:bg-blue-600 hover:text-white transition-all shadow-xl hidden sm:block"
-                >
-                  Upgrade
-                </Link>
-              )}
-              <button
-                onClick={() => handleStartSession()}
-                disabled={isCreatingChat}
-                className="group relative px-6 py-4 sm:px-8 bg-accent-primary text-accent-foreground rounded-xl font-black text-[10px] uppercase tracking-[0.2em] transition-all flex items-center justify-center gap-3 shadow-2xl hover:opacity-90 disabled:opacity-50 min-w-14"
-              >
-                {isCreatingChat ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}
-                <span className="hidden sm:inline whitespace-nowrap">{isCreatingChat ? 'Syncing...' : 'Quick Start'}</span>
-              </button>
-            </div>
+          <div className="mb-12">
+            <h1 className="text-3xl sm:text-4xl font-black tracking-tight text-foreground">
+              {greeting()}, {user?.user_metadata?.first_name || user?.user_metadata?.name || user?.email?.split('@')[0] || 'Explorer'}.
+            </h1>
+            <p className="text-text-muted text-sm mt-2 font-medium">
+              What would you like to do today?
+            </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 mb-24">
-            <ActionCard 
-              onClick={() => handleStartSession()}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+            <button
+              onClick={handleStartSession}
               disabled={isCreatingChat}
-              icon={<Zap size={18} />}
-              title="Autonomous Agent"
-              description="Deploy a task-oriented agent to your primary active resource."
-              active
-            />
-            
-            <LinkActionCard 
+              className="p-8 text-left bg-card border border-border rounded-3xl hover:border-border hover:bg-card-hover transition-all group flex flex-col min-h-[200px]"
+            >
+              <div className="w-12 h-12 rounded-2xl bg-accent-primary text-accent-foreground flex items-center justify-center mb-6 shadow-lg group-hover:scale-110 transition-transform">
+                {isCreatingChat ? <Loader2 size={24} className="animate-spin" /> : <Plus size={24} />}
+              </div>
+              <h3 className="text-lg font-black mb-2 uppercase tracking-tight">Create New Session</h3>
+              <p className="text-xs text-text-muted font-medium leading-relaxed">Start a new AI chat session with your active resources.</p>
+            </button>
+
+            <Link
               href="/machines"
-              icon={<Server size={18} />}
-              title="Infrastructure"
-              description="Manage virtual instances and monitor cloud compute state."
-            />
+              className="p-8 text-left bg-card border border-border rounded-3xl hover:border-border hover:bg-card-hover transition-all group flex flex-col min-h-[200px]"
+            >
+              <div className="w-12 h-12 rounded-2xl bg-secondary border border-border text-text-muted group-hover:text-foreground flex items-center justify-center mb-6 transition-colors group-hover:scale-110 transition-transform">
+                <Cpu size={24} />
+              </div>
+              <h3 className="text-lg font-black mb-2 uppercase tracking-tight">View Machines</h3>
+              <p className="text-xs text-text-muted font-medium leading-relaxed">Monitor and manage your virtual and remote compute instances.</p>
+            </Link>
 
-            <LinkActionCard 
+            <Link
               href="/pair"
-              icon={<Monitor size={18} />}
-              title="Physical Bridges"
-              description="Pair your local hardware for remote AI execution."
-            />
+              className="p-8 text-left bg-card border border-border rounded-3xl hover:border-border hover:bg-card-hover transition-all group flex flex-col min-h-[200px]"
+            >
+              <div className="w-12 h-12 rounded-2xl bg-secondary border border-border text-text-muted group-hover:text-foreground flex items-center justify-center mb-6 transition-colors group-hover:scale-110 transition-transform">
+                <LinkIcon size={24} />
+              </div>
+              <h3 className="text-lg font-black mb-2 uppercase tracking-tight">Pair Devices</h3>
+              <p className="text-xs text-text-muted font-medium leading-relaxed">Connect physical hardware to your cloud agent logic.</p>
+            </Link>
+
+            <Link
+              href="/settings"
+              className="p-8 text-left bg-card border border-border rounded-3xl hover:border-border hover:bg-card-hover transition-all group flex flex-col min-h-[200px]"
+            >
+              <div className="w-12 h-12 rounded-2xl bg-secondary border border-border text-text-muted group-hover:text-foreground flex items-center justify-center mb-6 transition-colors group-hover:scale-110 transition-transform">
+                <Settings size={24} />
+              </div>
+              <h3 className="text-lg font-black mb-2 uppercase tracking-tight">Settings</h3>
+              <p className="text-xs text-text-muted font-medium leading-relaxed">Configure your AI provider, API keys, and account preferences.</p>
+            </Link>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 pt-12 border-t border-border">
-            <div className="lg:col-span-4 space-y-8">
-              <div className="space-y-6">
-                <div className="flex items-center gap-3">
-                  <Activity size={13} className="text-text-muted" />
-                  <h3 className="text-[10px] font-black text-text-muted uppercase tracking-widest">Telemetry</h3>
-                </div>
-                <div className="bg-card border border-border p-8 rounded-3xl space-y-6">
-                  <StatusMetric label="Elastic Instances" count={activeVms.length} total={getPlanLimits()} />
-                  <StatusMetric label="Remote Bridges" count={activeDevices.length} total={devices.length} />
-                  <div className="pt-6 border-t border-border">
-                    <div className="flex items-center gap-2 mb-3">
-                      <div className="w-1 h-1 rounded-full bg-emerald-500 animate-pulse" />
-                      <span className="text-[9px] font-black text-foreground uppercase tracking-widest">System Nominal</span>
-                    </div>
-                    <p className="text-[10px] text-text-muted font-medium leading-relaxed">
-                      All connection tunnels are authenticated and encrypted. Bridge latency: 42ms.
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className="lg:col-span-8 space-y-6">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <MessageSquare size={13} className="text-text-muted" />
-                  <h3 className="text-[10px] font-black text-text-muted uppercase tracking-widest">Temporal Log</h3>
-                </div>
-                <Link href="#" className="text-[9px] font-black text-text-muted hover:text-foreground transition-colors uppercase tracking-widest">View Archives</Link>
-              </div>
-
-              {sessions.length > 0 ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  {sessions.slice(0, 4).map(session => (
-                    <Link
-                      key={session.id}
-                      href={`/c/${session.id}`}
-                      className="group p-5 bg-card hover:bg-card-hover border border-border hover:border-border rounded-2xl transition-all duration-300 flex items-center justify-between"
-                    >
-                      <div className="min-w-0 flex items-center gap-4">
-                        <div className="w-9 h-9 rounded-xl bg-secondary border border-border flex items-center justify-center shrink-0">
-                          <MessageSquare size={14} className="text-text-muted group-hover:text-foreground transition-all" />
-                        </div>
-                        <div className="min-w-0">
-                          <h4 className="text-sm font-bold text-text-secondary group-hover:text-foreground truncate mb-0.5">{session.title || 'Active Session'}</h4>
-                          <p className="text-[9px] text-text-muted font-black uppercase tracking-widest">Instance: {session.vm_id ? 'Cloud' : 'Physical'}</p>
-                        </div>
-                      </div>
-                      <ArrowRight size={14} className="text-text-muted group-hover:text-foreground group-hover:translate-x-1 transition-all" />
-                    </Link>
-                  ))}
-                </div>
-              ) : (
-                <div className="h-40 bg-secondary border border-dashed border-border rounded-3xl flex flex-col items-center justify-center text-center">
-                  <p className="text-[9px] font-black text-text-muted uppercase tracking-widest">No session history detected</p>
-                </div>
-              )}
-            </div>
-          </div>
         </div>
       </div>
     </>
-  );
-}
-
-function ActionCard({ onClick, disabled, icon, title, description, active }: any) {
-  return (
-    <button
-      onClick={onClick}
-      disabled={disabled}
-      className={cn(
-        "p-8 text-left group transition-all border rounded-2xl flex flex-col min-h-[220px]",
-        active ? "bg-accent-primary text-accent-foreground border-accent-primary" : "bg-card text-foreground border-border hover:border-border",
-        disabled && "opacity-50 pointer-events-none"
-      )}
-    >
-      <div className={cn(
-          "w-10 h-10 rounded-xl flex items-center justify-center mb-6",
-          active ? "bg-accent-foreground text-accent-primary" : "bg-secondary text-foreground border border-border"
-      )}>
-        {icon}
-      </div>
-      <h3 className="text-sm font-black mb-3 uppercase tracking-tight">{title}</h3>
-      <p className={cn("text-[11px] leading-relaxed flex-1 font-medium", active ? "opacity-70" : "text-text-muted")}>{description}</p>
-    </button>
-  );
-}
-
-function LinkActionCard({ href, icon, title, description }: any) {
-  return (
-    <Link
-      href={href}
-      className="p-8 text-left group transition-all border border-border hover:border-border rounded-2xl flex flex-col min-h-[220px] bg-card text-foreground"
-    >
-      <div className="w-10 h-10 rounded-xl flex items-center justify-center mb-6 bg-secondary border border-border text-text-muted group-hover:text-foreground transition-all">
-        {icon}
-      </div>
-      <h3 className="text-sm font-black mb-3 uppercase tracking-tight">{title}</h3>
-      <p className="text-[11px] text-text-muted leading-relaxed font-medium flex-1">{description}</p>
-    </Link>
-  );
-}
-
-function StatusMetric({ label, count, total }: any) {
-  return (
-    <div className="flex items-center justify-between pb-3 border-b border-border last:border-0 last:pb-0">
-      <span className="text-[10px] font-black text-text-muted uppercase tracking-widest">{label}</span>
-      <div className="flex items-center gap-2">
-        <span className="text-xs font-black text-foreground">{count}</span>
-        <span className="text-[9px] text-text-muted font-bold">/ {total}</span>
-      </div>
-    </div>
   );
 }

@@ -106,6 +106,38 @@ export default function MachinesPage() {
               </div>
             )}
 
+            {!loading && (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
+                <div className="bg-card border border-border p-6 rounded-2xl">
+                  <h3 className="text-[10px] font-black text-text-muted uppercase tracking-widest mb-4">VM Utilization</h3>
+                  <div className="flex items-end justify-between">
+                    <span className="text-2xl font-black text-foreground">{vms.length} / {getPlanLimits()}</span>
+                    <span className="text-[10px] text-text-muted font-bold uppercase tracking-widest">Active Instances</span>
+                  </div>
+                  <div className="mt-4 h-1.5 bg-secondary rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-accent-primary transition-all duration-1000"
+                      style={{ width: `${Math.min(100, (vms.length / getPlanLimits()) * 100)}%` }}
+                    />
+                  </div>
+                </div>
+                <div className="bg-card border border-border p-6 rounded-2xl">
+                  <h3 className="text-[10px] font-black text-text-muted uppercase tracking-widest mb-4">Remote Bridges</h3>
+                  <div className="flex items-end justify-between">
+                    <span className="text-2xl font-black text-foreground">{pairedDevices.length}</span>
+                    <span className="text-[10px] text-text-muted font-bold uppercase tracking-widest">Paired Devices</span>
+                  </div>
+                </div>
+                <div className="bg-card border border-border p-6 rounded-2xl">
+                  <h3 className="text-[10px] font-black text-text-muted uppercase tracking-widest mb-4">Current Plan</h3>
+                  <div className="flex items-end justify-between">
+                    <span className="text-2xl font-black text-foreground uppercase tracking-tight">{user?.user_metadata?.plan || 'Free'}</span>
+                    <Link href="/pricing" className="text-[10px] text-accent-primary font-black uppercase tracking-widest hover:opacity-80 transition-all">Upgrade</Link>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {loading ? (
               <div className="py-40 flex items-center justify-center">
                 <Loader2 className="w-8 h-8 animate-spin text-text-muted" />
