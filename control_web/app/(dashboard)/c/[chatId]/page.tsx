@@ -171,7 +171,7 @@ export default function ChatSessionPage() {
                 <ChevronDown size={12} className="opacity-50 transition-transform group-hover/selector:rotate-180" />
               </button>
               
-              <div className="absolute right-0 sm:right-auto sm:left-0 mt-2 w-72 bg-secondary border border-border rounded-2xl shadow-2xl p-2 opacity-0 invisible group-hover/selector:opacity-100 group-hover/selector:visible transition-all z-50">
+              <div className="absolute left-0 sm:right-auto mt-2 w-64 sm:w-72 bg-secondary border border-border rounded-2xl shadow-2xl p-2 opacity-0 invisible group-hover/selector:opacity-100 group-hover/selector:visible transition-all z-50 -translate-x-12 sm:translate-x-0">
                 <div className="p-3">
                   <h4 className="text-[10px] font-black text-text-muted uppercase tracking-[0.2em] mb-3">Available Resources</h4>
                   <div className="space-y-1">
@@ -228,7 +228,10 @@ export default function ChatSessionPage() {
                       >
                         <div className="flex items-center gap-3">
                           <Laptop size={14} />
-                          <span className="text-[11px] font-bold uppercase">{device.name}</span>
+                          <div className="flex flex-col items-start">
+                            <span className="text-[11px] font-bold uppercase">{device.name}</span>
+                            <span className="text-[8px] opacity-50 font-black uppercase tracking-tighter">Your Paired Device</span>
+                          </div>
                         </div>
                         {isSelected && <Check size={12} />}
                       </button>
