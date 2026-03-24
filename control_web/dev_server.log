@@ -22,3 +22,6 @@
  ✓ Compiled /pricing in 574ms (725 modules)
  GET /pricing 200 in 665ms
  GET /workspace 200 in 38ms
+ ✓ Compiled in 4.8s (374 modules)
+ ✓ Compiled in 869ms (374 modules)
+ ✓ Compiled in 2.7s (713 modules)
