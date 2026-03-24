@@ -294,14 +294,14 @@ export default function WorkspaceLayout({ children }: { children: ReactNode }) {
       )}
 
       <aside className={cn(
-        "fixed inset-y-0 left-0 z-[60] w-72 flex flex-col border-r border-border bg-secondary/90 backdrop-blur-xl transition-transform duration-250 ease-in-out md:hidden",
+        "fixed inset-y-0 left-0 z-[60] w-72 flex flex-col border-r border-border bg-secondary transition-transform duration-250 ease-in-out md:hidden",
         mobileOpen ? 'translate-x-0' : '-translate-x-full'
       )}>
         <SidebarContent isMobile />
       </aside>
 
       <aside className={cn(
-        "hidden md:flex flex-col border-r border-border bg-secondary/80 transition-all duration-200 shrink-0",
+        "hidden md:flex flex-col border-r border-border bg-secondary transition-all duration-200 shrink-0",
         sidebarOpen ? 'w-60' : 'w-14'
       )}>
         <SidebarContent />
@@ -309,7 +309,7 @@ export default function WorkspaceLayout({ children }: { children: ReactNode }) {
 
       <main className="flex-1 flex flex-col min-w-0 overflow-hidden relative">
 
-        <div className="md:hidden flex items-center h-12 px-2 border-b border-border bg-secondary/80 shrink-0 gap-1.5">
+        <div className="md:hidden flex items-center h-12 px-2 border-b border-border bg-secondary shrink-0 gap-1.5">
           <button
             onClick={() => setMobileOpen(true)}
             className="p-2 hover:bg-card-hover rounded-lg text-text-secondary transition-colors"

@@ -171,7 +171,7 @@ export default function ChatSessionPage() {
                 <ChevronDown size={12} className="opacity-50 transition-transform group-hover/selector:rotate-180" />
               </button>
               
-              <div className="absolute right-0 mt-2 w-72 bg-secondary border border-border rounded-2xl shadow-2xl p-2 opacity-0 invisible group-hover/selector:opacity-100 group-hover/selector:visible transition-all z-50">
+              <div className="absolute right-0 sm:right-auto sm:left-0 mt-2 w-72 bg-secondary border border-border rounded-2xl shadow-2xl p-2 opacity-0 invisible group-hover/selector:opacity-100 group-hover/selector:visible transition-all z-50">
                 <div className="p-3">
                   <h4 className="text-[10px] font-black text-text-muted uppercase tracking-[0.2em] mb-3">Available Resources</h4>
                   <div className="space-y-1">
@@ -181,12 +181,16 @@ export default function ChatSessionPage() {
                       <button
                         key={vm.id}
                         onClick={async () => {
-                          await chatApi.update(chatId, { vm_id: vm.id, device_id: null });
-
-                          const res = await chatApi.list();
-                          setSessions(res.sessions);
-                          setShowViewer(true);
-                          toast.success(`Connected to ${vm.name}`);
+                          const oldSessions = [...sessions];
+                          setSessions(sessions.map(s => s.id === chatId ? { ...s, vm_id: vm.id, device_id: undefined } : s));
+                          try {
+                            await chatApi.update(chatId, { vm_id: vm.id, device_id: null });
+                            setShowViewer(true);
+                            toast.success(`Connected to ${vm.name}`);
+                          } catch (err) {
+                            setSessions(oldSessions);
+                            toast.error("Failed to switch machine");
+                          }
                         }}
                         className={cn(
                           "w-full flex items-center justify-between p-3 rounded-xl transition-all",
@@ -206,12 +210,16 @@ export default function ChatSessionPage() {
                       <button
                         key={device.id}
                         onClick={async () => {
-                          await chatApi.update(chatId, { device_id: device.id, vm_id: null });
-
-                          const res = await chatApi.list();
-                          setSessions(res.sessions);
-                          setShowViewer(true);
-                          toast.success(`Connected to ${device.name}`);
+                          const oldSessions = [...sessions];
+                          setSessions(sessions.map(s => s.id === chatId ? { ...s, device_id: device.id, vm_id: undefined } : s));
+                          try {
+                            await chatApi.update(chatId, { device_id: device.id, vm_id: null });
+                            setShowViewer(true);
+                            toast.success(`Connected to ${device.name}`);
+                          } catch (err) {
+                            setSessions(oldSessions);
+                            toast.error("Failed to switch machine");
+                          }
                         }}
                         className={cn(
                           "w-full flex items-center justify-between p-3 rounded-xl transition-all",

@@ -1,9 +1,11 @@
 "use client";
 
 import { useAuthStore } from '@/lib/store';
-import { Check, Zap, Shield, Crown, ArrowRight } from 'lucide-react';
-import { useRouter } from 'next/navigation';
+import { useEffect, useState } from 'react';
+import { Check, Zap, Shield, Crown, ArrowRight, X } from 'lucide-react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import UpgradeButton from '@/components/UpgradeButton';
+import Modal from '@/components/Modal';
 
 function cn(...classes: (string | undefined | null | false)[]) {
   return classes.filter(Boolean).join(' ');
@@ -12,7 +14,15 @@ function cn(...classes: (string | undefined | null | false)[]) {
 export default function PricingPage() {
   const { user } = useAuthStore();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const currentPlan = user?.user_metadata?.plan?.toLowerCase() || 'free';
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+
+  useEffect(() => {
+    if (searchParams.get('payment') === 'success') {
+      setShowSuccessModal(true);
+    }
+  }, [searchParams]);
 
   const plans = [
     {
@@ -81,6 +91,17 @@ export default function PricingPage() {
     <div className="flex-1 overflow-y-auto w-full relative bg-background p-6 sm:p-10 lg:p-20">
       <div className="absolute inset-0 bg-[linear-gradient(var(--border-primary)_1px,transparent_1px),linear-gradient(90deg,var(--border-primary)_1px,transparent_1px)] bg-[size:40px_40px] pointer-events-none" />
       
+      {showSuccessModal && (
+        <Modal
+          open={showSuccessModal}
+          onClose={() => { setShowSuccessModal(false); router.replace('/workspace'); }}
+          variant="success"
+          title="Payment Successful"
+          message="Your payment has been processed successfully. Your account limits have been updated and you can now access all features of your new plan."
+          confirmLabel="Back to Workspace"
+        />
+      )}
+
       <div className="max-w-6xl mx-auto relative z-10">
         <div className="text-center mb-20 animate-in fade-in slide-in-from-bottom-5 duration-700">
           <div className="inline-flex items-center gap-2 px-3 py-1 bg-card border border-border rounded-full text-[10px] font-black text-text-muted uppercase tracking-widest mb-6">

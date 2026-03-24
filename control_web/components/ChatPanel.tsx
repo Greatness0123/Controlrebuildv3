@@ -68,7 +68,9 @@ export default function ChatPanel({ sessionId }: ChatPanelProps) {
             }
           }
           if (finalTranscript) {
-            setInput(prev => (prev.trim() + ' ' + finalTranscript).trim());
+            setInput(prev => {
+               return (prev.trim() + ' ' + finalTranscript).trim();
+            });
           }
         };
 
@@ -326,7 +328,7 @@ export default function ChatPanel({ sessionId }: ChatPanelProps) {
       <div
         ref={scrollRef}
         className={cn(
-          "flex-1 p-4 scroll-smooth pb-10 flex flex-col",
+          "flex-1 p-4 scroll-smooth flex flex-col",
           messages.length === 0 ? "overflow-hidden" : "overflow-y-auto"
         )}
       >
