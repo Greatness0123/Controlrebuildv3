@@ -5,7 +5,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useAuthStore } from '@/lib/store';
 import {
   User, Shield, Zap, Key, Database, Globe, Bell, Palette, FileDown,
-  Save, Loader2, Sparkles, Command, Terminal, ChevronRight,
+  Save, Loader2, Sparkles, Command, Terminal, ChevronRight, ChevronLeft,
   MessageCircle, Info, Sun, Moon, Lock, CreditCard, LogOut
 } from 'lucide-react';
 import Link from 'next/link';
@@ -18,7 +18,7 @@ type SettingsTab = 'account' | 'billing' | 'privacy' | 'notifications' | 'appear
 
 const MENU_SECTIONS = [
   {
-    title: null,
+    title: 'ACCOUNT',
     items: [
       { id: 'account', icon: <User size={16} />, label: 'Account', desc: 'Manage your profile' },
       { id: 'billing', icon: <CreditCard size={16} />, label: 'Billing & Credits', desc: 'Manage billing' },
@@ -46,8 +46,10 @@ const MENU_SECTIONS = [
 
 export default function SettingsLayout({ children }: { children: ReactNode }) {
   const pathname = usePathname();
+  const router = useRouter();
   const { theme, setTheme } = useAuthStore();
-  const activeTab = pathname.split('/').pop() || 'account';
+  const activeTab = pathname.split('/').pop() || 'settings';
+  const isAtSettingsRoot = activeTab === 'settings';
 
   const toggleTheme = () => {
     const next = theme === 'dark' ? 'light' : 'dark';
@@ -60,7 +62,10 @@ export default function SettingsLayout({ children }: { children: ReactNode }) {
     <div className="flex-1 flex flex-col min-h-0 bg-background text-foreground">
       <div className="flex-1 flex flex-col md:flex-row min-h-0 overflow-hidden">
         {/* Settings Navigation */}
-        <div className="w-full md:w-80 lg:w-96 border-b md:border-b-0 md:border-r border-border overflow-y-auto shrink-0 bg-background">
+        <div className={cn(
+          "w-full md:w-80 lg:w-96 border-b md:border-b-0 md:border-r border-border overflow-y-auto shrink-0 bg-background transition-all",
+          !isAtSettingsRoot ? "hidden md:block" : "block"
+        )}>
           <div className="p-4 md:p-6 space-y-6">
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold text-text-muted uppercase tracking-widest">Settings</span>
@@ -110,7 +115,23 @@ export default function SettingsLayout({ children }: { children: ReactNode }) {
         </div>
 
         {/* Settings Content */}
-        <div className="flex-1 overflow-y-auto">
+        <div className={cn(
+          "flex-1 overflow-y-auto",
+          isAtSettingsRoot ? "hidden md:block" : "block"
+        )}>
+          {!isAtSettingsRoot && (
+            <div className="md:hidden p-4 border-b border-border bg-secondary flex items-center gap-3">
+              <button
+                onClick={() => router.push('/settings')}
+                className="p-2 hover:bg-card rounded-xl text-text-muted transition-all"
+              >
+                <ChevronLeft size={18} />
+              </button>
+              <h1 className="text-xs font-black uppercase tracking-widest">
+                {MENU_SECTIONS.flatMap(s => s.items).find(i => i.id === activeTab)?.label || 'Settings'}
+              </h1>
+            </div>
+          )}
           {children}
         </div>
       </div>
