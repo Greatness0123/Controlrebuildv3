@@ -83,15 +83,15 @@ export default function WorkflowsPage() {
   return (
     <div className="flex-1 overflow-y-auto w-full bg-background">
       {modal}
-      <div className="max-w-6xl mx-auto p-6 sm:p-10">
-        <div className="flex items-center justify-between mb-10">
+      <div className="max-w-6xl mx-auto p-4 sm:p-10">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-8 sm:mb-10 gap-4 sm:gap-0">
           <div>
-            <h1 className="text-3xl font-black tracking-tight text-foreground uppercase">Workflows</h1>
-            <p className="text-text-muted text-sm font-medium mt-1">Automate your desktop with visual logic and AI agents.</p>
+            <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-foreground uppercase">Workflows</h1>
+            <p className="text-text-muted text-xs sm:text-sm font-medium mt-1">Automate your desktop with visual logic and AI agents.</p>
           </div>
           <button
             onClick={handleCreate}
-            className="flex items-center gap-2 px-6 py-3 bg-accent-primary text-accent-foreground rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-xl hover:opacity-90 transition-all active:scale-[0.98]"
+            className="flex items-center justify-center gap-2 px-6 py-3 bg-accent-primary text-accent-foreground rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-xl hover:opacity-90 transition-all active:scale-[0.98] w-full sm:w-auto"
           >
             <Plus size={16} strokeWidth={3} />
             Create Workflow

@@ -408,30 +408,35 @@ export default function WorkflowDesigner({ initialWorkflow, onSave, onClose }: W
   };
 
   return (
-    <div className="flex-1 flex flex-col bg-background h-full overflow-hidden relative border border-border rounded-3xl shadow-2xl">
+    <div className="flex-1 flex flex-col bg-background h-full overflow-hidden relative sm:border sm:border-border sm:rounded-3xl sm:shadow-2xl">
       {/* Header */}
-      <header className="h-16 flex items-center justify-between px-6 border-b border-border bg-card shrink-0">
-        <div className="flex items-center gap-4">
-          <div className="w-10 h-10 rounded-xl bg-accent-primary flex items-center justify-center text-accent-foreground shadow-lg">
+      <header className="min-h-16 flex flex-col sm:flex-row items-center justify-between px-4 py-3 sm:px-6 sm:py-0 border-b border-border bg-card shrink-0 gap-4 sm:gap-0">
+        <div className="flex items-center gap-4 w-full sm:w-auto">
+          <div className="w-10 h-10 rounded-xl bg-accent-primary flex items-center justify-center text-accent-foreground shadow-lg shrink-0">
             <Zap size={20} />
           </div>
-          <div>
+          <div className="min-w-0 flex-1">
             <input
               value={workflow.name}
               onChange={e => setWorkflow(prev => ({ ...prev, name: e.target.value }))}
-              className="text-lg font-black bg-transparent border-none focus:outline-none p-0 w-64 truncate"
+              className="text-lg font-black bg-transparent border-none focus:outline-none p-0 w-full sm:w-64 truncate"
               placeholder="Workflow Name"
             />
             <div className="text-[10px] text-text-muted font-bold uppercase tracking-widest mt-0.5">Workflow Designer</div>
           </div>
+          {onClose && (
+            <button onClick={onClose} className="sm:hidden p-2 text-text-muted hover:text-foreground transition-colors">
+              <X size={20} />
+            </button>
+          )}
         </div>
 
-        <div className="flex items-center gap-3">
-          <div className="flex bg-secondary p-1 rounded-xl border border-border">
+        <div className="flex items-center gap-2 sm:gap-3 w-full sm:w-auto overflow-x-auto pb-1 sm:pb-0 no-scrollbar">
+          <div className="flex bg-secondary p-1 rounded-xl border border-border shrink-0">
             <button
               onClick={() => setActiveView('node')}
               className={cn(
-                "px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all",
+                "px-3 sm:px-4 py-1.5 rounded-lg text-[9px] sm:text-[10px] font-black uppercase tracking-widest transition-all",
                 activeView === 'node' ? "bg-background text-foreground shadow-sm" : "text-text-muted hover:text-foreground"
               )}
             >
@@ -440,7 +445,7 @@ export default function WorkflowDesigner({ initialWorkflow, onSave, onClose }: W
             <button
               onClick={() => setActiveView('list')}
               className={cn(
-                "px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all",
+                "px-3 sm:px-4 py-1.5 rounded-lg text-[9px] sm:text-[10px] font-black uppercase tracking-widest transition-all",
                 activeView === 'list' ? "bg-background text-foreground shadow-sm" : "text-text-muted hover:text-foreground"
               )}
             >
@@ -448,9 +453,9 @@ export default function WorkflowDesigner({ initialWorkflow, onSave, onClose }: W
             </button>
           </div>
 
-          <div className="w-px h-6 bg-border mx-2" />
+          <div className="hidden sm:block w-px h-6 bg-border mx-1" />
 
-          <div className="flex gap-1.5 mr-2">
+          <div className="flex gap-1.5 shrink-0">
             <button onClick={handleExport} className="p-2 bg-secondary border border-border text-text-muted hover:text-foreground rounded-xl transition-all" title="Export Workflow">
               <Download size={16} />
             </button>
@@ -458,35 +463,35 @@ export default function WorkflowDesigner({ initialWorkflow, onSave, onClose }: W
               <Upload size={16} />
             </button>
           </div>
-          <button onClick={handleSave} className="flex items-center gap-2 px-4 py-2 bg-accent-primary text-accent-foreground rounded-xl text-[10px] font-black uppercase tracking-widest hover:opacity-90 transition-all shadow-lg">
+          <button onClick={handleSave} className="flex items-center gap-2 px-3 sm:px-4 py-2 bg-accent-primary text-accent-foreground rounded-xl text-[9px] sm:text-[10px] font-black uppercase tracking-widest hover:opacity-90 transition-all shadow-lg shrink-0">
             <Save size={14} />
-            Save
+            <span className="hidden xs:inline">Save</span>
           </button>
-          <div className="flex items-center bg-secondary border border-border rounded-xl px-3 py-1.5 h-10">
-            <Monitor size={14} className="text-text-muted mr-2" />
+          <div className="flex items-center bg-secondary border border-border rounded-xl px-2 sm:px-3 py-1.5 h-10 shrink-0">
+            <Monitor size={14} className="text-text-muted mr-1.5 sm:mr-2" />
             <select
-              className="bg-transparent border-none focus:outline-none text-[10px] font-black uppercase tracking-widest cursor-pointer"
+              className="bg-transparent border-none focus:outline-none text-[9px] sm:text-[10px] font-black uppercase tracking-widest cursor-pointer max-w-[80px] sm:max-w-none"
               value={targetMachine ? `${targetMachine.type}:${targetMachine.id}` : ''}
               onChange={(e) => {
                 const [type, id] = e.target.value.split(':');
                 setTargetMachine(id ? { id, type: type as 'vm' | 'device' } : null);
               }}
             >
-              <option value="">Select Target</option>
+              <option value="">Target</option>
               {vms.filter(v => v.status === 'running').map(v => (
-                <option key={v.id} value={`vm:${v.id}`}>VM: {v.name}</option>
+                <option key={v.id} value={`vm:${v.id}`}>{v.name}</option>
               ))}
               {devices.filter(d => d.status === 'paired').map(d => (
-                <option key={d.id} value={`device:${d.id}`}>Device: {d.name}</option>
+                <option key={d.id} value={`device:${d.id}`}>{d.name}</option>
               ))}
             </select>
           </div>
-          <button onClick={handleRun} className="flex items-center gap-2 px-4 py-2 bg-card border border-border text-foreground rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-card-hover transition-all">
+          <button onClick={handleRun} className="flex items-center gap-2 px-3 sm:px-4 py-2 bg-card border border-border text-foreground rounded-xl text-[9px] sm:text-[10px] font-black uppercase tracking-widest hover:bg-card-hover transition-all shrink-0">
             <Play size={14} />
-            Run
+            <span className="hidden xs:inline">Run</span>
           </button>
           {onClose && (
-            <button onClick={onClose} className="p-2 text-text-muted hover:text-foreground transition-colors">
+            <button onClick={onClose} className="hidden sm:block p-2 text-text-muted hover:text-foreground transition-colors">
               <X size={20} />
             </button>
           )}
@@ -594,7 +599,7 @@ export default function WorkflowDesigner({ initialWorkflow, onSave, onClose }: W
         {/* AI Sidebar Overlay */}
         <div
           className={cn(
-            "fixed inset-y-0 right-0 w-[450px] bg-background border-l border-border shadow-[0_0_50px_rgba(0,0,0,0.3)] pointer-events-auto flex flex-col transition-transform duration-500 ease-out z-[101]",
+            "fixed inset-y-0 right-0 w-full sm:w-[450px] bg-background border-l border-border shadow-[0_0_50px_rgba(0,0,0,0.3)] pointer-events-auto flex flex-col transition-transform duration-500 ease-out z-[101]",
             isAiOverlayOpen ? "translate-x-0" : "translate-x-full"
           )}
         >

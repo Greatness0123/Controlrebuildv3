@@ -8,7 +8,8 @@ All notable changes to this project will be documented in this file.
 - **AI Workflow Designer (Web)**: Implemented a visual, node-based workflow creator in the web dashboard.
 - **AI Workflow Assistant**: Added a draggable AI assistant overlay that can generate and modify visual workflows through interactive natural language conversation.
 - **Workflow Execution**: Integrated a database-driven signaling system for triggering workflow execution on remote machines and VMs.
-- **Billing & Token Usage**: Added a visual token usage display to the Billing settings tab with Daily, Weekly, and Monthly toggles.
+- **Billing & Token Usage**: Added a visual token usage display to the Billing settings tab with Daily, Weekly, and Monthly toggles. Tracked via specific 'prompt' and 'candidates' metrics.
+- **Mobile Responsiveness**: Enhanced the Workflows page and Workflow Designer with responsive layouts for mobile and tablet devices.
 - **VM Infrastructure**: Added `dbus-x11` and `at-spi2-core` to the Docker environment to ensure XFCE stability.
 - **VM Entrypoint**: Implemented D-Bus session management via `dbus-launch` and automated X11 lock cleanup.
 - **Web UI**: Added specific rendering for "thought" blocks to separate AI reasoning from final output.

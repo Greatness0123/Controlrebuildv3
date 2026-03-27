@@ -20,6 +20,7 @@ CREATE TABLE IF NOT EXISTS public.users (
     ask_count INTEGER DEFAULT 0,
     token_usage JSONB DEFAULT '{}'::jsonb,
     daily_token_usage JSONB DEFAULT '{}'::jsonb,
+    total_token_usage INTEGER DEFAULT 0,
     picovoice_key TEXT,
     ai_settings JSONB DEFAULT '{}'::jsonb,
     app_settings JSONB DEFAULT '{}'::jsonb,
