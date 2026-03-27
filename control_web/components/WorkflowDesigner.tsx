@@ -512,10 +512,10 @@ export default function WorkflowDesigner({ initialWorkflow, onSave, onClose }: W
                 <NodeElement
                   key={node.id}
                   node={node}
-                  onMouseDown={(e) => handleNodeMouseDown(e, node.id)}
-                  onPortMouseDown={(e, type) => handlePortMouseDown(e, node.id, type)}
+                  onMouseDown={(e: React.MouseEvent) => handleNodeMouseDown(e, node.id)}
+                  onPortMouseDown={(e: React.MouseEvent, type: 'out' | 'in') => handlePortMouseDown(e, node.id, type)}
                   onDelete={() => deleteNode(node.id)}
-                  onUpdate={(data) => updateNodeData(node.id, data)}
+                  onUpdate={(data: any) => updateNodeData(node.id, data)}
                 />
               ))}
             </div>
