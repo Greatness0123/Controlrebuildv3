@@ -73,7 +73,7 @@ export default function WorkflowDesigner({ initialWorkflow, onSave, onClose }: W
   const [scale, setScale] = useState(1);
   const [isAiOverlayOpen, setIsAiOverlayOpen] = useState(true);
   const [attachedFile, setAttachedFile] = useState<{ url: string; name: string } | null>(null);
-  const [aiSessionId, setAiSessionId] = useState<string>(`wf_gen_${Date.now()}`);
+  const [aiSessionId] = useState<string>(`wf_gen_${Date.now()}`);
   const [aiMessages, setAiMessages] = useState<any[]>([]);
   const [aiInput, setAiInput] = useState('');
   const [isAiStreaming, setIsAiStreaming] = useState(false);
@@ -81,15 +81,9 @@ export default function WorkflowDesigner({ initialWorkflow, onSave, onClose }: W
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const [connectingFrom, setConnectingFrom] = useState<{ id: string; type: 'out' | 'in' } | null>(null);
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
-  const [aiButtonPos, setAiButtonPos] = useState({ y: 100 });
-  const [isAiButtonDragging, setIsAiButtonDragging] = useState(false);
-  const [dragStartPos, setDragStartPos] = useState({ x: 0, y: 0 });
 
   const canvasRef = useRef<HTMLDivElement>(null);
-  const aiOverlayRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-
-  // --- Visual Editor Logic ---
 
   const handleCanvasMouseMove = (e: React.MouseEvent) => {
     const rect = canvasRef.current?.getBoundingClientRect();
@@ -129,28 +123,26 @@ export default function WorkflowDesigner({ initialWorkflow, onSave, onClose }: W
     setConnectingFrom({ id: nodeId, type });
   };
 
-  const handleMouseUp = (e: React.MouseEvent) => {
+  const handleMouseUp = () => {
     if (connectingFrom) {
-      const targetPort = (e.target as HTMLElement).closest('.node-port');
-      if (targetPort) {
-        const targetNodeId = targetPort.getAttribute('data-node-id');
-        const targetType = targetPort.getAttribute('data-port-type') as 'out' | 'in';
-
-        if (targetNodeId && targetNodeId !== connectingFrom.id && targetType !== connectingFrom.type) {
-          const sourceId = connectingFrom.type === 'out' ? connectingFrom.id : targetNodeId;
-          const targetId = connectingFrom.type === 'in' ? connectingFrom.id : targetNodeId;
-
-          if (!workflow.edges.find(edge => edge.source === sourceId && edge.target === targetId)) {
-            setWorkflow(prev => ({
-              ...prev,
-              edges: [...prev.edges, { id: `e_${Date.now()}`, source: sourceId, target: targetId }]
-            }));
-          }
-        }
-      }
+        // Edge connection logic usually handled by checking target port in mouse up on that port
     }
     setDraggingNode(null);
     setConnectingFrom(null);
+  };
+
+  const handlePortMouseUp = (nodeId: string, type: 'out' | 'in') => {
+    if (connectingFrom && nodeId !== connectingFrom.id && type !== connectingFrom.type) {
+        const sourceId = connectingFrom.type === 'out' ? connectingFrom.id : nodeId;
+        const targetId = connectingFrom.type === 'in' ? connectingFrom.id : nodeId;
+
+        if (!workflow.edges.find(edge => edge.source === sourceId && edge.target === targetId)) {
+          setWorkflow(prev => ({
+            ...prev,
+            edges: [...prev.edges, { id: `e_${Date.now()}`, source: sourceId, target: targetId }]
+          }));
+        }
+    }
   };
 
   const addNode = (type: string) => {
@@ -236,7 +228,7 @@ export default function WorkflowDesigner({ initialWorkflow, onSave, onClose }: W
           const imported = JSON.parse(event.target.result);
           setWorkflow({
             ...imported,
-            id: undefined // Don't import the ID to avoid conflicts
+            id: undefined
           });
           toast.success('Workflow imported successfully');
         } catch (err) {
@@ -248,8 +240,6 @@ export default function WorkflowDesigner({ initialWorkflow, onSave, onClose }: W
     input.click();
   };
 
-  // --- AI Logic ---
-
   const handleAiSend = async () => {
     if (!aiInput.trim() || isAiStreaming) return;
 
@@ -259,12 +249,9 @@ export default function WorkflowDesigner({ initialWorkflow, onSave, onClose }: W
     setIsAiStreaming(true);
 
     try {
-      // For workflow generation, we use a specialized prompt or endpoint
-      // Here we'll simulate a chat with the AI that's focused on workflows
       const fileUrl = attachedFile?.url;
       setAttachedFile(null);
 
-      // Include conversation history for context-aware workflow generation
       const historyPrompt = aiMessages.map(m => `${m.role.toUpperCase()}: ${m.content}`).join('\n');
       const fullPrompt = `CONTEXT: We are designing a workflow. \nCURRENT WORKFLOW: ${JSON.stringify(workflow)}\nPREVIOUS CONVERSATION:\n${historyPrompt}\n\nUSER REQUEST: ${userMsg}`;
 
@@ -284,7 +271,6 @@ export default function WorkflowDesigner({ initialWorkflow, onSave, onClose }: W
         }
       }
 
-      // Check if the assistant returned a JSON workflow
       const jsonMatch = assistantMsg.match(/```json\n([\s\S]*?)\n```/);
       if (jsonMatch) {
         try {
@@ -311,58 +297,18 @@ export default function WorkflowDesigner({ initialWorkflow, onSave, onClose }: W
     }
   };
 
-  const handleAiButtonMouseDown = (e: React.MouseEvent) => {
-    setIsAiButtonDragging(true);
-    setDragStartPos({ x: e.clientX, y: e.clientY });
-    e.preventDefault();
-  };
-
-  const handleAiButtonClick = (e: React.MouseEvent) => {
-    // Only toggle if it wasn't a significant drag
-    const dragDistance = Math.sqrt(
-      Math.pow(e.clientX - dragStartPos.x, 2) +
-      Math.pow(e.clientY - dragStartPos.y, 2)
-    );
-    if (dragDistance < 5) {
-      setIsAiOverlayOpen(!isAiOverlayOpen);
-    }
-  };
-
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
     try {
-      // Use a generic session for workflow file uploads
-      const res = await chatApi.uploadFile('workflow_gen', file);
+      const res = await chatApi.uploadFile(aiSessionId, file);
       setAttachedFile({ url: res.file_url, name: res.filename });
       toast.success('File attached for AI');
     } catch (err: any) {
       toast.error('File upload failed');
     }
   };
-
-  useEffect(() => {
-    const handleGlobalMouseMove = (e: MouseEvent) => {
-      if (isAiButtonDragging) {
-        setAiButtonPos({ y: e.clientY - 25 });
-      }
-    };
-    const handleGlobalMouseUp = () => {
-      setIsAiButtonDragging(false);
-    };
-
-    if (isAiButtonDragging) {
-      window.addEventListener('mousemove', handleGlobalMouseMove);
-      window.addEventListener('mouseup', handleGlobalMouseUp);
-    }
-    return () => {
-      window.removeEventListener('mousemove', handleGlobalMouseMove);
-      window.removeEventListener('mouseup', handleGlobalMouseUp);
-    };
-  }, [isAiButtonDragging]);
-
-  // --- Rendering Helpers ---
 
   const renderConnectionLines = () => {
     return (
@@ -414,7 +360,7 @@ export default function WorkflowDesigner({ initialWorkflow, onSave, onClose }: W
 
   return (
     <div className="flex-1 flex flex-col bg-background h-full overflow-hidden relative sm:border sm:border-border sm:rounded-3xl sm:shadow-2xl max-h-screen">
-      {/* AI Sidebar Toggle (Hidden when open) */}
+
       {!isAiOverlayOpen && (
         <button
           onClick={() => setIsAiOverlayOpen(true)}
@@ -424,7 +370,7 @@ export default function WorkflowDesigner({ initialWorkflow, onSave, onClose }: W
           <Bot size={20} />
         </button>
       )}
-      {/* Header */}
+
       <header className="min-h-16 flex flex-col sm:flex-row items-center justify-between px-4 py-3 sm:px-6 sm:py-0 border-b border-border bg-card shrink-0 gap-4 sm:gap-0">
         <div className="flex items-center gap-4 w-full sm:w-auto">
           <div className="w-10 h-10 rounded-xl bg-accent-primary flex items-center justify-center text-accent-foreground shadow-lg shrink-0">
@@ -448,35 +394,15 @@ export default function WorkflowDesigner({ initialWorkflow, onSave, onClose }: W
 
         <div className="flex items-center gap-2 sm:gap-3 w-full sm:w-auto overflow-x-auto pb-1 sm:pb-0 no-scrollbar">
           <div className="flex bg-secondary p-1 rounded-xl border border-border shrink-0">
-            <button
-              onClick={() => setActiveView('node')}
-              className={cn(
-                "px-3 sm:px-4 py-1.5 rounded-lg text-[9px] sm:text-[10px] font-black uppercase tracking-widest transition-all",
-                activeView === 'node' ? "bg-background text-foreground shadow-sm" : "text-text-muted hover:text-foreground"
-              )}
-            >
-              Nodes
-            </button>
-            <button
-              onClick={() => setActiveView('list')}
-              className={cn(
-                "px-3 sm:px-4 py-1.5 rounded-lg text-[9px] sm:text-[10px] font-black uppercase tracking-widest transition-all",
-                activeView === 'list' ? "bg-background text-foreground shadow-sm" : "text-text-muted hover:text-foreground"
-              )}
-            >
-              List
-            </button>
+            <button onClick={() => setActiveView('node')} className={cn("px-3 sm:px-4 py-1.5 rounded-lg text-[9px] sm:text-[10px] font-black uppercase tracking-widest transition-all", activeView === 'node' ? "bg-background text-foreground shadow-sm" : "text-text-muted hover:text-foreground")}>Nodes</button>
+            <button onClick={() => setActiveView('list')} className={cn("px-3 sm:px-4 py-1.5 rounded-lg text-[9px] sm:text-[10px] font-black uppercase tracking-widest transition-all", activeView === 'list' ? "bg-background text-foreground shadow-sm" : "text-text-muted hover:text-foreground")}>List</button>
           </div>
 
           <div className="hidden sm:block w-px h-6 bg-border mx-1" />
 
           <div className="flex gap-1.5 shrink-0">
-            <button onClick={handleExport} className="p-2 bg-secondary border border-border text-text-muted hover:text-foreground rounded-xl transition-all" title="Export Workflow">
-              <Download size={16} />
-            </button>
-            <button onClick={handleImportClick} className="p-2 bg-secondary border border-border text-text-muted hover:text-foreground rounded-xl transition-all" title="Import Workflow">
-              <Upload size={16} />
-            </button>
+            <button onClick={handleExport} className="p-2 bg-secondary border border-border text-text-muted hover:text-foreground rounded-xl transition-all" title="Export Workflow"><Download size={16} /></button>
+            <button onClick={handleImportClick} className="p-2 bg-secondary border border-border text-text-muted hover:text-foreground rounded-xl transition-all" title="Import Workflow"><Upload size={16} /></button>
           </div>
           <button onClick={handleSave} className="flex items-center gap-2 px-3 sm:px-4 py-2 bg-accent-primary text-accent-foreground rounded-xl text-[9px] sm:text-[10px] font-black uppercase tracking-widest hover:opacity-90 transition-all shadow-lg shrink-0">
             <Save size={14} />
@@ -493,12 +419,8 @@ export default function WorkflowDesigner({ initialWorkflow, onSave, onClose }: W
               }}
             >
               <option value="">Target</option>
-              {vms.filter(v => v.status === 'running').map(v => (
-                <option key={v.id} value={`vm:${v.id}`}>{v.name}</option>
-              ))}
-              {devices.filter(d => d.status === 'paired').map(d => (
-                <option key={d.id} value={`device:${d.id}`}>{d.name}</option>
-              ))}
+              {vms.filter(v => v.status === 'running').map(v => (<option key={v.id} value={`vm:${v.id}`}>{v.name}</option>))}
+              {devices.filter(d => d.status === 'paired').map(d => (<option key={d.id} value={`device:${d.id}`}>{d.name}</option>))}
             </select>
           </div>
           <button onClick={handleRun} className="flex items-center gap-2 px-3 sm:px-4 py-2 bg-card border border-border text-foreground rounded-xl text-[9px] sm:text-[10px] font-black uppercase tracking-widest hover:bg-card-hover transition-all shrink-0">
@@ -513,67 +435,57 @@ export default function WorkflowDesigner({ initialWorkflow, onSave, onClose }: W
         </div>
       </header>
 
-      {/* Main Canvas */}
-      <main className="flex-1 relative overflow-hidden bg-zinc-50 dark:bg-zinc-950/50">
+      <main className="flex-1 relative overflow-hidden bg-zinc-50 dark:bg-zinc-950/50 flex flex-col">
         {activeView === 'node' ? (
-          <div
-            ref={canvasRef}
-            className="w-full h-full relative cursor-default overflow-auto select-none"
-            onMouseMove={handleCanvasMouseMove}
-            onMouseUp={handleMouseUp}
-            style={{ backgroundImage: 'radial-gradient(var(--border) 1px, transparent 0)', backgroundSize: '40px 40px' }}
-          >
+          <div className="flex-1 relative overflow-hidden">
             <div
-              className="absolute inset-0"
-              style={{ transform: `scale(${scale})`, transformOrigin: '0 0', width: '3000px', height: '3000px' }}
+              ref={canvasRef}
+              className="w-full h-full relative cursor-default overflow-auto select-none"
+              onMouseMove={handleCanvasMouseMove}
+              onMouseUp={handleMouseUp}
+              style={{ backgroundImage: 'radial-gradient(var(--border) 1px, transparent 0)', backgroundSize: '40px 40px' }}
             >
-              {renderConnectionLines()}
-              {workflow.nodes.map(node => (
-                <NodeElement
-                  key={node.id}
-                  node={node}
-                  onMouseDown={(e: React.MouseEvent) => handleNodeMouseDown(e, node.id)}
-                  onPortMouseDown={(e: React.MouseEvent, type: 'out' | 'in') => handlePortMouseDown(e, node.id, type)}
-                  onDelete={() => deleteNode(node.id)}
-                  onUpdate={(data: any) => updateNodeData(node.id, data)}
-                />
-              ))}
+              <div className="absolute inset-0" style={{ transform: `scale(${scale})`, transformOrigin: '0 0', width: '3000px', height: '3000px' }}>
+                {renderConnectionLines()}
+                {workflow.nodes.map(node => (
+                  <NodeElement
+                    key={node.id}
+                    node={node}
+                    onMouseDown={(e: React.MouseEvent) => handleNodeMouseDown(e, node.id)}
+                    onPortMouseDown={(e: React.MouseEvent, type: 'out' | 'in') => handlePortMouseDown(e, node.id, type)}
+                    onPortMouseUp={(type: 'out' | 'in') => handlePortMouseUp(node.id, type)}
+                    onDelete={() => deleteNode(node.id)}
+                    onUpdate={(data: any) => updateNodeData(node.id, data)}
+                  />
+                ))}
+              </div>
             </div>
-          </div>
 
-          {/* Fixed Canvas Controls */}
-          <div className="absolute bottom-6 right-6 flex flex-col gap-2 z-50">
-            <button
-              onClick={() => addNode('nl_task')}
-              className="w-12 h-12 rounded-full bg-accent-primary text-accent-foreground flex items-center justify-center shadow-2xl hover:scale-110 transition-all"
-              title="Add Task Node"
-            >
-              <Plus size={24} />
-            </button>
-            <div className="bg-card border border-border rounded-2xl p-1 shadow-2xl flex flex-col gap-1">
-              <button onClick={() => setScale(s => Math.min(s + 0.1, 2))} className="w-8 h-8 flex items-center justify-center hover:bg-card-hover rounded-lg transition-colors"><Maximize2 size={14}/></button>
-              <button onClick={() => setScale(s => Math.max(s - 0.1, 0.5))} className="w-8 h-8 flex items-center justify-center hover:bg-card-hover rounded-lg transition-colors"><Minimize2 size={14}/></button>
+            <div className="absolute bottom-6 right-6 flex flex-col gap-2 z-50">
+              <button onClick={() => addNode('nl_task')} className="w-12 h-12 rounded-full bg-accent-primary text-accent-foreground flex items-center justify-center shadow-2xl hover:scale-110 transition-all"><Plus size={24} /></button>
+              <div className="bg-card border border-border rounded-2xl p-1 shadow-2xl flex flex-col gap-1">
+                <button onClick={() => setScale(s => Math.min(s + 0.1, 2))} className="w-8 h-8 flex items-center justify-center hover:bg-card-hover rounded-lg transition-colors"><Maximize2 size={14}/></button>
+                <button onClick={() => setScale(s => Math.max(s - 0.1, 0.5))} className="w-8 h-8 flex items-center justify-center hover:bg-card-hover rounded-lg transition-colors"><Minimize2 size={14}/></button>
+              </div>
             </div>
-          </div>
 
-          <div className="absolute bottom-6 left-6 flex gap-2 z-50">
-            <NodePicker onPick={addNode} />
+            <div className="absolute bottom-6 left-6 flex gap-2 z-50">
+              <NodePicker onPick={addNode} />
+            </div>
           </div>
         ) : (
-          <div className="max-w-4xl mx-auto py-12 px-6 overflow-y-auto h-full">
+          <div className="max-w-4xl mx-auto py-12 px-6 overflow-y-auto h-full w-full">
             {workflow.nodes.length === 0 ? (
               <div className="text-center py-20 bg-card border border-dashed border-border rounded-3xl">
                 <Brain className="mx-auto mb-4 text-text-muted opacity-20" size={48} />
-                <p className="text-sm font-bold text-text-muted uppercase tracking-widest">No nodes defined in this workflow</p>
+                <p className="text-sm font-bold text-text-muted uppercase tracking-widest">No nodes defined</p>
                 <button onClick={() => setActiveView('node')} className="mt-4 text-[10px] font-black text-accent-primary uppercase tracking-widest">Switch to Node View</button>
               </div>
             ) : (
               <div className="space-y-4">
                 {workflow.nodes.map((node, i) => (
                   <div key={node.id} className="bg-card border border-border p-6 rounded-2xl flex items-center gap-6 shadow-sm">
-                    <div className="w-10 h-10 rounded-full bg-secondary border border-border flex items-center justify-center text-[12px] font-black shrink-0">
-                      {i + 1}
-                    </div>
+                    <div className="w-10 h-10 rounded-full bg-secondary border border-border flex items-center justify-center text-[12px] font-black shrink-0">{i + 1}</div>
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-1">
                         <NodeIcon type={node.type} size={14} className="text-accent-primary" />
@@ -582,9 +494,7 @@ export default function WorkflowDesigner({ initialWorkflow, onSave, onClose }: W
                       <div className="text-sm font-bold">{node.data.value || 'Untitled Step'}</div>
                       <div className="text-xs text-text-muted mt-1">{node.data.description || 'No description provided.'}</div>
                     </div>
-                    <button onClick={() => deleteNode(node.id)} className="p-2 text-text-muted hover:text-red-500 transition-colors">
-                      <Trash2 size={18} />
-                    </button>
+                    <button onClick={() => deleteNode(node.id)} className="p-2 text-text-muted hover:text-red-500 transition-colors"><Trash2 size={18} /></button>
                   </div>
                 ))}
               </div>
@@ -593,57 +503,31 @@ export default function WorkflowDesigner({ initialWorkflow, onSave, onClose }: W
         )}
       </main>
 
-      {/* AI Sidebar Overlay */}
-      <div
-        className={cn(
-          "fixed inset-y-0 right-0 w-full sm:w-[450px] bg-background border-l border-border shadow-[0_0_50px_rgba(0,0,0,0.3)] pointer-events-auto flex flex-col transition-transform duration-500 ease-out z-[101]",
-          isAiOverlayOpen ? "translate-x-0" : "translate-x-full"
-        )}
-      >
+      <div className={cn("fixed inset-y-0 right-0 w-full sm:w-[450px] bg-background border-l border-border shadow-[0_0_50px_rgba(0,0,0,0.3)] pointer-events-auto flex flex-col transition-transform duration-500 ease-out z-[101]", isAiOverlayOpen ? "translate-x-0" : "translate-x-full")}>
           <div className="h-16 flex items-center justify-between px-6 border-b border-border shrink-0 bg-secondary">
             <div className="flex items-center gap-3">
               <Bot size={20} className="text-foreground" />
               <span className="text-[11px] font-black uppercase tracking-[0.2em]">Workflow AI Designer</span>
             </div>
-            <button
-              onClick={() => setIsAiOverlayOpen(false)}
-              className="p-2 hover:bg-card rounded-xl transition-colors"
-            >
-              <ChevronRight size={20} />
-            </button>
+            <button onClick={() => setIsAiOverlayOpen(false)} className="p-2 hover:bg-card rounded-xl transition-colors"><ChevronRight size={20} /></button>
           </div>
 
           <div className="flex-1 overflow-y-auto p-6 space-y-6">
             {aiMessages.length === 0 ? (
               <div className="text-center py-20 space-y-4">
-                <div className="w-16 h-16 bg-accent-primary/10 rounded-3xl flex items-center justify-center mx-auto">
-                  <Sparkles size={32} className="text-accent-primary" />
-                </div>
+                <div className="w-16 h-16 bg-accent-primary/10 rounded-3xl flex items-center justify-center mx-auto"><Sparkles size={32} className="text-accent-primary" /></div>
                 <h3 className="text-lg font-black tracking-tight">Need a workflow?</h3>
-                <p className="text-xs text-text-muted font-medium max-w-[250px] mx-auto leading-relaxed">
-                  Tell me what you want to automate, and I'll build the visual flow for you.
-                </p>
+                <p className="text-xs text-text-muted font-medium max-w-[250px] mx-auto leading-relaxed">Tell me what you want to automate, and I'll build the visual flow for you.</p>
                 <div className="flex flex-wrap gap-2 justify-center pt-4">
                   {['Morning routine', 'File cleanup', 'Daily backup', 'Research assistant'].map(suggestion => (
-                    <button
-                      key={suggestion}
-                      onClick={() => setAiInput(suggestion)}
-                      className="px-3 py-1.5 bg-secondary border border-border rounded-full text-[10px] font-bold hover:bg-card transition-all"
-                    >
-                      {suggestion}
-                    </button>
+                    <button key={suggestion} onClick={() => setAiInput(suggestion)} className="px-3 py-1.5 bg-secondary border border-border rounded-full text-[10px] font-bold hover:bg-card transition-all">{suggestion}</button>
                   ))}
                 </div>
               </div>
             ) : (
               aiMessages.map((msg, i) => (
                 <div key={i} className={cn("flex flex-col", msg.role === 'user' ? "items-end" : "items-start")}>
-                  <div className={cn(
-                    "max-w-[85%] p-4 rounded-2xl text-sm leading-relaxed",
-                    msg.role === 'user'
-                      ? "bg-accent-primary text-accent-foreground rounded-tr-sm"
-                      : "bg-secondary text-foreground rounded-tl-sm border border-border"
-                  )}>
+                  <div className={cn("max-w-[85%] p-4 rounded-2xl text-sm leading-relaxed", msg.role === 'user' ? "bg-accent-primary text-accent-foreground rounded-tr-sm" : "bg-secondary text-foreground rounded-tl-sm border border-border")}>
                     <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.content}</ReactMarkdown>
                   </div>
                 </div>
@@ -651,121 +535,54 @@ export default function WorkflowDesigner({ initialWorkflow, onSave, onClose }: W
             )}
             {isAiStreaming && (
               <div className="flex items-center gap-2 text-text-muted">
-                <Loader2 size={12} className="animate-spin" />
-                <span className="text-[10px] font-black uppercase tracking-widest">Thinking...</span>
+                <Loader2 size={12} className="animate-spin" /><span className="text-[10px] font-black uppercase tracking-widest">Thinking...</span>
               </div>
             )}
           </div>
 
           {attachedFile && (
             <div className="mx-6 mb-2 flex items-center gap-2 px-3 py-1.5 bg-card border border-border rounded-xl">
-              <File size={12} className="text-text-muted" />
-              <span className="text-[10px] font-bold text-text-secondary truncate flex-1">{attachedFile.name}</span>
+              <File size={12} className="text-text-muted" /><span className="text-[10px] font-bold text-text-secondary truncate flex-1">{attachedFile.name}</span>
               <button onClick={() => setAttachedFile(null)} className="text-text-muted hover:text-foreground"><X size={12}/></button>
             </div>
           )}
 
           <div className="p-4 border-t border-border bg-secondary">
             <div className="relative flex items-end gap-2 bg-background border border-border rounded-2xl p-1.5 focus-within:border-accent-primary/50 transition-all shadow-xl">
-              <input
-                type="file"
-                ref={fileInputRef}
-                onChange={handleFileSelect}
-                className="hidden"
-              />
-              <button
-                onClick={() => fileInputRef.current?.click()}
-                className="p-2 text-text-muted hover:text-foreground transition-colors"
-              >
-                <Paperclip size={18} />
-              </button>
-              <textarea
-                value={aiInput}
-                onChange={e => setAiInput(e.target.value)}
-                onKeyDown={e => {
-                  if (e.key === 'Enter' && !e.shiftKey) {
-                    e.preventDefault();
-                    handleAiSend();
-                  }
-                }}
-                placeholder="Ask AI to create or modify..."
-                className="flex-1 bg-transparent border-none focus:outline-none text-sm p-2.5 resize-none max-h-32 min-h-[42px]"
-                rows={1}
-              />
-              <button
-                onClick={handleAiSend}
-                disabled={!aiInput.trim() || isAiStreaming}
-                className="p-2.5 bg-accent-primary text-accent-foreground rounded-xl disabled:opacity-30 transition-all"
-              >
-                <Send size={18} />
-              </button>
+              <input type="file" ref={fileInputRef} onChange={handleFileSelect} className="hidden" />
+              <button onClick={() => fileInputRef.current?.click()} className="p-2 text-text-muted hover:text-foreground transition-colors"><Paperclip size={18} /></button>
+              <textarea value={aiInput} onChange={e => setAiInput(e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleAiSend(); } }} placeholder="Ask AI to create or modify..." className="flex-1 bg-transparent border-none focus:outline-none text-sm p-2.5 resize-none max-h-32 min-h-[42px]" rows={1} />
+              <button onClick={handleAiSend} disabled={!aiInput.trim() || isAiStreaming} className="p-2.5 bg-accent-primary text-accent-foreground rounded-xl disabled:opacity-30 transition-all"><Send size={18} /></button>
             </div>
           </div>
-        </div>
       </div>
     </div>
   );
 }
 
-function NodeElement({ node, onMouseDown, onPortMouseDown, onDelete, onUpdate }: any) {
+function NodeElement({ node, onMouseDown, onPortMouseDown, onPortMouseUp, onDelete, onUpdate }: any) {
   return (
-    <div
-      className="absolute w-[200px] bg-card border border-border rounded-2xl shadow-xl transition-shadow hover:shadow-2xl z-10 overflow-visible"
-      style={{ left: node.position.x, top: node.position.y }}
-      onMouseDown={onMouseDown}
-    >
+    <div className="absolute w-[200px] bg-card border border-border rounded-2xl shadow-xl transition-shadow hover:shadow-2xl z-10 overflow-visible" style={{ left: node.position.x, top: node.position.y }} onMouseDown={onMouseDown}>
       <div className="p-3 border-b border-border flex items-center justify-between bg-zinc-50 dark:bg-zinc-900/50 rounded-t-2xl">
         <div className="flex items-center gap-2">
           <NodeIcon type={node.type} size={14} className="text-accent-primary" />
-          <span className="text-[9px] font-black uppercase tracking-widest text-text-muted truncate w-24">
-            {node.type.replace('_', ' ')}
-          </span>
+          <span className="text-[9px] font-black uppercase tracking-widest text-text-muted truncate w-24">{node.type.replace('_', ' ')}</span>
         </div>
-        <button onClick={(e) => { e.stopPropagation(); onDelete(); }} className="text-text-muted hover:text-red-500 p-1">
-          <X size={12} />
-        </button>
+        <button onClick={(e) => { e.stopPropagation(); onDelete(); }} className="text-text-muted hover:text-red-500 p-1"><X size={12} /></button>
       </div>
-
       <div className="p-3 space-y-2">
         {node.type === 'nl_task' ? (
-          <textarea
-            value={node.data.value}
-            onChange={e => onUpdate({ value: e.target.value })}
-            placeholder="Describe task..."
-            className="w-full bg-secondary border border-border rounded-lg p-2 text-[11px] focus:outline-none focus:border-accent-primary/50 resize-none min-h-[60px]"
-          />
+          <textarea value={node.data.value} onChange={e => onUpdate({ value: e.target.value })} placeholder="Describe task..." className="w-full bg-secondary border border-border rounded-lg p-2 text-[11px] focus:outline-none focus:border-accent-primary/50 resize-none min-h-[60px]" />
         ) : node.type === 'start_time' ? (
-          <input
-            type="time"
-            value={node.data.value}
-            onChange={e => onUpdate({ value: e.target.value })}
-            className="w-full bg-secondary border border-border rounded-lg p-2 text-[11px] focus:outline-none"
-          />
+          <input type="time" value={node.data.value} onChange={e => onUpdate({ value: e.target.value })} className="w-full bg-secondary border border-border rounded-lg p-2 text-[11px] focus:outline-none" />
         ) : (
-          <input
-            value={node.data.value}
-            onChange={e => onUpdate({ value: e.target.value })}
-            placeholder="Value..."
-            className="w-full bg-secondary border border-border rounded-lg p-2 text-[11px] focus:outline-none"
-          />
+          <input value={node.data.value} onChange={e => onUpdate({ value: e.target.value })} placeholder="Value..." className="w-full bg-secondary border border-border rounded-lg p-2 text-[11px] focus:outline-none" />
         )}
       </div>
-
-      {/* Ports */}
       {!node.type.startsWith('start') && (
-        <div
-          className="node-port absolute left-0 top-1/2 -translate-x-1/2 -translate-y-1/2 w-3 h-3 bg-card border-2 border-accent-primary rounded-full cursor-crosshair hover:scale-150 transition-transform z-20"
-          data-node-id={node.id}
-          data-port-type="in"
-          onMouseDown={(e) => onPortMouseDown(e, 'in')}
-        />
+        <div className="node-port absolute left-0 top-1/2 -translate-x-1/2 -translate-y-1/2 w-3 h-3 bg-card border-2 border-accent-primary rounded-full cursor-crosshair hover:scale-150 transition-transform z-20" data-node-id={node.id} data-port-type="in" onMouseDown={(e) => onPortMouseDown(e, 'in')} onMouseUp={() => onPortMouseUp('in')} />
       )}
-      <div
-        className="node-port absolute right-0 top-1/2 translate-x-1/2 -translate-y-1/2 w-3 h-3 bg-accent-primary rounded-full cursor-crosshair hover:scale-150 transition-transform z-20"
-        data-node-id={node.id}
-        data-port-type="out"
-        onMouseDown={(e) => onPortMouseDown(e, 'out')}
-      />
+      <div className="node-port absolute right-0 top-1/2 translate-x-1/2 -translate-y-1/2 w-3 h-3 bg-accent-primary rounded-full cursor-crosshair hover:scale-150 transition-transform z-20" data-node-id={node.id} data-port-type="out" onMouseDown={(e) => onPortMouseDown(e, 'out')} onMouseUp={() => onPortMouseUp('out')} />
     </div>
   );
 }
@@ -797,24 +614,11 @@ function NodePicker({ onPick }: { onPick: (type: string) => void }) {
 
   return (
     <div className="relative">
-      <button
-        onClick={() => setOpen(!open)}
-        className="px-4 py-2 bg-card border border-border rounded-xl text-[10px] font-black uppercase tracking-widest shadow-xl flex items-center gap-2 hover:bg-card-hover transition-all"
-      >
-        <Plus size={14} />
-        Add Component
-      </button>
+      <button onClick={() => setOpen(!open)} className="px-4 py-2 bg-card border border-border rounded-xl text-[10px] font-black uppercase tracking-widest shadow-xl flex items-center gap-2 hover:bg-card-hover transition-all"><Plus size={14} />Add Component</button>
       {open && (
         <div className="absolute bottom-full left-0 mb-2 w-48 bg-card border border-border rounded-2xl shadow-2xl p-1 overflow-hidden animate-in slide-in-from-bottom-2">
           {types.map(t => (
-            <button
-              key={t.type}
-              onClick={() => { onPick(t.type); setOpen(false); }}
-              className="w-full flex items-center gap-3 px-3 py-2 text-[10px] font-bold text-text-secondary hover:text-foreground hover:bg-secondary rounded-xl transition-all"
-            >
-              {t.icon}
-              {t.label}
-            </button>
+            <button key={t.type} onClick={() => { onPick(t.type); setOpen(false); }} className="w-full flex items-center gap-3 px-3 py-2 text-[10px] font-bold text-text-secondary hover:text-foreground hover:bg-secondary rounded-xl transition-all">{t.icon}{t.label}</button>
           ))}
         </div>
       )}
