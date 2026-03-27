@@ -86,12 +86,15 @@ export default function WorkflowDesigner({ initialWorkflow, onSave, onClose }: W
   const canvasRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const handleCanvasMouseMove = (e: React.MouseEvent) => {
+  const handleCanvasMouseMove = (e: React.MouseEvent | React.TouchEvent) => {
     const rect = canvasRef.current?.getBoundingClientRect();
     if (!rect) return;
 
-    const x = (e.clientX - rect.left) / scale;
-    const y = (e.clientY - rect.top) / scale;
+    const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
+    const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
+
+    const x = (clientX - rect.left) / scale;
+    const y = (clientY - rect.top) / scale;
     setMousePos({ x, y });
 
     if (draggingNode) {
@@ -105,17 +108,20 @@ export default function WorkflowDesigner({ initialWorkflow, onSave, onClose }: W
     }
   };
 
-  const handleNodeMouseDown = (e: React.MouseEvent, nodeId: string) => {
+  const handleNodeMouseDown = (e: React.MouseEvent | React.TouchEvent, nodeId: string) => {
     if ((e.target as HTMLElement).closest('.node-port')) return;
 
     const node = workflow.nodes.find(n => n.id === nodeId);
     if (!node) return;
 
     const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
+    const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
+
     setDraggingNode(nodeId);
     setDragOffset({
-      x: (e.clientX - rect.left) / scale,
-      y: (e.clientY - rect.top) / scale
+      x: (clientX - rect.left) / scale,
+      y: (clientY - rect.top) / scale
     });
   };
 
@@ -319,7 +325,9 @@ export default function WorkflowDesigner({ initialWorkflow, onSave, onClose }: W
           const target = workflow.nodes.find(n => n.id === edge.target);
           if (!source || !target) return null;
 
-          const x1 = source.position.x + 180;
+          const isMobile = typeof window !== 'undefined' && window.innerWidth < 640;
+          const nodeWidth = isMobile ? 160 : 200;
+          const x1 = source.position.x + (nodeWidth - 20);
           const y1 = source.position.y + 40;
           const x2 = target.position.x;
           const y2 = target.position.y + 40;
@@ -341,7 +349,9 @@ export default function WorkflowDesigner({ initialWorkflow, onSave, onClose }: W
             d={(() => {
               const node = workflow.nodes.find(n => n.id === connectingFrom.id);
               if (!node) return '';
-              const x1 = connectingFrom.type === 'out' ? node.position.x + 180 : node.position.x;
+              const isMobile = typeof window !== 'undefined' && window.innerWidth < 640;
+              const nodeWidth = isMobile ? 160 : 200;
+              const x1 = connectingFrom.type === 'out' ? node.position.x + (nodeWidth - 20) : node.position.x;
               const y1 = node.position.y + 40;
               const x2 = mousePos.x;
               const y2 = mousePos.y;
@@ -444,9 +454,11 @@ export default function WorkflowDesigner({ initialWorkflow, onSave, onClose }: W
           <div className="flex-1 relative overflow-hidden">
             <div
               ref={canvasRef}
-              className="w-full h-full relative cursor-default overflow-auto select-none"
+              className="w-full h-full relative cursor-default overflow-auto select-none touch-none"
               onMouseMove={handleCanvasMouseMove}
               onMouseUp={handleMouseUp}
+              onTouchMove={handleCanvasMouseMove}
+              onTouchEnd={handleMouseUp}
               style={{ backgroundImage: 'radial-gradient(var(--border) 1px, transparent 0)', backgroundSize: '40px 40px' }}
             >
               <div className="absolute inset-0" style={{ transform: `scale(${scale})`, transformOrigin: '0 0', width: '3000px', height: '3000px' }}>
@@ -466,7 +478,6 @@ export default function WorkflowDesigner({ initialWorkflow, onSave, onClose }: W
             </div>
 
             <div className="absolute bottom-6 right-6 flex flex-col gap-2 z-50">
-              <button onClick={() => addNode('nl_task')} className="w-12 h-12 rounded-full bg-accent-primary text-accent-foreground flex items-center justify-center shadow-2xl hover:scale-110 transition-all"><Plus size={24} /></button>
               <div className="bg-card border border-border rounded-2xl p-1 shadow-2xl flex flex-col gap-1">
                 <button onClick={() => setScale(s => Math.min(s + 0.1, 2))} className="w-8 h-8 flex items-center justify-center hover:bg-card-hover rounded-lg transition-colors"><Maximize2 size={14}/></button>
                 <button onClick={() => setScale(s => Math.max(s - 0.1, 0.5))} className="w-8 h-8 flex items-center justify-center hover:bg-card-hover rounded-lg transition-colors"><Minimize2 size={14}/></button>
@@ -571,7 +582,11 @@ export default function WorkflowDesigner({ initialWorkflow, onSave, onClose }: W
 
 function NodeElement({ node, onMouseDown, onPortMouseDown, onPortMouseUp, onDelete, onUpdate }: any) {
   return (
-    <div className="absolute w-[200px] bg-card border border-border rounded-2xl shadow-xl transition-shadow hover:shadow-2xl z-10 overflow-visible" style={{ left: node.position.x, top: node.position.y }} onMouseDown={onMouseDown}>
+    <div className="absolute w-[160px] sm:w-[200px] bg-card border border-border rounded-2xl shadow-xl transition-shadow hover:shadow-2xl z-10 overflow-visible"
+      style={{ left: node.position.x, top: node.position.y }}
+      onMouseDown={onMouseDown}
+      onTouchStart={onMouseDown}
+    >
       <div className="p-3 border-b border-border flex items-center justify-between bg-zinc-50 dark:bg-zinc-900/50 rounded-t-2xl">
         <div className="flex items-center gap-2">
           <NodeIcon type={node.type} size={14} className="text-accent-primary" />

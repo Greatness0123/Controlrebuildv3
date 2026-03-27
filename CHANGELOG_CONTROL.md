@@ -24,3 +24,15 @@ All notable changes to this project will be documented in this file.
 ### Fixed
 - **VM Startup**: Resolved XFCE "black screen" and session locking issues in the Docker container.
 - **Counter Sync**: Fixed an issue where token and usage counters in the desktop app would remain at zero after interactions.
+
+## [1.1.0] - 2024-03-27
+
+### Added
+- **Ask/Act Toggle (Desktop)**: Restored the manual mode toggle in the chat header, allowing users to explicitly choose between 'ACT' and 'ASK' modes.
+- **Real-time Voice Streaming (Web)**: Implemented real-time transcription feedback for the microphone function in the chat interface.
+- **AI Provider Fallback (Backend)**: Added automatic fallback to the default Gemini provider if user-specific API keys are missing for any provider.
+- **Dynamic Billing (Web)**: Replaced mock billing data with live statistics fetched directly from the user's database record.
+
+### Changed
+- **Workflow Designer (Web)**: Overhauled the workflow designer for mobile responsiveness, added touch support for node dragging, and improved zoom functionality.
+- **Workflow Designer (Web)**: Removed the redundant circular plus button and ensured the 'Get Started' button correctly initializes new workflows.

@@ -46,6 +46,7 @@ export default function ChatPanel({ sessionId }: ChatPanelProps) {
 
   const [isListening, setIsListening] = useState(false);
   const recognitionRef = useRef<any>(null);
+  const transcriptBeforeListening = useRef<string>('');
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -53,7 +54,7 @@ export default function ChatPanel({ sessionId }: ChatPanelProps) {
       if (SpeechRecognition) {
         const recognition = new SpeechRecognition();
         recognition.continuous = true;
-        recognition.interimResults = false;
+        recognition.interimResults = true;
         recognition.lang = 'en-US';
 
         recognition.onstart = () => {
@@ -61,17 +62,15 @@ export default function ChatPanel({ sessionId }: ChatPanelProps) {
         };
 
         recognition.onresult = (event: any) => {
-          let finalTranscript = '';
-          for (let i = event.resultIndex; i < event.results.length; ++i) {
-            if (event.results[i].isFinal) {
-              finalTranscript += event.results[i][0].transcript;
-            }
+          const base = transcriptBeforeListening.current.trim();
+          const separator = base ? ' ' : '';
+
+          let fullSessionTranscript = '';
+          for (let i = 0; i < event.results.length; i++) {
+              fullSessionTranscript += event.results[i][0].transcript;
           }
-          if (finalTranscript) {
-            setInput(prev => {
-               return (prev.trim() + ' ' + finalTranscript).trim();
-            });
-          }
+
+          setInput((base + separator + fullSessionTranscript).trim());
         };
 
         recognition.onerror = (event: any) => {
@@ -100,6 +99,7 @@ export default function ChatPanel({ sessionId }: ChatPanelProps) {
         return;
       }
       try {
+        transcriptBeforeListening.current = input || '';
         recognitionRef.current.start();
         setIsListening(true);
       } catch (err) {

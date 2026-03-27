@@ -339,6 +339,9 @@ class AgentExecutor:
             key = config.get("gemini_api_key") or GEMINI_API_KEY
             model = config.get("gemini_model", "gemini-2.5-flash")
             if not key:
+                # Fallback to default Gemini if possible
+                if GEMINI_API_KEY:
+                    return await _call_gemini(model, GEMINI_API_KEY, messages, image_b64)
                 raise ValueError("No Gemini API key configured. Go to Settings > AI to add your key.")
             return await _call_gemini(model, key, messages, image_b64)
         
@@ -346,6 +349,9 @@ class AgentExecutor:
             key = config.get("openai_api_key", "")
             model = config.get("openai_model", "gpt-4o")
             if not key:
+                if GEMINI_API_KEY:
+                    logger.info("OpenAI key missing, falling back to default Gemini")
+                    return await _call_gemini("gemini-2.5-flash", GEMINI_API_KEY, messages, image_b64)
                 raise ValueError("No OpenAI API key configured. Go to Settings > AI to add your key.")
             return await _call_openai_compat(model, key, messages, image_b64)
         
@@ -353,6 +359,9 @@ class AgentExecutor:
             key = config.get("anthropic_api_key", "")
             model = config.get("anthropic_model", "claude-3-5-sonnet-20241022")
             if not key:
+                if GEMINI_API_KEY:
+                    logger.info("Anthropic key missing, falling back to default Gemini")
+                    return await _call_gemini("gemini-2.5-flash", GEMINI_API_KEY, messages, image_b64)
                 raise ValueError("No Anthropic API key configured. Go to Settings > AI to add your key.")
             return await _call_anthropic(model, key, messages, image_b64)
         
@@ -360,6 +369,9 @@ class AgentExecutor:
             key = config.get("openrouter_api_key", "")
             model = config.get("openrouter_model", "anthropic/claude-3.5-sonnet")
             if not key:
+                if GEMINI_API_KEY:
+                    logger.info("OpenRouter key missing, falling back to default Gemini")
+                    return await _call_gemini("gemini-2.5-flash", GEMINI_API_KEY, messages, image_b64)
                 raise ValueError("No OpenRouter API key configured. Go to Settings > AI to add your key.")
             return await _call_openai_compat(
                 model, key, messages, image_b64,
@@ -370,6 +382,9 @@ class AgentExecutor:
             key = config.get("xai_api_key", "")
             model = config.get("xai_model", "grok-2-vision-1212")
             if not key:
+                if GEMINI_API_KEY:
+                    logger.info("xAI key missing, falling back to default Gemini")
+                    return await _call_gemini("gemini-2.5-flash", GEMINI_API_KEY, messages, image_b64)
                 raise ValueError("No xAI API key configured. Go to Settings > AI to add your key.")
             return await _call_openai_compat(
                 model, key, messages, image_b64,
