@@ -97,13 +97,20 @@ async def send_message(
 ):
     db = get_service_client()
 
-    session = db.table("chat_sessions").select("*, virtual_machines(*)")\
-        .eq("id", session_id)\
-        .execute()
-    if not session.data or session.data[0]["user_id"] != user["id"]:
-        raise HTTPException(status_code=404, detail="Session not found")
-
-    session_data = session.data[0]
+    if session_id.startswith("wf_gen_"):
+        session_data = {
+            "id": session_id,
+            "user_id": user["id"],
+            "title": "Workflow Generation",
+            "virtual_machines": None
+        }
+    else:
+        session = db.table("chat_sessions").select("*, virtual_machines(*)")\
+            .eq("id", session_id)\
+            .execute()
+        if not session.data or session.data[0]["user_id"] != user["id"]:
+            raise HTTPException(status_code=404, detail="Session not found")
+        session_data = session.data[0]
 
     session_data["user_id"] = user["id"]
 
@@ -114,11 +121,12 @@ async def send_message(
     if req.file_url:
         message += f"\n\n[Attached file: {req.file_url}]"
 
-    db.table("chat_messages").insert({
-        "session_id": session_id,
-        "role": "user",
-        "content": message
-    }).execute()
+    if not session_id.startswith("wf_gen_"):
+        db.table("chat_messages").insert({
+            "session_id": session_id,
+            "role": "user",
+            "content": message
+        }).execute()
 
     async def event_stream():
         async for event in agent_executor.execute_task(db, session_id, message, session_data, mode=req.mode or "act"):

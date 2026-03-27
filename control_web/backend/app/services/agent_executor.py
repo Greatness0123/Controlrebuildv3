@@ -70,7 +70,42 @@ RULES:
 4. Do NOT output JSON action commands — just respond in plain text/markdown.
 5. Be concise but complete.
 6. If the user asks something you're unsure about, say so honestly.
-7. You may reference the user's computer setup context if relevant to answering their question.""" 
+7. You may reference the user's computer setup context if relevant to answering their question."""
+
+WORKFLOW_SYSTEM_PROMPT = """You are Control AI Workflow Designer. Your goal is to help the user create a visual automation workflow.
+
+The workflow consists of NODES and EDGES.
+Available Node Types:
+- start_time: Trigger based on time. params: {"value": "HH:mm", "days": ["Mon", "Tue"...]}
+- start_keyword: Trigger based on a voice keyword. params: {"value": "keyword"}
+- app: Open an application. params: {"value": "app name"}
+- file: Open a file. params: {"value": "file path"}
+- web_search: Perform a web search. params: {"value": "query"}
+- browser_search: Agentic browser search. params: {"value": "instruction"}
+- nl_task: Natural language task for AI. params: {"value": "task description"}
+
+RESPONSE RULES:
+1. Ask clarifying questions to understand the user's automation needs.
+2. Once you have enough information, generate the workflow.
+3. Your final output must include a JSON block representing the workflow.
+4. The JSON must have: "name", "trigger", "nodes", "edges".
+5. Nodes must have: "id", "type", "position": {"x", "y"}, "data": {"value", "description"}.
+6. Edges must have: "id", "source", "target".
+
+Example JSON:
+```json
+{
+  "name": "Morning Routine",
+  "trigger": {"type": "time", "value": "08:00"},
+  "nodes": [
+    {"id": "n1", "type": "start_time", "position": {"x": 100, "y": 100}, "data": {"value": "08:00"}},
+    {"id": "n2", "type": "app", "position": {"x": 400, "y": 100}, "data": {"value": "Slack"}}
+  ],
+  "edges": [
+    {"id": "e1", "source": "n1", "target": "n2"}
+  ]
+}
+```"""
 
 # Alias for backward compat
 SYSTEM_PROMPT = ACT_SYSTEM_PROMPT
@@ -362,11 +397,12 @@ class AgentExecutor:
 
         provider_config = await self._get_provider_config(db, user_id)
 
-        db.table("chat_messages").insert({
-            "session_id": session_id,
-            "role": "user",
-            "content": user_message,
-        }).execute()
+        if not session_id.startswith("wf_gen_"):
+            db.table("chat_messages").insert({
+                "session_id": session_id,
+                "role": "user",
+                "content": user_message,
+            }).execute()
 
         try:
             session = db.table("chat_sessions").select("title").eq("id", session_id).execute()
@@ -431,9 +467,13 @@ class AgentExecutor:
 
                 yield {"type": "thinking", "content": f"Step {step} — thinking..."}
 
-                if mode == "ask":
+                if mode == "ask" or mode == "workflow":
                     try:
-                        provider_config["system_prompt"] = ASK_SYSTEM_PROMPT
+                        if mode == "workflow":
+                            provider_config["system_prompt"] = WORKFLOW_SYSTEM_PROMPT
+                        else:
+                            provider_config["system_prompt"] = ASK_SYSTEM_PROMPT
+
                         response_text = await self._call_ai(
                             provider_config, conversation, last_screenshot
                         )
@@ -489,13 +529,14 @@ class AgentExecutor:
                     yield {"type": "thought", "content": thought}
                 yield {"type": "action", "action": action, "params": params}
 
-                db.table("chat_messages").insert({
-                    "session_id": session_id,
-                    "role": "assistant",
-                    "content": thought,
-                    "action_type": action.lower(),
-                    "action_data": params,
-                }).execute()
+                if not session_id.startswith("wf_gen_"):
+                    db.table("chat_messages").insert({
+                        "session_id": session_id,
+                        "role": "assistant",
+                        "content": thought,
+                        "action_type": action.lower(),
+                        "action_data": params,
+                    }).execute()
 
                 conversation.append({"role": "assistant", "content": response_text})
 
@@ -656,9 +697,10 @@ class AgentExecutor:
             error_msg = f"Agent error: {str(e)}"
             logger.exception(error_msg)
             try:
-                db.table("chat_messages").insert({
-                    "session_id": session_id, "role": "system", "content": error_msg
-                }).execute()
+                if not session_id.startswith("wf_gen_") and 'response_text' in locals():
+                    db.table("chat_messages").insert({
+                        "session_id": session_id, "role": "assistant", "content": response_text
+                    }).execute()
             except Exception:
                 pass
             yield {"type": "error", "content": error_msg}
