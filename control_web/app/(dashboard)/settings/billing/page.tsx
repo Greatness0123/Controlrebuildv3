@@ -16,26 +16,42 @@ export default function BillingPage() {
   const getUsageData = () => {
     const stats = user?.user_metadata?.token_usage || {};
     const dailyStats = user?.user_metadata?.daily_token_usage || {};
+    const today = new Date().toISOString().split('T')[0];
 
     if (timeframe === 'daily') {
+      const todayData = dailyStats[today] || { total: 0, prompt: 0, candidates: 0 };
       return {
-        act: dailyStats.act || 0,
-        ask: dailyStats.ask || 0,
-        total: (dailyStats.act || 0) + (dailyStats.ask || 0)
+        prompt: todayData.prompt || 0,
+        candidates: todayData.candidates || 0,
+        total: todayData.total || 0
       };
     } else if (timeframe === 'weekly') {
-      // Logic for weekly/monthly aggregation from current metadata
-      // For now, we use a percentage of total as mock or direct total if metadata is limited
-      return {
-        act: stats.weekly_act || (stats.act ? Math.floor(stats.act * 0.4) : 0),
-        ask: stats.weekly_ask || (stats.ask ? Math.floor(stats.ask * 0.4) : 0),
-        total: (stats.weekly_act || 0) + (stats.weekly_ask || 0) || Math.floor((stats.act + stats.ask) * 0.4)
-      };
+      let prompt = 0, candidates = 0, total = 0;
+      const last7Days = Array.from({ length: 7 }, (_, i) => {
+        const d = new Date();
+        d.setDate(d.getDate() - i);
+        return d.toISOString().split('T')[0];
+      });
+
+      last7Days.forEach(date => {
+        if (dailyStats[date]) {
+          prompt += dailyStats[date].prompt || 0;
+          candidates += dailyStats[date].candidates || 0;
+          total += dailyStats[date].total || 0;
+        }
+      });
+      return { prompt, candidates, total };
     } else {
+      const totalTokens = user?.user_metadata?.total_token_usage || 0;
+      let prompt = 0, candidates = 0;
+      Object.values(dailyStats).forEach((day: any) => {
+        prompt += day.prompt || 0;
+        candidates += day.candidates || 0;
+      });
       return {
-        act: stats.act || 0,
-        ask: stats.ask || 0,
-        total: (stats.act || 0) + (stats.ask || 0)
+        prompt: prompt || Math.floor(totalTokens * 0.7),
+        candidates: candidates || Math.floor(totalTokens * 0.3),
+        total: totalTokens || (prompt + candidates)
       };
     }
   };
@@ -91,8 +107,8 @@ export default function BillingPage() {
                 <Zap size={16} />
               </div>
               <div>
-                <div className="text-[10px] font-black text-text-muted uppercase tracking-widest">Act Tokens</div>
-                <div className="text-xl font-black text-foreground">{usage.act.toLocaleString()}</div>
+                <div className="text-[10px] font-black text-text-muted uppercase tracking-widest">Prompt Tokens</div>
+                <div className="text-xl font-black text-foreground">{usage.prompt.toLocaleString()}</div>
               </div>
             </div>
             <div className="bg-card border border-border p-5 rounded-3xl flex flex-col gap-3">
@@ -100,8 +116,8 @@ export default function BillingPage() {
                 <TrendingUp size={16} />
               </div>
               <div>
-                <div className="text-[10px] font-black text-text-muted uppercase tracking-widest">Ask Tokens</div>
-                <div className="text-xl font-black text-foreground">{usage.ask.toLocaleString()}</div>
+                <div className="text-[10px] font-black text-text-muted uppercase tracking-widest">Candidate Tokens</div>
+                <div className="text-xl font-black text-foreground">{usage.candidates.toLocaleString()}</div>
               </div>
             </div>
           </div>
@@ -114,21 +130,21 @@ export default function BillingPage() {
             <div className="h-2 w-full bg-secondary rounded-full overflow-hidden flex">
               <div
                 className="h-full bg-accent-primary transition-all duration-500"
-                style={{ width: `${usage.total > 0 ? (usage.act / usage.total) * 100 : 0}%` }}
+                style={{ width: `${usage.total > 0 ? (usage.prompt / usage.total) * 100 : 0}%` }}
               />
               <div
                 className="h-full bg-blue-500 transition-all duration-500"
-                style={{ width: `${usage.total > 0 ? (usage.ask / usage.total) * 100 : 0}%` }}
+                style={{ width: `${usage.total > 0 ? (usage.candidates / usage.total) * 100 : 0}%` }}
               />
             </div>
             <div className="flex gap-4 mt-4">
               <div className="flex items-center gap-1.5">
                 <div className="w-2 h-2 rounded-full bg-accent-primary" />
-                <span className="text-[9px] font-black text-text-muted uppercase tracking-widest">Act</span>
+                <span className="text-[9px] font-black text-text-muted uppercase tracking-widest">Prompt</span>
               </div>
               <div className="flex items-center gap-1.5">
                 <div className="w-2 h-2 rounded-full bg-blue-500" />
-                <span className="text-[9px] font-black text-text-muted uppercase tracking-widest">Ask</span>
+                <span className="text-[9px] font-black text-text-muted uppercase tracking-widest">Candidates</span>
               </div>
             </div>
           </div>
