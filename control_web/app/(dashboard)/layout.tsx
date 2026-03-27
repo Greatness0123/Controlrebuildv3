@@ -8,7 +8,7 @@ import { chatApi, vmApi, pairApi } from '@/lib/api';
 import { useAuthStore, useChatStore, useVMStore, useDeviceStore } from '@/lib/store';
 import { useModal } from '@/lib/useModal';
 import {
-  Command, Monitor, MessageSquare, Cpu, Settings, LogOut, Plus, Sun, Moon,
+  Command, Monitor, MessageSquare, Cpu, Settings, LogOut, Plus, Sun, Moon, Zap,
   Link as LinkIcon, ChevronLeft, ChevronRight, Loader2, Menu, X, Trash, Edit2, LayoutDashboard, Crown, Shield
 } from 'lucide-react';
 
