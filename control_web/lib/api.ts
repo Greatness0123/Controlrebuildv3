@@ -182,3 +182,23 @@ export const configApi = {
       body: JSON.stringify({ value }),
     }),
 };
+
+export const workflowApi = {
+  list: () => apiFetch<{ workflows: any[] }>('/api/workflows/list'),
+  get: (id: string) => apiFetch<{ workflow: any }>(`/api/workflows/${id}`),
+  create: (data: any) => apiFetch<{ workflow: any }>('/api/workflows/create', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  }),
+  update: (id: string, data: any) => apiFetch<{ workflow: any }>(`/api/workflows/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify(data),
+  }),
+  delete: (id: string) => apiFetch<{ success: boolean }>(`/api/workflows/${id}`, {
+    method: 'DELETE',
+  }),
+  execute: (id: string, target: { target_id: string; target_type: 'vm' | 'device' }) => apiFetch<{ success: boolean; message: string }>(`/api/workflows/${id}/execute`, {
+    method: 'POST',
+    body: JSON.stringify(target),
+  }),
+};

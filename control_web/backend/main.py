@@ -4,7 +4,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.config import FRONTEND_URL, HOST, PORT
-from app.routes import vm_routes, chat_routes, pair_routes, secret_routes, payment_routes
+from app.routes import vm_routes, chat_routes, pair_routes, secret_routes, payment_routes, workflow_routes
 from app.services.vm_service import vm_service
 from app.auth import get_service_client
 
@@ -57,6 +57,7 @@ app.include_router(chat_routes.router)
 app.include_router(pair_routes.router)
 app.include_router(secret_routes.router)
 app.include_router(payment_routes.router)
+app.include_router(workflow_routes.router)
 
 @app.get("/")
 def root():
