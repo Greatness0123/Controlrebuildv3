@@ -4,6 +4,7 @@ import logging
 import base64
 import aiohttp
 import websockets
+from datetime import datetime, timezone
 from typing import AsyncGenerator, Optional, Dict, Any, List
 from supabase import Client
 from bs4 import BeautifulSoup
@@ -402,6 +403,50 @@ class AgentExecutor:
                 raise ValueError("No AI provider configured. Go to Settings > AI to set up a provider.")
             return await _call_gemini("gemini-2.5-flash", key, messages, image_b64)
 
+    async def _update_usage(self, db: Client, user_id: str, mode: str, tokens: int = 0):
+        """Update user usage statistics in the database."""
+        try:
+            # 1. Fetch current usage
+            res = db.table("users").select("act_count, ask_count, total_token_usage, daily_usage, daily_token_usage").eq("id", user_id).execute()
+            if not res.data:
+                return
+
+            user = res.data[0]
+            today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+
+            # 2. Update mode counts
+            update_data = {}
+            if mode == "act":
+                update_data["act_count"] = (user.get("act_count") or 0) + 1
+            else:
+                update_data["ask_count"] = (user.get("ask_count") or 0) + 1
+
+            # 3. Update token counts
+            update_data["total_token_usage"] = (user.get("total_token_usage") or 0) + tokens
+
+            # 4. Update daily statistics
+            daily_usage = user.get("daily_usage") or {}
+            if today not in daily_usage:
+                daily_usage[today] = {"ask": 0, "act": 0}
+
+            if mode == "act":
+                daily_usage[today]["act"] += 1
+            else:
+                daily_usage[today]["ask"] += 1
+            update_data["daily_usage"] = daily_usage
+
+            daily_tokens = user.get("daily_token_usage") or {}
+            if today not in daily_tokens:
+                daily_tokens[today] = {"total": 0}
+            daily_tokens[today]["total"] += tokens
+            update_data["daily_token_usage"] = daily_tokens
+
+            # 5. Save back to DB
+            db.table("users").update(update_data).eq("id", user_id).execute()
+
+        except Exception as e:
+            logger.error(f"Failed to update user usage: {e}")
+
     async def execute_task(
         self, db: Client, session_id: str, user_message: str, session_data: dict, mode: str = "act"
     ) -> AsyncGenerator[dict, None]:
@@ -409,6 +454,9 @@ class AgentExecutor:
         vm_data = session_data.get("virtual_machines") or {}
         device_id = session_data.get("device_id")
         user_id = session_data.get("user_id", "")
+
+        # Estimate tokens (very rough for now)
+        tokens_per_turn = len(user_message) // 4 + 200
 
         provider_config = await self._get_provider_config(db, user_id)
 
@@ -492,6 +540,10 @@ class AgentExecutor:
                         response_text = await self._call_ai(
                             provider_config, conversation, last_screenshot
                         )
+
+                        # Update usage for ASK mode
+                        await self._update_usage(db, user_id, mode, tokens=tokens_per_turn)
+
                         yield {"type": "message", "content": response_text}
                         yield {"type": "done"}
                         
@@ -543,6 +595,9 @@ class AgentExecutor:
                 if thought:
                     yield {"type": "thought", "content": thought}
                 yield {"type": "action", "action": action, "params": params}
+
+                # Update usage for each ACT step
+                await self._update_usage(db, user_id, "act", tokens=tokens_per_turn)
 
                 if not session_id.startswith("wf_gen_"):
                     db.table("chat_messages").insert({

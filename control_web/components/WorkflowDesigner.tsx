@@ -373,16 +373,14 @@ export default function WorkflowDesigner({ initialWorkflow, onSave, onClose }: W
     <div className="flex-1 flex flex-col bg-background h-full overflow-hidden relative sm:border sm:border-border sm:rounded-3xl sm:shadow-2xl max-h-screen">
 
       {!isAiOverlayOpen && (
-        <div className="fixed right-4 bottom-24 z-[100] flex flex-col gap-2">
-          <button
-            onClick={() => setIsAiOverlayOpen(true)}
-            className="w-14 h-14 bg-black dark:bg-white text-white dark:text-black rounded-full shadow-2xl flex items-center justify-center hover:scale-110 transition-all group relative"
-            title="Open AI Designer"
-          >
-            <Bot size={24} />
-            <div className="absolute -top-1 -right-1 w-4 h-4 bg-accent-primary rounded-full animate-pulse" />
-          </button>
-        </div>
+        <button
+          onClick={() => setIsAiOverlayOpen(true)}
+          className="fixed right-6 bottom-24 z-[100] w-14 h-14 bg-black dark:bg-white text-white dark:text-black rounded-full shadow-2xl flex items-center justify-center hover:scale-110 transition-all group"
+          title="Open AI Designer"
+        >
+          <Bot size={24} />
+          <div className="absolute top-0 right-0 w-3.5 h-3.5 bg-accent-primary rounded-full border-2 border-background animate-pulse" />
+        </button>
       )}
 
       <header className="min-h-16 flex flex-col sm:flex-row items-center justify-between px-4 py-3 sm:px-6 sm:py-0 border-b border-border bg-card shrink-0 gap-3 sm:gap-0">

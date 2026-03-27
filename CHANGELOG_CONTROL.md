@@ -36,3 +36,16 @@ All notable changes to this project will be documented in this file.
 ### Changed
 - **Workflow Designer (Web)**: Overhauled the workflow designer for mobile responsiveness, added touch support for node dragging, and improved zoom functionality.
 - **Workflow Designer (Web)**: Removed the redundant circular plus button and ensured the 'Get Started' button correctly initializes new workflows.
+
+## [1.2.0] - 2024-03-27
+
+### Added
+- **Azure Deployment Guide**: Added `AZURE_DEPLOYMENT_GUIDE.md` with full instructions for cloud setup.
+- **Dynamic Usage Tracking**: Backend now automatically tracks and updates `act_count`, `ask_count`, and token usage in the database for each user interaction.
+
+### Changed
+- **Billing Dashboard (Web)**: Reverted to a unified usage analytics view with multi-line charts for Ask/Act metrics and token consumption with time-period filters.
+- **Workflow UI**: Cleaned up the AI Designer button by removing extra circular wrappers.
+
+### Fixed
+- **VM Network Binding**: Fixed a critical issue where worker VMs were not accessible via VNC due to restricted local port binding in the backend's Docker service.
