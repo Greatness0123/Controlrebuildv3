@@ -151,9 +151,10 @@ async def upload_file(
 
     db = get_service_client()
 
-    session = db.table("chat_sessions").select("user_id").eq("id", session_id).execute()
-    if not session.data or session.data[0]["user_id"] != user["id"]:
-        raise HTTPException(status_code=404, detail="Session not found")
+    if not session_id.startswith("wf_gen_"):
+        session = db.table("chat_sessions").select("user_id").eq("id", session_id).execute()
+        if not session.data or session.data[0]["user_id"] != user["id"]:
+            raise HTTPException(status_code=404, detail="Session not found")
 
     content_type = file.content_type or "application/octet-stream"
     ext = os.path.splitext(file.filename or "")[1].lower()
