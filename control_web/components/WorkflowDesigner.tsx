@@ -72,6 +72,7 @@ export default function WorkflowDesigner({ initialWorkflow, onSave, onClose }: W
   const [targetMachine, setTargetMachine] = useState<{ id: string; type: 'vm' | 'device' } | null>(null);
   const [scale, setScale] = useState(1);
   const [isAiOverlayOpen, setIsAiOverlayOpen] = useState(true);
+  const [isAiMinimized, setIsAiMinimized] = useState(false);
   const [attachedFile, setAttachedFile] = useState<{ url: string; name: string } | null>(null);
   const [aiSessionId] = useState<string>(`wf_gen_${Date.now()}`);
   const [aiMessages, setAiMessages] = useState<any[]>([]);
@@ -362,16 +363,19 @@ export default function WorkflowDesigner({ initialWorkflow, onSave, onClose }: W
     <div className="flex-1 flex flex-col bg-background h-full overflow-hidden relative sm:border sm:border-border sm:rounded-3xl sm:shadow-2xl max-h-screen">
 
       {!isAiOverlayOpen && (
-        <button
-          onClick={() => setIsAiOverlayOpen(true)}
-          className="fixed right-0 top-1/2 -translate-y-1/2 z-40 bg-black dark:bg-white text-white dark:text-black p-3 rounded-l-2xl shadow-2xl transition-all hover:pr-5"
-          title="Open AI Designer"
-        >
-          <Bot size={20} />
-        </button>
+        <div className="fixed right-4 bottom-24 z-[100] flex flex-col gap-2">
+          <button
+            onClick={() => setIsAiOverlayOpen(true)}
+            className="w-14 h-14 bg-black dark:bg-white text-white dark:text-black rounded-full shadow-2xl flex items-center justify-center hover:scale-110 transition-all group relative"
+            title="Open AI Designer"
+          >
+            <Bot size={24} />
+            <div className="absolute -top-1 -right-1 w-4 h-4 bg-accent-primary rounded-full animate-pulse" />
+          </button>
+        </div>
       )}
 
-      <header className="min-h-16 flex flex-col sm:flex-row items-center justify-between px-4 py-3 sm:px-6 sm:py-0 border-b border-border bg-card shrink-0 gap-4 sm:gap-0">
+      <header className="min-h-16 flex flex-col sm:flex-row items-center justify-between px-4 py-3 sm:px-6 sm:py-0 border-b border-border bg-card shrink-0 gap-3 sm:gap-0">
         <div className="flex items-center gap-4 w-full sm:w-auto">
           <div className="w-10 h-10 rounded-xl bg-accent-primary flex items-center justify-center text-accent-foreground shadow-lg shrink-0">
             <Zap size={20} />
@@ -503,13 +507,18 @@ export default function WorkflowDesigner({ initialWorkflow, onSave, onClose }: W
         )}
       </main>
 
-      <div className={cn("fixed inset-y-0 right-0 w-full sm:w-[450px] bg-background border-l border-border shadow-[0_0_50px_rgba(0,0,0,0.3)] pointer-events-auto flex flex-col transition-transform duration-500 ease-out z-[101]", isAiOverlayOpen ? "translate-x-0" : "translate-x-full")}>
-          <div className="h-16 flex items-center justify-between px-6 border-b border-border shrink-0 bg-secondary">
+      <div className={cn("fixed inset-y-0 right-0 w-full sm:w-[450px] bg-background border-l border-border shadow-[0_0_50px_rgba(0,0,0,0.3)] pointer-events-auto flex flex-col transition-all duration-500 ease-out z-[101]", isAiOverlayOpen ? "translate-x-0" : "translate-x-full", isAiMinimized && isAiOverlayOpen ? "h-16 top-auto bottom-0 translate-y-0 rounded-t-3xl border-t" : "")}>
+          <div className="h-16 flex items-center justify-between px-6 border-b border-border shrink-0 bg-secondary rounded-t-3xl sm:rounded-none">
             <div className="flex items-center gap-3">
               <Bot size={20} className="text-foreground" />
               <span className="text-[11px] font-black uppercase tracking-[0.2em]">Workflow AI Designer</span>
             </div>
-            <button onClick={() => setIsAiOverlayOpen(false)} className="p-2 hover:bg-card rounded-xl transition-colors"><ChevronRight size={20} /></button>
+            <div className="flex items-center gap-2">
+              <button onClick={() => setIsAiMinimized(!isAiMinimized)} className="p-2 hover:bg-card rounded-xl transition-colors">
+                {isAiMinimized ? <Maximize2 size={16} /> : <Minimize2 size={16} />}
+              </button>
+              <button onClick={() => setIsAiOverlayOpen(false)} className="p-2 hover:bg-card rounded-xl transition-colors"><ChevronRight size={20} /></button>
+            </div>
           </div>
 
           <div className="flex-1 overflow-y-auto p-6 space-y-6">
