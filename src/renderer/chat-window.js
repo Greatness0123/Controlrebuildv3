@@ -19,9 +19,9 @@ class ChatWindow {
         // this.blueprintContent = document.getElementById('blueprintContent');
         // this.blueprintToggle = document.getElementById('blueprintToggle');
 
-        // Mode toggle elements (REMOVED)
-        this.modeAct = null;
-        this.modeAsk = null;
+        // Mode toggle elements
+        this.modeAct = document.getElementById('modeAct');
+        this.modeAsk = document.getElementById('modeAsk');
 
         this.isTyping = false;
         this.isRecording = false;
@@ -77,9 +77,6 @@ class ChatWindow {
         this.initializeLucideIcons();
         this.updateSendButton();
         await this.loadSettings();
-
-        // Mode is now always 'act' internally as the model decides
-        this.setMode('act');
 
         if (this.settings.layout === 'lite' && window.chatAPI && window.chatAPI.showWindow) {
             window.chatAPI.showWindow('lite');
@@ -901,8 +898,19 @@ class ChatWindow {
     }
 
     async setMode(mode) {
-        this.currentMode = 'act'; // Always act
-        this.chatInput.placeholder = "Describe a task or ask a question...";
+        this.currentMode = mode;
+
+        if (this.modeAct && this.modeAsk) {
+            if (mode === 'act') {
+                this.modeAct.classList.add('active');
+                this.modeAsk.classList.remove('active');
+                this.chatInput.placeholder = "Describe a task for Control to perform...";
+            } else {
+                this.modeAsk.classList.add('active');
+                this.modeAct.classList.remove('active');
+                this.chatInput.placeholder = "Ask Control a question...";
+            }
+        }
 
         this.updateRateLimitDisplay();
 

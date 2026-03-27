@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useAuthStore } from '@/lib/store';
+import { getSupabaseClient } from '@/lib/supabase';
 import Link from 'next/link';
 import {
   Zap,
@@ -79,32 +80,51 @@ export default function BillingPage() {
   const [selectedPlanId, setSelectedPlanId] = useState<'lite' | 'starter' | 'plus' | 'pro'>('plus');
   const [chartType, setChartType] = useState<'area' | 'bar'>('area');
   const [timeRange, setTimeRange] = useState<'7d' | '30d' | '90d' | 'all'>('30d');
+  const [userData, setUserData] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
 
-  // Mock data for the chart based on the screenshot
+  useEffect(() => {
+    async function fetchUserData() {
+      if (!user) return;
+      const supabase = getSupabaseClient();
+      const { data, error } = await supabase
+        .from('users')
+        .select('*')
+        .eq('auth_id', user.id)
+        .single();
+
+      if (data) {
+        setUserData(data);
+      }
+      setLoading(false);
+    }
+    fetchUserData();
+  }, [user]);
+
+  // Transform daily_token_usage for the chart
   const chartData = useMemo(() => {
-    return [
-      { date: 'Feb 23', balance: 50, earned: 0, used: 0 },
-      { date: 'Feb 24', balance: 50, earned: 0, used: 0 },
-      { date: 'Feb 25', balance: 50, earned: 0, used: 0 },
-      { date: 'Feb 26', balance: 50, earned: 0, used: 0 },
-      { date: 'Feb 27', balance: 50, earned: 0, used: 0 },
-      { date: 'Feb 28', balance: 50, earned: 0, used: 0 },
-      { date: 'Mar 1', balance: 50, earned: 0, used: 0 },
-      { date: 'Mar 2', balance: 50, earned: 0, used: 0 },
-      { date: 'Mar 3', balance: 50, earned: 0, used: 0 },
-      { date: 'Mar 4', balance: 50, earned: 0, used: 0 },
-      { date: 'Mar 5', balance: 50, earned: 0, used: 0 },
-      { date: 'Mar 6', balance: 50, earned: 0, used: 0 },
-      { date: 'Mar 7', balance: 50, earned: 0, used: 0 },
-      { date: 'Mar 8', balance: 50, earned: 0, used: 0 },
-      { date: 'Mar 9', balance: 55, earned: 5, used: 0 },
-      { date: 'Mar 10', balance: 50, earned: 0, used: 5 },
-      { date: 'Mar 11', balance: 0, earned: 0, used: 50 },
-    ];
-  }, []);
+    if (!userData?.daily_token_usage) return [];
+
+    // daily_token_usage is likely { "YYYY-MM-DD": { "total": N, ... } }
+    const usage = userData.daily_token_usage;
+    const dates = Object.keys(usage).sort();
+
+    return dates.map(date => {
+      const dayData = usage[date];
+      const d = new Date(date);
+      const label = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+
+      return {
+        date: label,
+        balance: 0, // We don't have historical balance in the same way yet
+        used: dayData.total || 0,
+        earned: 0
+      };
+    });
+  }, [userData]);
 
   const selectedPlan = PLAN_DETAILS[selectedPlanId];
-  const userPlan = (user?.user_metadata?.plan || 'Free').toLowerCase();
+  const currentPlan = userData?.plan || user?.user_metadata?.plan || 'Free';
 
   return (
     <div className="p-4 md:p-8 max-w-5xl mx-auto space-y-8">
@@ -112,7 +132,7 @@ export default function BillingPage() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <SummaryCard
           title="BALANCE"
-          value="0"
+          value={userData ? "0" : "..."}
           subtitle="~0d at current rate"
           unit="credits"
           icon={<Wallet className="w-4 h-4" />}
@@ -127,16 +147,16 @@ export default function BillingPage() {
         />
         <SummaryCard
           title="USED"
-          value="100"
-          subtitle="~6/day avg"
-          unit="7 sessions"
+          value={userData ? (userData.total_token_usage || 0).toString() : "..."}
+          subtitle="lifetime usage"
+          unit="tokens"
           icon={<Activity className="w-4 h-4" />}
           color="rose"
         />
         <SummaryCard
           title="PLAN"
-          value={user?.user_metadata?.plan || 'Free'}
-          subtitle="No plan"
+          value={currentPlan}
+          subtitle={currentPlan === 'Free' ? "No plan" : "Active subscription"}
           icon={<div className="w-4 h-4 rounded-full border-2 border-current border-t-transparent -rotate-45" />}
           color="blue"
         />
