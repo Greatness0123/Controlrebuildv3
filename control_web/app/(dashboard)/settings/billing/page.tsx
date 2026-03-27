@@ -8,18 +8,17 @@ import {
   Zap,
   TrendingUp,
   Wallet,
-  CreditCard,
-  ArrowUpRight,
-  ArrowDownLeft,
   Activity,
   Check,
   ChevronRight,
   Monitor,
-  Search,
   Users,
   Clock,
   Download,
-  Filter
+  Filter,
+  AlertTriangle,
+  ArrowUpRight,
+  ArrowDownLeft
 } from 'lucide-react';
 import {
   AreaChart,
@@ -29,8 +28,9 @@ import {
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
-  BarChart,
-  Bar
+  LineChart,
+  Line,
+  Legend
 } from 'recharts';
 
 function cn(...classes: (string | undefined | null | false)[]) {
@@ -75,11 +75,12 @@ const PLAN_DETAILS = {
   }
 };
 
+type PlanType = 'free' | 'pro' | 'master';
+
 export default function BillingPage() {
   const { user } = useAuthStore();
   const [selectedPlanId, setSelectedPlanId] = useState<'lite' | 'starter' | 'plus' | 'pro'>('plus');
-  const [chartType, setChartType] = useState<'area' | 'bar'>('area');
-  const [timeRange, setTimeRange] = useState<'7d' | '30d' | '90d' | 'all'>('30d');
+  const [tokenChartRange, setTokenChartRange] = useState<'daily' | 'weekly' | 'monthly'>('daily');
   const [userData, setUserData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
@@ -101,65 +102,177 @@ export default function BillingPage() {
     fetchUserData();
   }, [user]);
 
-  // Transform daily_token_usage for the chart
-  const chartData = useMemo(() => {
-    if (!userData?.daily_token_usage) return [];
+  // Combined Ask and Act usage data
+  const usageData = useMemo(() => {
+    if (!userData?.daily_usage || Object.keys(userData.daily_usage).length === 0) {
+        return [
+            { date: 'Mar 21', ask: 4, act: 2 },
+            { date: 'Mar 22', ask: 10, act: 5 },
+            { date: 'Mar 23', ask: 7, act: 8 },
+            { date: 'Mar 24', ask: 12, act: 4 },
+            { date: 'Mar 25', ask: 15, act: 10 },
+            { date: 'Mar 26', ask: 8, act: 12 },
+            { date: 'Mar 27', ask: 20, act: 15 },
+        ];
+    }
+    const usage = userData.daily_usage;
+    const dates = Object.keys(usage).sort();
+    return dates.map(date => ({
+        date: new Date(date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+        ask: usage[date].ask || 0,
+        act: usage[date].act || 0
+    }));
+  }, [userData]);
 
-    // daily_token_usage is likely { "YYYY-MM-DD": { "total": N, ... } }
+  // Token usage data transformation
+  const tokenData = useMemo(() => {
+    if (!userData?.daily_token_usage || Object.keys(userData.daily_token_usage).length === 0) return [];
     const usage = userData.daily_token_usage;
     const dates = Object.keys(usage).sort();
 
-    return dates.map(date => {
-      const dayData = usage[date];
-      const d = new Date(date);
-      const label = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    const raw = dates.map(date => ({
+        date: date,
+        total: usage[date].total || 0
+    }));
 
-      return {
-        date: label,
-        balance: 0, // We don't have historical balance in the same way yet
-        used: dayData.total || 0,
-        earned: 0
-      };
-    });
+    return raw.map(r => ({ ...r, label: new Date(r.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) }));
   }, [userData]);
 
   const selectedPlan = PLAN_DETAILS[selectedPlanId];
-  const currentPlan = userData?.plan || user?.user_metadata?.plan || 'Free';
+  const currentPlan = (userData?.plan || user?.user_metadata?.plan || 'Free') as string;
+
+  const planLimits: Record<PlanType, { act: number; ask: number }> = {
+      free: { act: 10, ask: 200 },
+      pro: { act: 200, ask: 500 },
+      master: { act: 999999, ask: 999999 }
+  };
+
+  const normalizedPlan = currentPlan.toLowerCase() as PlanType;
+  const currentLimits = planLimits[normalizedPlan] || planLimits.free;
+  const isActLimitReached = (userData?.act_count || 0) >= currentLimits.act;
+  const isAskLimitReached = (userData?.ask_count || 0) >= currentLimits.ask;
 
   return (
     <div className="p-4 md:p-8 max-w-5xl mx-auto space-y-8">
+      {/* Plan Usage Status */}
+      {(isActLimitReached || isAskLimitReached) && (
+          <div className="bg-rose-500/10 border border-rose-500/20 rounded-2xl p-4 flex items-center gap-3 text-rose-500">
+            <AlertTriangle size={20} />
+            <div className="flex-1">
+                <p className="text-xs font-black uppercase tracking-widest">Plan limits reached</p>
+                <p className="text-[10px] opacity-80 font-bold">You have exhausted your current plan's {isActLimitReached ? 'ACT' : 'ASK'} limits. Upgrade to continue using AI features.</p>
+            </div>
+            <Link href="/pricing" className="px-4 py-2 bg-rose-500 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:opacity-90">Upgrade</Link>
+          </div>
+      )}
+
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <SummaryCard
-          title="BALANCE"
-          value={userData ? "0" : "..."}
-          subtitle="~0d at current rate"
-          unit="credits"
-          icon={<Wallet className="w-4 h-4" />}
-          color="blue"
-        />
-        <SummaryCard
-          title="EARNED"
-          value="+0"
-          subtitle="last 30 days"
-          icon={<TrendingUp className="w-4 h-4" />}
-          color="emerald"
-        />
-        <SummaryCard
-          title="USED"
-          value={userData ? (userData.total_token_usage || 0).toString() : "..."}
-          subtitle="lifetime usage"
-          unit="tokens"
+          title="ACT COUNT"
+          value={userData?.act_count?.toString() || "0"}
+          subtitle={`Limit: ${currentLimits.act === 999999 ? '∞' : currentLimits.act}`}
+          unit="actions"
           icon={<Activity className="w-4 h-4" />}
           color="rose"
         />
         <SummaryCard
+          title="ASK COUNT"
+          value={userData?.ask_count?.toString() || "0"}
+          subtitle={`Limit: ${currentLimits.ask === 999999 ? '∞' : currentLimits.ask}`}
+          unit="queries"
+          icon={<Users className="w-4 h-4" />}
+          color="emerald"
+        />
+        <SummaryCard
+          title="TOTAL TOKENS"
+          value={userData ? (userData.total_token_usage || 0).toString() : "..."}
+          subtitle="lifetime usage"
+          unit="tokens"
+          icon={<Zap className="w-4 h-4" />}
+          color="blue"
+        />
+        <SummaryCard
           title="PLAN"
           value={currentPlan}
-          subtitle={currentPlan === 'Free' ? "No plan" : "Active subscription"}
+          subtitle={currentPlan.toLowerCase() === 'free' ? "No active plan" : "Active subscription"}
           icon={<div className="w-4 h-4 rounded-full border-2 border-current border-t-transparent -rotate-45" />}
           color="blue"
         />
+      </div>
+
+      {/* Graph Section: Usage */}
+      <div className="bg-card border border-border rounded-3xl p-6 space-y-6">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-lg bg-blue-500/10 flex items-center justify-center text-blue-500">
+              <Activity size={16} />
+            </div>
+            <h3 className="text-sm font-black">AI Usage Analytics</h3>
+          </div>
+        </div>
+
+        <div className="h-[300px] w-full mt-4">
+          <ResponsiveContainer width="100%" height="100%">
+            <LineChart data={usageData}>
+              <CartesianGrid vertical={false} strokeDasharray="3 3" stroke="#333" opacity={0.1} />
+              <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{ fill: '#666', fontSize: 10 }} />
+              <YAxis axisLine={false} tickLine={false} tick={{ fill: '#666', fontSize: 10 }} />
+              <Tooltip
+                contentStyle={{ backgroundColor: '#111', border: '1px solid #333', borderRadius: '8px', fontSize: '10px' }}
+                itemStyle={{ fontSize: '10px', fontWeight: 'bold' }}
+              />
+              <Legend wrapperStyle={{ fontSize: '10px', fontWeight: 'bold', paddingTop: '20px' }} />
+              <Line type="monotone" dataKey="ask" stroke="#10b981" strokeWidth={3} dot={false} name="Ask Mode" />
+              <Line type="monotone" dataKey="act" stroke="#f43f5e" strokeWidth={3} dot={false} name="Act Mode" />
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+
+      {/* Graph Section: Tokens */}
+      <div className="bg-card border border-border rounded-3xl p-6 space-y-6">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-lg bg-purple-500/10 flex items-center justify-center text-purple-500">
+              <Zap size={16} />
+            </div>
+            <h3 className="text-sm font-black">Token Consumption</h3>
+          </div>
+
+          <div className="flex bg-secondary p-1 rounded-lg border border-border">
+            {(['daily', 'weekly', 'monthly'] as const).map((range) => (
+              <button
+                key={range}
+                onClick={() => setTokenChartRange(range)}
+                className={cn(
+                  "px-2 py-1 rounded-md text-[10px] font-black uppercase transition-all",
+                  tokenChartRange === range ? "bg-background text-foreground shadow-sm" : "text-text-muted hover:text-foreground"
+                )}
+              >
+                {range}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="h-[250px] w-full mt-4">
+          <ResponsiveContainer width="100%" height="100%">
+            <AreaChart data={tokenData}>
+              <defs>
+                <linearGradient id="colorTokens" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#A855F7" stopOpacity={0.3}/>
+                  <stop offset="95%" stopColor="#A855F7" stopOpacity={0}/>
+                </linearGradient>
+              </defs>
+              <CartesianGrid vertical={false} strokeDasharray="3 3" stroke="#333" opacity={0.1} />
+              <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fill: '#666', fontSize: 10 }} />
+              <YAxis axisLine={false} tickLine={false} tick={{ fill: '#666', fontSize: 10 }} />
+              <Tooltip contentStyle={{ backgroundColor: '#111', border: '1px solid #333', borderRadius: '8px', fontSize: '10px' }} />
+              <Area type="monotone" dataKey="total" stroke="#A855F7" fillOpacity={1} fill="url(#colorTokens)" />
+            </AreaChart>
+          </ResponsiveContainer>
+        </div>
       </div>
 
       {/* Plan Selector */}
@@ -248,199 +361,6 @@ export default function BillingPage() {
           </div>
         </div>
       </div>
-
-      {/* Graph Section */}
-      <div className="bg-card border border-border rounded-3xl p-6 space-y-6">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-blue-500/10 flex items-center justify-center text-blue-500">
-              <TrendingUp size={16} />
-            </div>
-            <h3 className="text-sm font-black">Credit Activity</h3>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <div className="flex bg-secondary p-1 rounded-lg border border-border">
-              {(['area', 'bar'] as const).map((type) => (
-                <button
-                  key={type}
-                  onClick={() => setChartType(type)}
-                  className={cn(
-                    "px-2 py-1 rounded-md text-[10px] font-black uppercase transition-all",
-                    chartType === type ? "bg-background text-foreground shadow-sm" : "text-text-muted hover:text-foreground"
-                  )}
-                >
-                  {type}
-                </button>
-              ))}
-            </div>
-            <div className="flex bg-secondary p-1 rounded-lg border border-border">
-              {(['7d', '30d', '90d', 'all'] as const).map((range) => (
-                <button
-                  key={range}
-                  onClick={() => setTimeRange(range)}
-                  className={cn(
-                    "px-2 py-1 rounded-md text-[10px] font-black uppercase transition-all",
-                    timeRange === range ? "bg-background text-foreground shadow-sm" : "text-text-muted hover:text-foreground"
-                  )}
-                >
-                  {range}
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        <div className="h-[300px] w-full mt-4">
-          <ResponsiveContainer width="100%" height="100%">
-            {chartType === 'area' ? (
-              <AreaChart data={chartData}>
-                <defs>
-                  <linearGradient id="colorBalance" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3}/>
-                    <stop offset="95%" stopColor="#3b82f6" stopOpacity={0}/>
-                  </linearGradient>
-                </defs>
-                <CartesianGrid vertical={false} strokeDasharray="3 3" stroke="#333" opacity={0.1} />
-                <XAxis
-                  dataKey="date"
-                  axisLine={false}
-                  tickLine={false}
-                  tick={{ fill: '#666', fontSize: 10 }}
-                  minTickGap={30}
-                />
-                <YAxis
-                  axisLine={false}
-                  tickLine={false}
-                  tick={{ fill: '#666', fontSize: 10 }}
-                />
-                <Tooltip
-                  contentStyle={{ backgroundColor: '#111', border: '1px solid #333', borderRadius: '8px', fontSize: '10px' }}
-                  itemStyle={{ color: '#fff' }}
-                />
-                <Area
-                  type="monotone"
-                  dataKey="balance"
-                  stroke="#3b82f6"
-                  strokeWidth={2}
-                  fillOpacity={1}
-                  fill="url(#colorBalance)"
-                  animationDuration={1000}
-                />
-              </AreaChart>
-            ) : (
-              <BarChart data={chartData}>
-                <CartesianGrid vertical={false} strokeDasharray="3 3" stroke="#333" />
-                <XAxis
-                  dataKey="date"
-                  axisLine={false}
-                  tickLine={false}
-                  tick={{ fill: '#666', fontSize: 10 }}
-                  minTickGap={30}
-                />
-                <YAxis
-                  axisLine={false}
-                  tickLine={false}
-                  tick={{ fill: '#666', fontSize: 10 }}
-                />
-                <Tooltip
-                  contentStyle={{ backgroundColor: '#111', border: '1px solid #333', borderRadius: '8px', fontSize: '10px' }}
-                />
-                <Bar dataKey="used" fill="#f43f5e" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="earned" fill="#10b981" radius={[4, 4, 0, 0]} />
-              </BarChart>
-            )}
-          </ResponsiveContainer>
-        </div>
-
-        <div className="flex gap-4 text-[9px] font-black uppercase tracking-widest text-text-muted pt-2">
-          <div className="flex items-center gap-1.5">
-            <div className="w-2 h-2 rounded-full bg-blue-500" />
-            <span>Balance</span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <div className="w-2 h-2 rounded-full bg-emerald-500" />
-            <span>Earned</span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <div className="w-2 h-2 rounded-full bg-rose-500" />
-            <span>Used</span>
-          </div>
-        </div>
-      </div>
-
-      {/* Transactions Section */}
-      <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Clock size={16} className="text-text-muted" />
-            <h3 className="text-sm font-black">Transactions</h3>
-            <span className="bg-secondary text-text-muted text-[10px] font-black px-1.5 py-0.5 rounded-md">7</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <button className="flex items-center gap-1.5 px-3 py-1.5 bg-secondary border border-border rounded-lg text-[10px] font-black uppercase hover:bg-border transition-colors">
-              <Filter size={12} />
-              All types
-            </button>
-            <button className="flex items-center gap-1.5 px-3 py-1.5 bg-secondary border border-border rounded-lg text-[10px] font-black uppercase hover:bg-border transition-colors">
-              <Download size={12} />
-              Export
-            </button>
-          </div>
-        </div>
-
-        <div className="space-y-2">
-          <TransactionItem
-            title="Agent Usage"
-            subtitle="Mar 11 · Step 0: 1 min on 2815da55-4656-42de-93c7-aa1ae88551da"
-            amount="-10"
-            balance="bal 0"
-            icon={<Zap className="w-4 h-4" />}
-          />
-          <TransactionItem
-            title="Agent Usage"
-            subtitle="Mar 11 · Step 1: 1 min on 2815da55-4656-42de-93c7-aa1ae88551da"
-            amount="-10"
-            balance="bal 10"
-            icon={<Zap className="w-4 h-4" />}
-          />
-          <TransactionItem
-            title="Agent Usage"
-            subtitle="Mar 11 · Step 11: 1 min on 2815da55-4656-42de-93c7-aa1ae88551da"
-            amount="-10"
-            balance="bal 20"
-            icon={<Zap className="w-4 h-4" />}
-          />
-          <TransactionItem
-            title="Agent Usage"
-            subtitle="Mar 11 · Step 6: 1 min on 2815da55-4656-42de-93c7-aa1ae88551da"
-            amount="-10"
-            balance="bal 30"
-            icon={<Zap className="w-4 h-4" />}
-          />
-          <TransactionItem
-            title="Agent Usage"
-            subtitle="Mar 11 · Step 1: 1 min on 2815da55-4656-42de-93c7-aa1ae88551da"
-            amount="-10"
-            balance="bal 40"
-            icon={<Zap className="w-4 h-4" />}
-          />
-          <TransactionItem
-            title="Agent Usage"
-            subtitle="Feb 23 · Step 3: 4 min on af42929a-efb8-476c-bb14-57798b69c74a"
-            amount="-40"
-            balance="bal 50"
-            icon={<Zap className="w-4 h-4" />}
-          />
-          <TransactionItem
-            title="Agent Usage"
-            subtitle="Feb 23 · Step 2: 1 min on af42929a-efb8-476c-bb14-57798b69c74a"
-            amount="-10"
-            balance="bal 90"
-            icon={<Zap className="w-4 h-4" />}
-          />
-        </div>
-      </div>
     </div>
   );
 }
@@ -475,28 +395,6 @@ function SummaryCard({ title, value, subtitle, unit, icon, color }: { title: str
           )}
           <span className="text-[9px] font-bold text-text-muted">{subtitle}</span>
         </div>
-      </div>
-    </div>
-  );
-}
-
-function TransactionItem({ title, subtitle, amount, balance, icon }: { title: string, subtitle: string, amount: string, balance: string, icon: React.ReactNode }) {
-  return (
-    <div className="flex items-center justify-between p-3 rounded-2xl bg-card border border-border hover:border-text-muted/20 transition-all group">
-      <div className="flex items-center gap-3">
-        <div className="w-10 h-10 rounded-xl bg-secondary flex items-center justify-center text-blue-500 border border-border group-hover:border-blue-500/30 transition-all">
-          {icon}
-        </div>
-        <div className="space-y-0.5">
-          <div className="text-xs font-black">{title}</div>
-          <div className="text-[10px] text-text-muted font-bold">{subtitle}</div>
-        </div>
-      </div>
-      <div className="text-right">
-        <div className={cn("text-xs font-black", amount.startsWith('-') ? "text-rose-500" : "text-emerald-500")}>
-          {amount}
-        </div>
-        <div className="text-[9px] text-text-muted font-bold">{balance}</div>
       </div>
     </div>
   );

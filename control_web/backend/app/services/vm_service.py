@@ -52,9 +52,9 @@ class VMService:
                 detach=True,
                 name=f"control-vm-{user_id}-{random.randint(1000,9999)}",
                 ports={
-                    "6080/tcp": novnc_port,
-                    "5900/tcp": vnc_port,
-                    "8080/tcp": agent_port,
+                    "6080/tcp": ("0.0.0.0", novnc_port),
+                    "5900/tcp": ("0.0.0.0", vnc_port),
+                    "8080/tcp": ("0.0.0.0", agent_port),
                 },
                 environment={
                     "RESOLUTION": "1920x1080x24",
