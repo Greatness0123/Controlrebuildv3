@@ -71,7 +71,7 @@ export default function WorkflowDesigner({ initialWorkflow, onSave, onClose }: W
   const [activeView, setActiveView] = useState<'node' | 'list'>('node');
   const [targetMachine, setTargetMachine] = useState<{ id: string; type: 'vm' | 'device' } | null>(null);
   const [scale, setScale] = useState(1);
-  const [isAiOverlayOpen, setIsAiOverlayOpen] = useState(false);
+  const [isAiOverlayOpen, setIsAiOverlayOpen] = useState(true);
   const [attachedFile, setAttachedFile] = useState<{ url: string; name: string } | null>(null);
   const [aiSessionId, setAiSessionId] = useState<string>(`wf_gen_${Date.now()}`);
   const [aiMessages, setAiMessages] = useState<any[]>([]);
@@ -263,7 +263,12 @@ export default function WorkflowDesigner({ initialWorkflow, onSave, onClose }: W
       // Here we'll simulate a chat with the AI that's focused on workflows
       const fileUrl = attachedFile?.url;
       setAttachedFile(null);
-      const stream = chatApi.sendMessage(aiSessionId, `CONTEXT: We are designing a workflow. CURRENT WORKFLOW: ${JSON.stringify(workflow)}. USER REQUEST: ${userMsg}.`, fileUrl, 'workflow');
+
+      // Include conversation history for context-aware workflow generation
+      const historyPrompt = aiMessages.map(m => `${m.role.toUpperCase()}: ${m.content}`).join('\n');
+      const fullPrompt = `CONTEXT: We are designing a workflow. \nCURRENT WORKFLOW: ${JSON.stringify(workflow)}\nPREVIOUS CONVERSATION:\n${historyPrompt}\n\nUSER REQUEST: ${userMsg}`;
+
+      const stream = chatApi.sendMessage(aiSessionId, fullPrompt, fileUrl, 'workflow');
 
       let assistantMsg = '';
       setAiMessages(prev => [...prev, { role: 'assistant', content: '' }]);
@@ -408,7 +413,17 @@ export default function WorkflowDesigner({ initialWorkflow, onSave, onClose }: W
   };
 
   return (
-    <div className="flex-1 flex flex-col bg-background h-full overflow-hidden relative sm:border sm:border-border sm:rounded-3xl sm:shadow-2xl">
+    <div className="flex-1 flex flex-col bg-background h-full overflow-hidden relative sm:border sm:border-border sm:rounded-3xl sm:shadow-2xl max-h-screen">
+      {/* AI Sidebar Toggle (Hidden when open) */}
+      {!isAiOverlayOpen && (
+        <button
+          onClick={() => setIsAiOverlayOpen(true)}
+          className="fixed right-0 top-1/2 -translate-y-1/2 z-40 bg-black dark:bg-white text-white dark:text-black p-3 rounded-l-2xl shadow-2xl transition-all hover:pr-5"
+          title="Open AI Designer"
+        >
+          <Bot size={20} />
+        </button>
+      )}
       {/* Header */}
       <header className="min-h-16 flex flex-col sm:flex-row items-center justify-between px-4 py-3 sm:px-6 sm:py-0 border-b border-border bg-card shrink-0 gap-4 sm:gap-0">
         <div className="flex items-center gap-4 w-full sm:w-auto">
@@ -524,25 +539,25 @@ export default function WorkflowDesigner({ initialWorkflow, onSave, onClose }: W
                 />
               ))}
             </div>
+          </div>
 
-            {/* Canvas Controls */}
-            <div className="absolute bottom-6 right-6 flex flex-col gap-2">
-              <button
-                onClick={() => addNode('nl_task')}
-                className="w-12 h-12 rounded-full bg-accent-primary text-accent-foreground flex items-center justify-center shadow-2xl hover:scale-110 transition-all"
-                title="Add Task Node"
-              >
-                <Plus size={24} />
-              </button>
-              <div className="bg-card border border-border rounded-2xl p-1 shadow-2xl flex flex-col gap-1">
-                <button onClick={() => setScale(s => Math.min(s + 0.1, 2))} className="w-8 h-8 flex items-center justify-center hover:bg-card-hover rounded-lg transition-colors"><Maximize2 size={14}/></button>
-                <button onClick={() => setScale(s => Math.max(s - 0.1, 0.5))} className="w-8 h-8 flex items-center justify-center hover:bg-card-hover rounded-lg transition-colors"><Minimize2 size={14}/></button>
-              </div>
+          {/* Fixed Canvas Controls */}
+          <div className="absolute bottom-6 right-6 flex flex-col gap-2 z-50">
+            <button
+              onClick={() => addNode('nl_task')}
+              className="w-12 h-12 rounded-full bg-accent-primary text-accent-foreground flex items-center justify-center shadow-2xl hover:scale-110 transition-all"
+              title="Add Task Node"
+            >
+              <Plus size={24} />
+            </button>
+            <div className="bg-card border border-border rounded-2xl p-1 shadow-2xl flex flex-col gap-1">
+              <button onClick={() => setScale(s => Math.min(s + 0.1, 2))} className="w-8 h-8 flex items-center justify-center hover:bg-card-hover rounded-lg transition-colors"><Maximize2 size={14}/></button>
+              <button onClick={() => setScale(s => Math.max(s - 0.1, 0.5))} className="w-8 h-8 flex items-center justify-center hover:bg-card-hover rounded-lg transition-colors"><Minimize2 size={14}/></button>
             </div>
+          </div>
 
-            <div className="absolute bottom-6 left-6 flex gap-2">
-              <NodePicker onPick={addNode} />
-            </div>
+          <div className="absolute bottom-6 left-6 flex gap-2 z-50">
+            <NodePicker onPick={addNode} />
           </div>
         ) : (
           <div className="max-w-4xl mx-auto py-12 px-6 overflow-y-auto h-full">
@@ -578,31 +593,13 @@ export default function WorkflowDesigner({ initialWorkflow, onSave, onClose }: W
         )}
       </main>
 
-      {/* AI Draggable Button & Overlay */}
+      {/* AI Sidebar Overlay */}
       <div
-        className="fixed right-0 z-[100] pointer-events-none flex items-center"
-        style={{ top: aiButtonPos.y }}
+        className={cn(
+          "fixed inset-y-0 right-0 w-full sm:w-[450px] bg-background border-l border-border shadow-[0_0_50px_rgba(0,0,0,0.3)] pointer-events-auto flex flex-col transition-transform duration-500 ease-out z-[101]",
+          isAiOverlayOpen ? "translate-x-0" : "translate-x-full"
+        )}
       >
-        <div className="flex items-center">
-          <button
-            onMouseDown={handleAiButtonMouseDown}
-            onClick={handleAiButtonClick}
-            className={cn(
-              "w-12 h-14 rounded-l-3xl bg-black dark:bg-white text-white dark:text-black flex items-center justify-center shadow-2xl pointer-events-auto transition-all",
-              isAiOverlayOpen ? "translate-x-full opacity-0" : "translate-x-0"
-            )}
-          >
-            <Bot size={24} className={cn(isAiButtonDragging && "scale-110")} />
-          </button>
-        </div>
-
-        {/* AI Sidebar Overlay */}
-        <div
-          className={cn(
-            "fixed inset-y-0 right-0 w-full sm:w-[450px] bg-background border-l border-border shadow-[0_0_50px_rgba(0,0,0,0.3)] pointer-events-auto flex flex-col transition-transform duration-500 ease-out z-[101]",
-            isAiOverlayOpen ? "translate-x-0" : "translate-x-full"
-          )}
-        >
           <div className="h-16 flex items-center justify-between px-6 border-b border-border shrink-0 bg-secondary">
             <div className="flex items-center gap-3">
               <Bot size={20} className="text-foreground" />

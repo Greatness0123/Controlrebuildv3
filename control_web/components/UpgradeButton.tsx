@@ -54,17 +54,20 @@ export default function UpgradeButton({ planName, amount, isPopular, disabled }:
     handleFlutterPayment({
       callback: (response) => {
         console.log("Payment response:", response);
+        closePaymentModal();
         if (response.status === "successful") {
           toast.success("Payment successful! Your plan will be updated shortly.");
-
           window.location.href = '/pricing?payment=success';
         } else {
-          toast.error("Payment failed or was cancelled.");
+          toast.error("Payment was not successful.");
         }
-        closePaymentModal();
       },
-      onClose: () => {
-        console.log("Payment modal closed");
+      onClose: (data?: any) => {
+        console.log("Payment modal closed", data);
+        // Explicitly handle modal close/cancel
+        if (typeof closePaymentModal === 'function') {
+          closePaymentModal();
+        }
       },
     });
   };

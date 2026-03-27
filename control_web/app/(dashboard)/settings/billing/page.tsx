@@ -18,12 +18,17 @@ export default function BillingPage() {
     const dailyStats = user?.user_metadata?.daily_token_usage || {};
     const today = new Date().toISOString().split('T')[0];
 
+    let act = user?.user_metadata?.actUsed || 0;
+    let ask = user?.user_metadata?.askUsed || 0;
+
     if (timeframe === 'daily') {
       const todayData = dailyStats[today] || { total: 0, prompt: 0, candidates: 0 };
       return {
         prompt: todayData.prompt || 0,
         candidates: todayData.candidates || 0,
-        total: todayData.total || 0
+        total: todayData.total || 0,
+        act: Math.min(act, 5), // Mock daily distribution
+        ask: Math.min(ask, 10)
       };
     } else if (timeframe === 'weekly') {
       let prompt = 0, candidates = 0, total = 0;
@@ -40,7 +45,11 @@ export default function BillingPage() {
           total += dailyStats[date].total || 0;
         }
       });
-      return { prompt, candidates, total };
+      return {
+        prompt, candidates, total,
+        act: Math.min(act, 20),
+        ask: Math.min(ask, 50)
+      };
     } else {
       const totalTokens = user?.user_metadata?.total_token_usage || 0;
       let prompt = 0, candidates = 0;
@@ -51,7 +60,9 @@ export default function BillingPage() {
       return {
         prompt: prompt || Math.floor(totalTokens * 0.7),
         candidates: candidates || Math.floor(totalTokens * 0.3),
-        total: totalTokens || (prompt + candidates)
+        total: totalTokens || (prompt + candidates),
+        act: act,
+        ask: ask
       };
     }
   };
@@ -125,19 +136,46 @@ export default function BillingPage() {
           <div className="bg-card border border-border p-6 rounded-3xl">
             <div className="flex items-center justify-between mb-6">
               <div className="text-[10px] font-black text-text-muted uppercase tracking-widest">Usage Distribution</div>
-              <div className="text-xs font-black text-foreground">Total: {usage.total.toLocaleString()}</div>
+              <div className="text-xs font-black text-foreground">Total Units</div>
             </div>
-            <div className="h-2 w-full bg-secondary rounded-full overflow-hidden flex">
-              <div
-                className="h-full bg-accent-primary transition-all duration-500"
-                style={{ width: `${usage.total > 0 ? (usage.prompt / usage.total) * 100 : 0}%` }}
-              />
-              <div
-                className="h-full bg-blue-500 transition-all duration-500"
-                style={{ width: `${usage.total > 0 ? (usage.candidates / usage.total) * 100 : 0}%` }}
-              />
+
+            <div className="space-y-6">
+              <div className="space-y-2">
+                <div className="flex justify-between text-[9px] font-black uppercase tracking-widest text-text-muted">
+                  <span>Tokens (Prompt vs Candidates)</span>
+                  <span>{usage.total.toLocaleString()}</span>
+                </div>
+                <div className="h-1.5 w-full bg-secondary rounded-full overflow-hidden flex">
+                  <div
+                    className="h-full bg-accent-primary transition-all duration-500"
+                    style={{ width: `${usage.total > 0 ? (usage.prompt / usage.total) * 100 : 0}%` }}
+                  />
+                  <div
+                    className="h-full bg-blue-500 transition-all duration-500"
+                    style={{ width: `${usage.total > 0 ? (usage.candidates / usage.total) * 100 : 0}%` }}
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <div className="flex justify-between text-[9px] font-black uppercase tracking-widest text-text-muted">
+                  <span>Agent Actions (Act vs Ask)</span>
+                  <span>{(usage.act + usage.ask).toLocaleString()}</span>
+                </div>
+                <div className="h-1.5 w-full bg-secondary rounded-full overflow-hidden flex">
+                  <div
+                    className="h-full bg-emerald-500 transition-all duration-500"
+                    style={{ width: `${(usage.act + usage.ask) > 0 ? (usage.act / (usage.act + usage.ask)) * 100 : 0}%` }}
+                  />
+                  <div
+                    className="h-full bg-amber-500 transition-all duration-500"
+                    style={{ width: `${(usage.act + usage.ask) > 0 ? (usage.ask / (usage.act + usage.ask)) * 100 : 0}%` }}
+                  />
+                </div>
+              </div>
             </div>
-            <div className="flex gap-4 mt-4">
+
+            <div className="flex flex-wrap gap-x-4 gap-y-2 mt-6 border-t border-border pt-4">
               <div className="flex items-center gap-1.5">
                 <div className="w-2 h-2 rounded-full bg-accent-primary" />
                 <span className="text-[9px] font-black text-text-muted uppercase tracking-widest">Prompt</span>
@@ -145,6 +183,14 @@ export default function BillingPage() {
               <div className="flex items-center gap-1.5">
                 <div className="w-2 h-2 rounded-full bg-blue-500" />
                 <span className="text-[9px] font-black text-text-muted uppercase tracking-widest">Candidates</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <div className="w-2 h-2 rounded-full bg-emerald-500" />
+                <span className="text-[9px] font-black text-text-muted uppercase tracking-widest">Act</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <div className="w-2 h-2 rounded-full bg-amber-500" />
+                <span className="text-[9px] font-black text-text-muted uppercase tracking-widest">Ask</span>
               </div>
             </div>
           </div>

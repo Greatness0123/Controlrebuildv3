@@ -5,7 +5,7 @@ import { workflowApi } from '@/lib/api';
 import WorkflowDesigner from '@/components/WorkflowDesigner';
 import {
   Plus, Zap, Trash2, Edit2, Play, Search,
-  Loader2, MoreVertical, Check, X, Clock
+  Loader2, MoreVertical, Check, X, Clock, Bot
 } from 'lucide-react';
 import { useModal } from '@/lib/useModal';
 
@@ -91,10 +91,10 @@ export default function WorkflowsPage() {
           </div>
           <button
             onClick={handleCreate}
-            className="flex items-center justify-center gap-2 px-6 py-3 bg-accent-primary text-accent-foreground rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-xl hover:opacity-90 transition-all active:scale-[0.98] w-full sm:w-auto"
+            className="flex items-center justify-center gap-3 px-6 py-3 bg-black dark:bg-white text-white dark:text-black rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-xl hover:opacity-90 transition-all active:scale-[0.98] w-full sm:w-auto"
           >
-            <Plus size={16} strokeWidth={3} />
-            Create Workflow
+            <Bot size={18} />
+            AI Designer
           </button>
         </div>
 
