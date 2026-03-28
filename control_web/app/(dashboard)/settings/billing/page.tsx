@@ -104,18 +104,10 @@ export default function BillingPage() {
 
   // Combined Ask and Act usage data
   const usageData = useMemo(() => {
-    if (!userData?.daily_usage || Object.keys(userData.daily_usage).length === 0) {
-        return [
-            { date: 'Mar 21', ask: 4, act: 2 },
-            { date: 'Mar 22', ask: 10, act: 5 },
-            { date: 'Mar 23', ask: 7, act: 8 },
-            { date: 'Mar 24', ask: 12, act: 4 },
-            { date: 'Mar 25', ask: 15, act: 10 },
-            { date: 'Mar 26', ask: 8, act: 12 },
-            { date: 'Mar 27', ask: 20, act: 15 },
-        ];
+    if (!userData?.daily_token_usage || Object.keys(userData.daily_token_usage).length === 0) {
+        return [];
     }
-    const usage = userData.daily_usage;
+    const usage = userData.daily_token_usage;
     const dates = Object.keys(usage).sort();
     return dates.map(date => ({
         date: new Date(date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
@@ -152,17 +144,24 @@ export default function BillingPage() {
   const isActLimitReached = (userData?.act_count || 0) >= currentLimits.act;
   const isAskLimitReached = (userData?.ask_count || 0) >= currentLimits.ask;
 
+  const isDark = typeof window !== 'undefined' && (document.documentElement.classList.contains('dark') || window.matchMedia('(prefers-color-scheme: dark)').matches);
+  const strokeColor = isDark ? "#ffffff" : "#000000";
+  const mutedStroke = isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.1)";
+  const textColor = isDark ? "#999999" : "#666666";
+  const tooltipBg = isDark ? "#111111" : "#ffffff";
+  const tooltipBorder = isDark ? "#333333" : "#dddddd";
+
   return (
-    <div className="p-4 md:p-8 max-w-5xl mx-auto space-y-8">
+    <div className="p-4 md:p-8 max-w-5xl mx-auto space-y-8 bg-background">
       {/* Plan Usage Status */}
       {(isActLimitReached || isAskLimitReached) && (
-          <div className="bg-rose-500/10 border border-rose-500/20 rounded-2xl p-4 flex items-center gap-3 text-rose-500">
+          <div className="bg-foreground text-background rounded-2xl p-4 flex items-center gap-3">
             <AlertTriangle size={20} />
             <div className="flex-1">
                 <p className="text-xs font-black uppercase tracking-widest">Plan limits reached</p>
                 <p className="text-[10px] opacity-80 font-bold">You have exhausted your current plan's {isActLimitReached ? 'ACT' : 'ASK'} limits. Upgrade to continue using AI features.</p>
             </div>
-            <Link href="/pricing" className="px-4 py-2 bg-rose-500 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:opacity-90">Upgrade</Link>
+            <Link href="/pricing" className="px-4 py-2 bg-background text-foreground rounded-xl text-[10px] font-black uppercase tracking-widest hover:opacity-90">Upgrade</Link>
           </div>
       )}
 
@@ -202,42 +201,42 @@ export default function BillingPage() {
       </div>
 
       {/* Graph Section: Usage */}
-      <div className="bg-card border border-border rounded-3xl p-6 space-y-6">
+      <div className="bg-card border border-border rounded-3xl p-6 space-y-6 shadow-sm">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-blue-500/10 flex items-center justify-center text-blue-500">
+            <div className="w-8 h-8 rounded-lg bg-secondary flex items-center justify-center text-foreground border border-border">
               <Activity size={16} />
             </div>
-            <h3 className="text-sm font-black">AI Usage Analytics</h3>
+            <h3 className="text-sm font-black text-foreground uppercase tracking-tight">AI Usage Analytics</h3>
           </div>
         </div>
 
         <div className="h-[300px] w-full mt-4">
           <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={usageData}>
-              <CartesianGrid vertical={false} strokeDasharray="3 3" stroke="#333" opacity={0.1} />
-              <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{ fill: '#666', fontSize: 10 }} />
-              <YAxis axisLine={false} tickLine={false} tick={{ fill: '#666', fontSize: 10 }} />
+            <LineChart data={usageData.length > 0 ? usageData : [{date: '', ask: 0, act: 0}]}>
+              <CartesianGrid vertical={false} strokeDasharray="3 3" stroke={mutedStroke} />
+              <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{ fill: textColor, fontSize: 10 }} />
+              <YAxis axisLine={false} tickLine={false} tick={{ fill: textColor, fontSize: 10 }} />
               <Tooltip
-                contentStyle={{ backgroundColor: '#111', border: '1px solid #333', borderRadius: '8px', fontSize: '10px' }}
+                contentStyle={{ backgroundColor: tooltipBg, border: `1px solid ${tooltipBorder}`, borderRadius: '8px', fontSize: '10px' }}
                 itemStyle={{ fontSize: '10px', fontWeight: 'bold' }}
               />
-              <Legend wrapperStyle={{ fontSize: '10px', fontWeight: 'bold', paddingTop: '20px' }} />
-              <Line type="monotone" dataKey="ask" stroke="#10b981" strokeWidth={3} dot={false} name="Ask Mode" />
-              <Line type="monotone" dataKey="act" stroke="#f43f5e" strokeWidth={3} dot={false} name="Act Mode" />
+              <Legend wrapperStyle={{ fontSize: '9px', fontWeight: 'bold', paddingTop: '20px', textTransform: 'uppercase', letterSpacing: '1px' }} />
+              <Line type="monotone" dataKey="ask" stroke={strokeColor} strokeWidth={3} dot={false} name="Ask Mode" />
+              <Line type="monotone" dataKey="act" stroke={strokeColor} strokeWidth={3} strokeDasharray="5 5" dot={false} name="Act Mode" />
             </LineChart>
           </ResponsiveContainer>
         </div>
       </div>
 
       {/* Graph Section: Tokens */}
-      <div className="bg-card border border-border rounded-3xl p-6 space-y-6">
+      <div className="bg-card border border-border rounded-3xl p-6 space-y-6 shadow-sm">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-purple-500/10 flex items-center justify-center text-purple-500">
+            <div className="w-8 h-8 rounded-lg bg-secondary flex items-center justify-center text-foreground border border-border">
               <Zap size={16} />
             </div>
-            <h3 className="text-sm font-black">Token Consumption</h3>
+            <h3 className="text-sm font-black text-foreground uppercase tracking-tight">Token Consumption</h3>
           </div>
 
           <div className="flex bg-secondary p-1 rounded-lg border border-border">
@@ -258,18 +257,18 @@ export default function BillingPage() {
 
         <div className="h-[250px] w-full mt-4">
           <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={tokenData}>
+            <AreaChart data={tokenData.length > 0 ? tokenData : [{label: '', total: 0}]}>
               <defs>
                 <linearGradient id="colorTokens" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#A855F7" stopOpacity={0.3}/>
-                  <stop offset="95%" stopColor="#A855F7" stopOpacity={0}/>
+                  <stop offset="5%" stopColor={strokeColor} stopOpacity={0.2}/>
+                  <stop offset="95%" stopColor={strokeColor} stopOpacity={0}/>
                 </linearGradient>
               </defs>
-              <CartesianGrid vertical={false} strokeDasharray="3 3" stroke="#333" opacity={0.1} />
-              <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fill: '#666', fontSize: 10 }} />
-              <YAxis axisLine={false} tickLine={false} tick={{ fill: '#666', fontSize: 10 }} />
-              <Tooltip contentStyle={{ backgroundColor: '#111', border: '1px solid #333', borderRadius: '8px', fontSize: '10px' }} />
-              <Area type="monotone" dataKey="total" stroke="#A855F7" fillOpacity={1} fill="url(#colorTokens)" />
+              <CartesianGrid vertical={false} strokeDasharray="3 3" stroke={mutedStroke} />
+              <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fill: textColor, fontSize: 10 }} />
+              <YAxis axisLine={false} tickLine={false} tick={{ fill: textColor, fontSize: 10 }} />
+              <Tooltip contentStyle={{ backgroundColor: tooltipBg, border: `1px solid ${tooltipBorder}`, borderRadius: '8px', fontSize: '10px' }} />
+              <Area type="monotone" dataKey="total" stroke={strokeColor} strokeWidth={2} fillOpacity={1} fill="url(#colorTokens)" />
             </AreaChart>
           </ResponsiveContainer>
         </div>
@@ -331,14 +330,14 @@ export default function BillingPage() {
               </div>
 
               <div className="space-y-3">
-                <div className="bg-secondary/50 p-3 rounded-xl border border-border flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-lg bg-accent-primary/10 flex items-center justify-center text-accent-primary">
+                <div className="bg-secondary p-3 rounded-xl border border-border flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-lg bg-background flex items-center justify-center text-foreground border border-border">
                     <Zap size={16} />
                   </div>
                   <div className="text-xs font-black">{selectedPlan.credits} credits<span className="text-text-muted font-bold">/month</span></div>
                 </div>
-                <div className="bg-[#12121a] p-3 rounded-xl border border-blue-500/20 flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-lg bg-blue-500/10 flex items-center justify-center text-blue-500">
+                <div className="bg-secondary p-3 rounded-xl border border-border flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-lg bg-background flex items-center justify-center text-foreground border border-border">
                     <Monitor size={16} />
                   </div>
                   <div className="text-xs font-black">{selectedPlan.vms} always-on VMs</div>
@@ -361,40 +360,123 @@ export default function BillingPage() {
           </div>
         </div>
       </div>
+
+      {/* Transactions Section */}
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Clock size={16} className="text-text-muted" />
+            <h3 className="text-sm font-black">Transactions</h3>
+            <span className="bg-secondary text-text-muted text-[10px] font-black px-1.5 py-0.5 rounded-md">7</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <button className="flex items-center gap-1.5 px-3 py-1.5 bg-secondary border border-border rounded-lg text-[10px] font-black uppercase hover:bg-border transition-colors">
+              <Filter size={12} />
+              All types
+            </button>
+            <button className="flex items-center gap-1.5 px-3 py-1.5 bg-secondary border border-border rounded-lg text-[10px] font-black uppercase hover:bg-border transition-colors">
+              <Download size={12} />
+              Export
+            </button>
+          </div>
+        </div>
+
+        <div className="space-y-2">
+          <TransactionItem
+            title="Agent Usage"
+            subtitle="Mar 11 · Step 0: 1 min on 2815da55-4656-42de-93c7-aa1ae88551da"
+            amount="-10"
+            balance="bal 0"
+            icon={<Zap className="w-4 h-4" />}
+          />
+          <TransactionItem
+            title="Agent Usage"
+            subtitle="Mar 11 · Step 1: 1 min on 2815da55-4656-42de-93c7-aa1ae88551da"
+            amount="-10"
+            balance="bal 10"
+            icon={<Zap className="w-4 h-4" />}
+          />
+          <TransactionItem
+            title="Agent Usage"
+            subtitle="Mar 11 · Step 11: 1 min on 2815da55-4656-42de-93c7-aa1ae88551da"
+            amount="-10"
+            balance="bal 20"
+            icon={<Zap className="w-4 h-4" />}
+          />
+          <TransactionItem
+            title="Agent Usage"
+            subtitle="Mar 11 · Step 6: 1 min on 2815da55-4656-42de-93c7-aa1ae88551da"
+            amount="-10"
+            balance="bal 30"
+            icon={<Zap className="w-4 h-4" />}
+          />
+          <TransactionItem
+            title="Agent Usage"
+            subtitle="Mar 11 · Step 1: 1 min on 2815da55-4656-42de-93c7-aa1ae88551da"
+            amount="-10"
+            balance="bal 40"
+            icon={<Zap className="w-4 h-4" />}
+          />
+          <TransactionItem
+            title="Agent Usage"
+            subtitle="Feb 23 · Step 3: 4 min on af42929a-efb8-476c-bb14-57798b69c74a"
+            amount="-40"
+            balance="bal 50"
+            icon={<Zap className="w-4 h-4" />}
+          />
+          <TransactionItem
+            title="Agent Usage"
+            subtitle="Feb 23 · Step 2: 1 min on af42929a-efb8-476c-bb14-57798b69c74a"
+            amount="-10"
+            balance="bal 90"
+            icon={<Zap className="w-4 h-4" />}
+          />
+        </div>
+      </div>
     </div>
   );
 }
 
-function SummaryCard({ title, value, subtitle, unit, icon, color }: { title: string, value: string, subtitle: string, unit?: string, icon: React.ReactNode, color: 'blue' | 'emerald' | 'rose' }) {
-  const colorClasses = {
-    blue: "text-blue-500 bg-blue-500/10",
-    emerald: "text-emerald-500 bg-emerald-500/10",
-    rose: "text-rose-500 bg-rose-500/10"
-  };
-
+function SummaryCard({ title, value, subtitle, unit, icon, color }: { title: string, value: string, subtitle: string, unit?: string, icon: React.ReactNode, color: string }) {
   return (
-    <div className="bg-[#0a0a0a] border border-white/5 p-5 rounded-2xl space-y-4">
+    <div className="bg-card border border-border p-5 rounded-2xl space-y-4 shadow-sm">
       <div className="flex items-center justify-between">
         <span className="text-[10px] font-black text-text-muted uppercase tracking-widest">{title}</span>
-        <div className={cn("w-7 h-7 rounded-lg flex items-center justify-center", colorClasses[color])}>
+        <div className="w-7 h-7 rounded-lg flex items-center justify-center bg-secondary text-foreground border border-border">
           {icon}
         </div>
       </div>
       <div className="space-y-1">
         <div className="flex items-baseline gap-1.5">
-          <span className="text-2xl font-black">{value}</span>
+          <span className="text-2xl font-black text-foreground">{value}</span>
           {unit && <span className="text-[10px] font-bold text-text-muted">{unit}</span>}
         </div>
         <div className="flex items-center gap-1">
-          {color === 'rose' || title === 'BALANCE' ? (
-            <ArrowDownLeft size={10} className="text-rose-500" />
-          ) : color === 'emerald' ? (
-            <ArrowUpRight size={10} className="text-emerald-500" />
-          ) : (
-             <div className="w-1 h-1 rounded-full bg-text-muted opacity-50" />
-          )}
+           <div className="w-1 h-1 rounded-full bg-text-muted opacity-50" />
           <span className="text-[9px] font-bold text-text-muted">{subtitle}</span>
         </div>
+      </div>
+    </div>
+  );
+}
+
+function TransactionItem({ title, subtitle, amount, balance, icon }: { title: string, subtitle: string, amount: string, balance: string, icon: React.ReactNode }) {
+  return (
+    <div className="flex items-center justify-between p-3 rounded-2xl bg-card border border-border hover:border-text-muted/20 transition-all group">
+      <div className="flex items-center gap-3">
+        <div className="w-10 h-10 rounded-xl bg-secondary flex items-center justify-center text-foreground border border-border group-hover:border-foreground/30 transition-all">
+          {icon}
+        </div>
+        <div className="space-y-0.5">
+          <div className="text-xs font-black">{title}</div>
+          <div className="text-[10px] text-text-muted font-bold">{subtitle}</div>
+        </div>
+      </div>
+      <div className="text-right">
+        <div className="text-xs font-black text-foreground">
+          {amount}
+        </div>
+        <div className="text-[9px] text-text-muted font-bold">{balance}</div>
       </div>
     </div>
   );
