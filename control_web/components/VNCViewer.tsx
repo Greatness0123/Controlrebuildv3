@@ -65,6 +65,18 @@ export default function VNCViewer({ url, status = 'stopped', className }: VNCVie
     );
   }
 
+  const finalUrl = useMemo(() => {
+    if (!url) return null;
+    let u = url.includes('/vnc.html') ? url : `${url.endsWith('/') ? url : url + '/'}vnc.html?resize=scale&autoconnect=true&reconnect=true`;
+
+    // Check if we are in a production/HTTPS environment but trying to load an HTTP iframe
+    if (typeof window !== 'undefined' && window.location.protocol === 'https:' && u.startsWith('http:')) {
+      console.warn("Attempting to load HTTP VNC in an HTTPS environment. This may be blocked by the browser.");
+    }
+
+    return u;
+  }, [url]);
+
   return (
     <div className={cn("relative group bg-background flex flex-col overflow-hidden", className)}>
 
@@ -92,15 +104,29 @@ export default function VNCViewer({ url, status = 'stopped', className }: VNCVie
       </div>
 
       <div className="flex-1 relative overflow-hidden bg-zinc-900">
-        {url ? (
-          <iframe
-            ref={iframeRef}
-            src={url.includes('/vnc.html') ? url : `${url.endsWith('/') ? url : url + '/'}vnc.html?resize=scale&autoconnect=true&reconnect=true`}
-            className="absolute inset-0 w-full h-full border-none overflow-hidden"
-            onLoad={() => setLoading(false)}
-            onError={() => setError(true)}
-            allow="fullscreen"
-          />
+        {finalUrl ? (
+          <div className="absolute inset-0 w-full h-full">
+            <iframe
+              ref={iframeRef}
+              src={finalUrl}
+              className={cn(
+                "w-full h-full border-none overflow-hidden transition-opacity duration-500",
+                loading ? "opacity-0" : "opacity-100"
+              )}
+              onLoad={() => setLoading(false)}
+              onError={() => {
+                setError(true);
+                setLoading(false);
+              }}
+              allow="fullscreen"
+            />
+            {loading && (
+              <div className="absolute inset-0 flex flex-col items-center justify-center bg-zinc-900 gap-3">
+                <Loader2 size={32} className="animate-spin text-accent-primary" />
+                <span className="text-[10px] font-black text-white/50 uppercase tracking-widest">Connecting to display...</span>
+              </div>
+            )}
+          </div>
         ) : (
           <div className="absolute inset-0 flex items-center justify-center text-zinc-800 text-xs italic">
             No connection URL provided

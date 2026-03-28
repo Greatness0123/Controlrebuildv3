@@ -265,23 +265,65 @@ export default function WorkflowDesigner({ initialWorkflow, onSave, onClose }: W
       const stream = chatApi.sendMessage(aiSessionId, fullPrompt, fileUrl, 'workflow');
 
       let assistantMsg = '';
-      setAiMessages(prev => [...prev, { role: 'assistant', content: '' }]);
+      setAiMessages(prev => [...prev, { role: 'assistant', content: '', is_thought: false }]);
 
       for await (const event of stream) {
-        if (event.type === 'message') {
-          assistantMsg += event.content;
-          setAiMessages(prev => {
-            const newMsgs = [...prev];
-            newMsgs[newMsgs.length - 1].content = assistantMsg;
-            return newMsgs;
-          });
+        if (event.type === 'message' || event.type === 'thought') {
+          const isThought = event.type === 'thought';
+
+          if (isThought) {
+            // Thoughts are handled as separate messages or prepended
+            setAiMessages(prev => {
+              const newMsgs = [...prev];
+              const last = newMsgs[newMsgs.length - 1];
+              if (last.role === 'assistant' && last.is_thought) {
+                last.content += event.content;
+              } else {
+                newMsgs.push({ role: 'assistant', content: event.content, is_thought: true });
+              }
+              return newMsgs;
+            });
+          } else {
+            assistantMsg += event.content;
+            setAiMessages(prev => {
+              const newMsgs = [...prev];
+              // Find the last non-thought assistant message or create one
+              let lastIdx = -1;
+              for (let i = newMsgs.length - 1; i >= 0; i--) {
+                if (newMsgs[i].role === 'assistant' && !newMsgs[i].is_thought) {
+                  lastIdx = i;
+                  break;
+                }
+              }
+
+              if (lastIdx !== -1) {
+                newMsgs[lastIdx].content = assistantMsg;
+              } else {
+                newMsgs.push({ role: 'assistant', content: assistantMsg, is_thought: false });
+              }
+              return newMsgs;
+            });
+          }
         }
       }
 
-      const jsonMatch = assistantMsg.match(/```json\n([\s\S]*?)\n```/);
-      if (jsonMatch) {
+      // More robust JSON extraction
+      let jsonStr = '';
+      const backtickMatch = assistantMsg.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
+
+      if (backtickMatch) {
+        jsonStr = backtickMatch[1].trim();
+      } else {
+        const startBrace = assistantMsg.indexOf('{');
+        const endBrace = assistantMsg.lastIndexOf('}');
+        if (startBrace !== -1 && endBrace !== -1 && endBrace > startBrace) {
+          jsonStr = assistantMsg.substring(startBrace, endBrace + 1).trim();
+        }
+      }
+
+      if (jsonStr) {
         try {
-          const parsedWorkflow = JSON.parse(jsonMatch[1]);
+          const parsedWorkflow = JSON.parse(jsonStr);
           if (parsedWorkflow.nodes && parsedWorkflow.edges) {
             setWorkflow(prev => ({
               ...prev,
@@ -290,6 +332,21 @@ export default function WorkflowDesigner({ initialWorkflow, onSave, onClose }: W
               name: parsedWorkflow.name || prev.name,
               trigger: parsedWorkflow.trigger || prev.trigger
             }));
+
+            // Clean up the displayed message by removing the JSON block if it was successfully parsed
+            setAiMessages(prev => {
+              const newMsgs = [...prev];
+              const lastIdx = newMsgs.findLastIndex(m => m.role === 'assistant' && !m.is_thought);
+              if (lastIdx !== -1) {
+                // Remove the JSON block from display to keep it clean
+                newMsgs[lastIdx].content = newMsgs[lastIdx].content.replace(/```(?:json)?\s*[\s\S]*?\s*```/g, '').trim();
+                if (!newMsgs[lastIdx].content) {
+                  newMsgs[lastIdx].content = "I've updated the workflow based on your request.";
+                }
+              }
+              return newMsgs;
+            });
+
             toast.success('Workflow updated by AI!');
           }
         } catch (e) {
@@ -545,9 +602,15 @@ export default function WorkflowDesigner({ initialWorkflow, onSave, onClose }: W
             ) : (
               aiMessages.map((msg, i) => (
                 <div key={i} className={cn("flex flex-col", msg.role === 'user' ? "items-end" : "items-start")}>
-                  <div className={cn("max-w-[85%] p-4 rounded-2xl text-sm leading-relaxed", msg.role === 'user' ? "bg-accent-primary text-accent-foreground rounded-tr-sm" : "bg-secondary text-foreground rounded-tl-sm border border-border")}>
-                    <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.content}</ReactMarkdown>
-                  </div>
+                  {msg.is_thought ? (
+                    <div className="max-w-[90%] text-[10px] px-3 py-2 rounded-xl bg-zinc-100 dark:bg-zinc-900 border border-border italic text-text-secondary leading-relaxed mb-4 opacity-70">
+                      {msg.content}
+                    </div>
+                  ) : (
+                    <div className={cn("max-w-[85%] p-4 rounded-2xl text-sm leading-relaxed", msg.role === 'user' ? "bg-accent-primary text-accent-foreground rounded-tr-sm" : "bg-secondary text-foreground rounded-tl-sm border border-border mb-4")}>
+                      <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.content}</ReactMarkdown>
+                    </div>
+                  )}
                 </div>
               ))
             )}
