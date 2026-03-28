@@ -133,14 +133,13 @@ export default function BillingPage() {
   const selectedPlan = PLAN_DETAILS[selectedPlanId];
   const currentPlan = (userData?.plan || user?.user_metadata?.plan || 'Free') as string;
 
-  const planLimits: Record<PlanType, { act: number; ask: number }> = {
+  const planLimits: Record<string, { act: number; ask: number }> = {
       free: { act: 10, ask: 200 },
       pro: { act: 200, ask: 500 },
       master: { act: 999999, ask: 999999 }
   };
 
-  const normalizedPlan = currentPlan.toLowerCase() as PlanType;
-  const currentLimits = planLimits[normalizedPlan] || planLimits.free;
+  const currentLimits = planLimits[currentPlan.toLowerCase()] || planLimits.free;
   const isActLimitReached = (userData?.act_count || 0) >= currentLimits.act;
   const isAskLimitReached = (userData?.ask_count || 0) >= currentLimits.ask;
 
@@ -257,7 +256,7 @@ export default function BillingPage() {
 
         <div className="h-[250px] w-full mt-4">
           <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={tokenData.length > 0 ? tokenData : [{label: '', total: 0}]}>
+            <AreaChart data={tokenData.length > 0 ? tokenData : [{label: '', date: '', total: 0}]}>
               <defs>
                 <linearGradient id="colorTokens" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="5%" stopColor={strokeColor} stopOpacity={0.2}/>
