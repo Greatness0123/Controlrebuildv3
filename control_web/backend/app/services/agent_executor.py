@@ -407,7 +407,7 @@ class AgentExecutor:
         """Update user usage statistics in the database."""
         try:
             # 1. Fetch current usage
-            res = db.table("users").select("act_count, ask_count, total_token_usage, daily_usage, daily_token_usage").eq("id", user_id).execute()
+            res = db.table("users").select("act_count, ask_count, total_token_usage, daily_token_usage").eq("id", user_id).execute()
             if not res.data:
                 return
 
@@ -416,30 +416,31 @@ class AgentExecutor:
 
             # 2. Update mode counts
             update_data = {}
-            if mode == "act":
-                update_data["act_count"] = (user.get("act_count") or 0) + 1
-            else:
-                update_data["ask_count"] = (user.get("ask_count") or 0) + 1
+            if tokens == 0: # Only increment count once per session/request start
+                if mode == "act":
+                    update_data["act_count"] = (user.get("act_count") or 0) + 1
+                else:
+                    update_data["ask_count"] = (user.get("ask_count") or 0) + 1
 
             # 3. Update token counts
-            update_data["total_token_usage"] = (user.get("total_token_usage") or 0) + tokens
+            if tokens > 0:
+                update_data["total_token_usage"] = (user.get("total_token_usage") or 0) + tokens
 
-            # 4. Update daily statistics
-            daily_usage = user.get("daily_usage") or {}
-            if today not in daily_usage:
-                daily_usage[today] = {"ask": 0, "act": 0}
+            # 4. Update daily statistics (consolidated in daily_token_usage)
+            daily_stats = user.get("daily_token_usage") or {}
+            if today not in daily_stats:
+                daily_stats[today] = {"ask": 0, "act": 0, "total": 0}
 
-            if mode == "act":
-                daily_usage[today]["act"] += 1
-            else:
-                daily_usage[today]["ask"] += 1
-            update_data["daily_usage"] = daily_usage
+            if tokens == 0:
+                if mode == "act":
+                    daily_stats[today]["act"] = (daily_stats[today].get("act") or 0) + 1
+                else:
+                    daily_stats[today]["ask"] = (daily_stats[today].get("ask") or 0) + 1
 
-            daily_tokens = user.get("daily_token_usage") or {}
-            if today not in daily_tokens:
-                daily_tokens[today] = {"total": 0}
-            daily_tokens[today]["total"] += tokens
-            update_data["daily_token_usage"] = daily_tokens
+            if tokens > 0:
+                daily_stats[today]["total"] = (daily_stats[today].get("total") or 0) + tokens
+
+            update_data["daily_token_usage"] = daily_stats
 
             # 5. Save back to DB
             db.table("users").update(update_data).eq("id", user_id).execute()
@@ -454,6 +455,9 @@ class AgentExecutor:
         vm_data = session_data.get("virtual_machines") or {}
         device_id = session_data.get("device_id")
         user_id = session_data.get("user_id", "")
+
+        # Increment session-level usage count
+        await self._update_usage(db, user_id, mode, tokens=0)
 
         # Estimate tokens (very rough for now)
         tokens_per_turn = len(user_message) // 4 + 200
@@ -541,7 +545,7 @@ class AgentExecutor:
                             provider_config, conversation, last_screenshot
                         )
 
-                        # Update usage for ASK mode
+                        # Add tokens to usage
                         await self._update_usage(db, user_id, mode, tokens=tokens_per_turn)
 
                         yield {"type": "message", "content": response_text}
@@ -596,7 +600,7 @@ class AgentExecutor:
                     yield {"type": "thought", "content": thought}
                 yield {"type": "action", "action": action, "params": params}
 
-                # Update usage for each ACT step
+                # Update token usage for each ACT step
                 await self._update_usage(db, user_id, "act", tokens=tokens_per_turn)
 
                 if not session_id.startswith("wf_gen_"):

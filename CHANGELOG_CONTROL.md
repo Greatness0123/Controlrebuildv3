@@ -49,3 +49,9 @@ All notable changes to this project will be documented in this file.
 
 ### Fixed
 - **VM Network Binding**: Fixed a critical issue where worker VMs were not accessible via VNC due to restricted local port binding in the backend's Docker service.
+
+## [1.2.1] - 2024-03-27
+
+### Changed
+- **Billing Theme (Web)**: Refined the billing dashboard to strictly adhere to the black and white color system, including theme-aware charts for both Ask/Act metrics and token consumption.
+- **Data Integration**: Standardized the backend usage tracking to consolidate daily metrics into a unified database structure for better chart performance.
