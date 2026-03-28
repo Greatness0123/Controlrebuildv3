@@ -65,7 +65,7 @@ EXPOSE 8080
 WORKDIR /home/controluser
 
 # Entrypoint and Agent scripts
-COPY entrypoint.sh /home/controluser/entrypoint.sh
+COPY --chmod=755 entrypoint.sh /home/controluser/entrypoint.sh
 COPY ai_agent.py /home/controluser/ai_agent.py
 COPY wallpaper1.png /home/controluser/wallpaper1.png
 COPY wallpaper2.png /home/controluser/wallpaper2.png
