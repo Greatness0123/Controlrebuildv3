@@ -175,7 +175,7 @@ export default function ChatSessionPage() {
                 <div className="p-3">
                   <h4 className="text-[10px] font-black text-text-muted uppercase tracking-[0.2em] mb-3">Available Resources</h4>
                   <div className="space-y-1">
-                    {vms.map((vm) => {
+                    {vms.filter(v => v.status === 'running').map((vm) => {
                       const isSelected = activeVmId === vm.id && !activeDeviceId;
                       return (
                       <button
@@ -204,7 +204,7 @@ export default function ChatSessionPage() {
                         {isSelected && <Check size={12} />}
                       </button>
                     )})}
-                    {devices.map((device) => {
+                    {devices.filter(d => d.status === 'paired').map((device) => {
                       const isSelected = activeDeviceId === device.id;
                       return (
                       <button
