@@ -77,6 +77,28 @@ export const chatApi = {
   delete: (sessionId: string) =>
     apiFetch<{ success: boolean }>(`/api/chat/${sessionId}`, { method: 'DELETE' }),
 
+  recentActions: async (limit: number = 10) => {
+    try {
+      const supabase = getSupabaseClient();
+      const { data: userData } = await supabase.auth.getUser();
+      if (!userData.user) return { actions: [] };
+
+      // We join with chat_sessions to ensure we only get messages for this user
+      const { data, error } = await supabase
+        .from('chat_messages')
+        .select('*, chat_sessions!inner(user_id)')
+        .eq('chat_sessions.user_id', userData.user.id)
+        .order('created_at', { ascending: false })
+        .limit(limit);
+
+      if (error) throw error;
+      return { actions: data };
+    } catch (err) {
+      console.warn('Supabase fetch failed for recent actions:', err);
+      return { actions: [] };
+    }
+  },
+
   uploadFile: async (sessionId: string, file: File): Promise<{ file_url: string; file_type: string; filename: string }> => {
     const token = await getAccessToken();
     const formData = new FormData();
