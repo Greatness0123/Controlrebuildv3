@@ -3,6 +3,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useAuthStore } from '@/lib/store';
 import { getSupabaseClient } from '@/lib/supabase';
+import { chatApi } from '@/lib/api';
 import Link from 'next/link';
 import {
   Zap,
@@ -82,24 +83,27 @@ export default function BillingPage() {
   const [selectedPlanId, setSelectedPlanId] = useState<'lite' | 'starter' | 'plus' | 'pro'>('plus');
   const [tokenChartRange, setTokenChartRange] = useState<'daily' | 'weekly' | 'monthly'>('daily');
   const [userData, setUserData] = useState<any>(null);
+  const [recentActions, setRecentActions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    async function fetchUserData() {
+    async function fetchData() {
       if (!user) return;
       const supabase = getSupabaseClient();
-      const { data, error } = await supabase
-        .from('users')
-        .select('*')
-        .eq('auth_id', user.id)
-        .single();
+      const [userRes, actionsRes] = await Promise.all([
+        supabase.from('users').select('*').eq('auth_id', user.id).single(),
+        chatApi.recentActions(15)
+      ]);
 
-      if (data) {
-        setUserData(data);
+      if (userRes.data) {
+        setUserData(userRes.data);
+      }
+      if (actionsRes.actions) {
+        setRecentActions(actionsRes.actions);
       }
       setLoading(false);
     }
-    fetchUserData();
+    fetchData();
   }, [user]);
 
   // Combined Ask and Act usage data
@@ -273,163 +277,42 @@ export default function BillingPage() {
         </div>
       </div>
 
-      {/* Plan Selector */}
-      <div className="space-y-6">
-        <div>
-          <h3 className="text-sm font-black text-foreground">Choose Your Plan</h3>
-          <p className="text-xs text-text-muted mt-1">Subscribe to unlock AI features and get monthly credits</p>
-        </div>
-
-        <div className="flex flex-col items-center gap-6">
-          <div className="flex bg-secondary p-1 rounded-2xl border border-border">
-            {PLANS.map((plan) => (
-              <button
-                key={plan.id}
-                onClick={() => setSelectedPlanId(plan.id as any)}
-                className={cn(
-                  "px-4 py-2 rounded-xl text-xs font-black transition-all flex items-center gap-2",
-                  selectedPlanId === plan.id
-                    ? "bg-background text-foreground shadow-sm"
-                    : "text-text-muted hover:text-foreground"
-                )}
-              >
-                {plan.name} <span className="opacity-50">${plan.price}</span>
-              </button>
-            ))}
-          </div>
-
-          <div className="text-[10px] font-black uppercase tracking-widest text-text-muted flex items-center gap-4">
-            <span>Save <span className="text-foreground">$2,950/mo</span> vs human</span>
-            <span className="w-px h-3 bg-border" />
-            <span><span className="text-foreground">18-24 hrs</span> saved monthly</span>
-            <span className="w-px h-3 bg-border" />
-            <span><span className="text-foreground">60x</span> cheaper</span>
-          </div>
-
-          {/* Plan Detail Card */}
-          <div className="w-full max-w-3xl bg-card border border-border rounded-3xl overflow-hidden shadow-2xl">
-            <div className="p-8 space-y-6">
-              <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
-                <div className="space-y-1">
-                  {PLANS.find(p => p.id === selectedPlanId)?.popular && (
-                    <span className="bg-foreground text-background text-[10px] font-black px-2 py-0.5 rounded-full uppercase tracking-tighter">
-                      Most Popular
-                    </span>
-                  )}
-                  <div className="flex items-center gap-2 mt-2">
-                    <div className="w-5 h-5 rounded-full bg-gradient-to-tr from-text-muted to-foreground opacity-20" />
-                    <h4 className="text-sm font-black">{selectedPlan.name}</h4>
-                  </div>
-                  <div className="flex items-baseline gap-1">
-                    <span className="text-4xl font-black">${PLANS.find(p => p.id === selectedPlanId)?.price}</span>
-                    <span className="text-text-muted text-sm font-bold">/month</span>
-                  </div>
-                  <p className="text-xs text-text-muted font-bold">{selectedPlan.description}</p>
-                </div>
-              </div>
-
-              <div className="space-y-3">
-                <div className="bg-secondary p-3 rounded-xl border border-border flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-lg bg-background flex items-center justify-center text-foreground border border-border">
-                    <Zap size={16} />
-                  </div>
-                  <div className="text-xs font-black">{selectedPlan.credits} credits<span className="text-text-muted font-bold">/month</span></div>
-                </div>
-                <div className="bg-secondary p-3 rounded-xl border border-border flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-lg bg-background flex items-center justify-center text-foreground border border-border">
-                    <Monitor size={16} />
-                  </div>
-                  <div className="text-xs font-black">{selectedPlan.vms} always-on VMs</div>
-                </div>
-              </div>
-
-              <button className="w-full py-4 bg-foreground text-background rounded-xl text-xs font-black uppercase tracking-widest flex items-center justify-center gap-2 hover:opacity-90 transition-all">
-                Subscribe to {selectedPlanId.charAt(0).toUpperCase() + selectedPlanId.slice(1)} <ChevronRight size={14} />
-              </button>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-y-3 gap-x-8 pt-4 border-t border-border">
-                {selectedPlan.features.map((feature, i) => (
-                  <div key={i} className="flex items-center gap-2">
-                    <Check size={14} className="text-emerald-500 shrink-0" />
-                    <span className="text-xs font-bold text-text-muted">{feature}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
 
       {/* Transactions Section */}
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Clock size={16} className="text-text-muted" />
-            <h3 className="text-sm font-black">Transactions</h3>
-            <span className="bg-secondary text-text-muted text-[10px] font-black px-1.5 py-0.5 rounded-md">7</span>
+            <h3 className="text-sm font-black">Recent Activity</h3>
+            <span className="bg-secondary text-text-muted text-[10px] font-black px-1.5 py-0.5 rounded-md">
+              {recentActions.length}
+            </span>
           </div>
           <div className="flex items-center gap-2">
             <button className="flex items-center gap-1.5 px-3 py-1.5 bg-secondary border border-border rounded-lg text-[10px] font-black uppercase hover:bg-border transition-colors">
               <Filter size={12} />
-              All types
-            </button>
-            <button className="flex items-center gap-1.5 px-3 py-1.5 bg-secondary border border-border rounded-lg text-[10px] font-black uppercase hover:bg-border transition-colors">
-              <Download size={12} />
-              Export
+              Filter
             </button>
           </div>
         </div>
 
         <div className="space-y-2">
-          <TransactionItem
-            title="Agent Usage"
-            subtitle="Mar 11 · Step 0: 1 min on 2815da55-4656-42de-93c7-aa1ae88551da"
-            amount="-10"
-            balance="bal 0"
-            icon={<Zap className="w-4 h-4" />}
-          />
-          <TransactionItem
-            title="Agent Usage"
-            subtitle="Mar 11 · Step 1: 1 min on 2815da55-4656-42de-93c7-aa1ae88551da"
-            amount="-10"
-            balance="bal 10"
-            icon={<Zap className="w-4 h-4" />}
-          />
-          <TransactionItem
-            title="Agent Usage"
-            subtitle="Mar 11 · Step 11: 1 min on 2815da55-4656-42de-93c7-aa1ae88551da"
-            amount="-10"
-            balance="bal 20"
-            icon={<Zap className="w-4 h-4" />}
-          />
-          <TransactionItem
-            title="Agent Usage"
-            subtitle="Mar 11 · Step 6: 1 min on 2815da55-4656-42de-93c7-aa1ae88551da"
-            amount="-10"
-            balance="bal 30"
-            icon={<Zap className="w-4 h-4" />}
-          />
-          <TransactionItem
-            title="Agent Usage"
-            subtitle="Mar 11 · Step 1: 1 min on 2815da55-4656-42de-93c7-aa1ae88551da"
-            amount="-10"
-            balance="bal 40"
-            icon={<Zap className="w-4 h-4" />}
-          />
-          <TransactionItem
-            title="Agent Usage"
-            subtitle="Feb 23 · Step 3: 4 min on af42929a-efb8-476c-bb14-57798b69c74a"
-            amount="-40"
-            balance="bal 50"
-            icon={<Zap className="w-4 h-4" />}
-          />
-          <TransactionItem
-            title="Agent Usage"
-            subtitle="Feb 23 · Step 2: 1 min on af42929a-efb8-476c-bb14-57798b69c74a"
-            amount="-10"
-            balance="bal 90"
-            icon={<Zap className="w-4 h-4" />}
-          />
+          {recentActions.length > 0 ? (
+            recentActions.map((action, i) => (
+              <TransactionItem
+                key={action.id || i}
+                title={action.role === 'action' ? `Action: ${action.action_type || 'Unknown'}` : action.role === 'user' ? 'User Message' : 'Assistant Response'}
+                subtitle={`${new Date(action.created_at).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })} · Session: ${action.session_id.substring(0, 8)}`}
+                amount={action.role === 'action' ? "-1 act" : action.role === 'user' ? "query" : "resp"}
+                balance=""
+                icon={action.role === 'action' ? <Zap className="w-4 h-4" /> : action.role === 'user' ? <Users className="w-4 h-4" /> : <Activity className="w-4 h-4" />}
+              />
+            ))
+          ) : (
+            <div className="py-12 text-center bg-card border border-dashed border-border rounded-2xl">
+              <p className="text-[10px] font-black text-text-muted uppercase tracking-widest">No recent activity found</p>
+            </div>
+          )}
         </div>
       </div>
     </div>
