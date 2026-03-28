@@ -95,7 +95,19 @@ Deploy the Next.js app using the Azure Portal or CLI:
 
 ---
 
-## Troubleshooting VNC
+## Troubleshooting & Critical Fixes
+
+### VM Entrypoint Error (`no such file or directory`)
+If you see an error like `exec /home/controluser/entrypoint.sh: no such file or directory` in the Azure logs, it's likely due to Windows-style line endings (CRLF) in the script.
+
+**Fix Applied**:
+- I have updated `control_web/vm/Dockerfile` to use `COPY --chmod=755` for the entrypoint.
+- I have ensured `control_web/vm/entrypoint.sh` uses Unix (LF) line endings.
+
+**Action Required**:
+If you edit this script on Windows, ensure your IDE is set to **LF** line endings before pushing to ACR.
+
+### VNC Connectivity
 If the VNC screen is blank:
 1. Ensure the **Network Security Group (NSG)** on your Azure VM allows inbound traffic on ports `6080` and `5900`.
 2. Verify `PUBLIC_IP` in the backend config matches your Azure VM's Public IP address.
