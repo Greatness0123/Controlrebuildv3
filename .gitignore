@@ -3,3 +3,10 @@ control_web/node_modules
 control_web/.env
 control_web/.next
 .env
+venv/
+__pycache__/
+*.pyc
+*.log
+.DS_Store
+dist/
+build/

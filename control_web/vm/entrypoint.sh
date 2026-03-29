@@ -56,7 +56,8 @@ echo "[entrypoint] AI Agent started"
 # If noVNC exits, loop to restart it so the container never dies
 while true; do
     echo "[entrypoint] Starting noVNC proxy..."
-    /opt/novnc/utils/novnc_proxy --vnc localhost:5900 --listen 6080 || true
+    # Explicitly set web directory to ensure static files (vnc.html, etc) are served correctly
+    /opt/novnc/utils/novnc_proxy --vnc localhost:5900 --listen 6080 --web /opt/novnc || true
     echo "[entrypoint] noVNC exited, restarting in 2s..."
     sleep 2
 done

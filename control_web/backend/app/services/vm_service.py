@@ -254,12 +254,19 @@ class VMService:
     async def cleanup_inactive_vms(self, db: Client):
 
         try:
-
-            result = db.table("virtual_machines").select("*").eq("status", "running").execute()
+            # Join with users to check plan status
+            result = db.table("virtual_machines").select("*, users(plan)").eq("status", "running").execute()
             vms = result.data
             
             now = datetime.now(timezone.utc)
             for vm in vms:
+                # Check user plan - only auto-stop for free plan
+                user_data = vm.get("users", {})
+                plan = user_data.get("plan", "free") if isinstance(user_data, dict) else "free"
+
+                if plan != "free":
+                    continue
+
                 last_active_str = vm.get("last_active_at")
                 if not last_active_str:
                     continue
@@ -268,7 +275,7 @@ class VMService:
                 inactive_seconds = (now - last_active).total_seconds()
                 
                 if inactive_seconds > 1800: # 30 minutes
-                    logger.info(f"Auto-shutting down inactive VM {vm['id']} (Inactive for {inactive_seconds}s)")
+                    logger.info(f"Auto-shutting down inactive VM {vm['id']} for free-tier user {vm['user_id']} (Inactive for {inactive_seconds}s)")
                     try:
                         await self.stop_vm(db, vm["id"], vm["user_id"])
                     except Exception as e:
