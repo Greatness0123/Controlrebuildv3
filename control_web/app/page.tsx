@@ -143,7 +143,7 @@ export default function LandingPage() {
 
             <div className="flex flex-col sm:flex-row gap-6">
               <Link
-                href={user ? "/workspace" : "/auth/signup"}
+                href={user ? "/workflows" : "/auth/signup"}
                 className="group relative px-10 py-5 bg-white text-black rounded-2xl text-xs font-black uppercase tracking-[0.2em] transition-all hover:bg-zinc-200 shadow-[0_0_40px_-10px_rgba(255,255,255,0.3)] active:scale-95 flex items-center gap-4"
               >
                 Launch Protocol

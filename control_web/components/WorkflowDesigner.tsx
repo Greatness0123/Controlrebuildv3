@@ -7,7 +7,7 @@ import {
   Settings, StopCircle, Zap, Clock, MousePointer2, FileText,
   Globe, Search, Brain, Maximize2, Minimize2, GripVertical,
   MoreVertical, Edit3, Trash, Check, AlertCircle, File, Sparkles,
-  Monitor
+  Monitor, Copy, FileJson
 } from 'lucide-react';
 import { useAuthStore, useVMStore, useDeviceStore } from '@/lib/store';
 import { workflowApi, chatApi } from '@/lib/api';
@@ -71,7 +71,7 @@ export default function WorkflowDesigner({ initialWorkflow, onSave, onClose }: W
   const [activeView, setActiveView] = useState<'node' | 'list'>('node');
   const [targetMachine, setTargetMachine] = useState<{ id: string; type: 'vm' | 'device' } | null>(null);
   const [scale, setScale] = useState(1);
-  const [isAiOverlayOpen, setIsAiOverlayOpen] = useState(true);
+  const [isAiOverlayOpen, setIsAiOverlayOpen] = useState(false);
   const [isAiMinimized, setIsAiMinimized] = useState(false);
   const [attachedFile, setAttachedFile] = useState<{ url: string; name: string } | null>(null);
   const [aiSessionId] = useState<string>(`wf_gen_${Date.now()}`);
@@ -260,7 +260,23 @@ export default function WorkflowDesigner({ initialWorkflow, onSave, onClose }: W
       setAttachedFile(null);
 
       const historyPrompt = aiMessages.map(m => `${m.role.toUpperCase()}: ${m.content}`).join('\n');
-      const fullPrompt = `CONTEXT: We are designing a workflow. \nCURRENT WORKFLOW: ${JSON.stringify(workflow)}\nPREVIOUS CONVERSATION:\n${historyPrompt}\n\nUSER REQUEST: ${userMsg}`;
+      const systemPrompt = `You are a Workflow Architect. Your job is to help users design automation workflows.
+Workflows consist of 'nodes' and 'edges'.
+Node types: 'start_time', 'start_keyword', 'app', 'file', 'web_search', 'nl_task'.
+Node structure: { id: string, type: string, position: { x: number, y: number }, data: { value: string, description: string } }
+Edge structure: { id: string, source: string, target: string }
+
+When asked to create or modify a workflow, always provide the complete JSON representation of the new workflow nodes and edges inside a markdown code block tagged with 'json'.
+Example:
+\`\`\`json
+{
+  "name": "My Workflow",
+  "nodes": [...],
+  "edges": [...]
+}
+\`\`\``;
+
+      const fullPrompt = `${systemPrompt}\n\nCONTEXT: We are designing a workflow. \nCURRENT WORKFLOW: ${JSON.stringify({ name: workflow.name, nodes: workflow.nodes, edges: workflow.edges })}\nPREVIOUS CONVERSATION:\n${historyPrompt}\n\nUSER REQUEST: ${userMsg}`;
 
       const stream = chatApi.sendMessage(aiSessionId, fullPrompt, fileUrl, 'workflow');
 
@@ -333,16 +349,12 @@ export default function WorkflowDesigner({ initialWorkflow, onSave, onClose }: W
               trigger: parsedWorkflow.trigger || prev.trigger
             }));
 
-            // Clean up the displayed message by removing the JSON block if it was successfully parsed
+            // Instead of auto-applying and hiding, we'll keep the JSON for manual apply/copy/download
             setAiMessages(prev => {
               const newMsgs = [...prev];
               const lastIdx = newMsgs.findLastIndex(m => m.role === 'assistant' && !m.is_thought);
               if (lastIdx !== -1) {
-                // Remove the JSON block from display to keep it clean
-                newMsgs[lastIdx].content = newMsgs[lastIdx].content.replace(/```(?:json)?\s*[\s\S]*?\s*```/g, '').trim();
-                if (!newMsgs[lastIdx].content) {
-                  newMsgs[lastIdx].content = "I've updated the workflow based on your request.";
-                }
+                newMsgs[lastIdx].workflowJson = jsonStr;
               }
               return newMsgs;
             });
@@ -607,8 +619,67 @@ export default function WorkflowDesigner({ initialWorkflow, onSave, onClose }: W
                       {msg.content}
                     </div>
                   ) : (
-                    <div className={cn("max-w-[85%] p-4 rounded-2xl text-sm leading-relaxed", msg.role === 'user' ? "bg-accent-primary text-accent-foreground rounded-tr-sm" : "bg-secondary text-foreground rounded-tl-sm border border-border mb-4")}>
-                      <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.content}</ReactMarkdown>
+                    <div className={cn("max-w-[85%] p-4 rounded-2xl text-sm leading-relaxed relative group/msg", msg.role === 'user' ? "bg-accent-primary text-accent-foreground rounded-tr-sm" : "bg-secondary text-foreground rounded-tl-sm border border-border mb-4")}>
+                      <ReactMarkdown
+                        remarkPlugins={[remarkGfm]}
+                        components={{
+                          pre: ({node, ...props}) => <pre className="overflow-x-auto p-2 bg-black/20 rounded-lg my-2 text-[10px]" {...props} />,
+                          code: ({node, ...props}) => <code className="bg-black/20 rounded px-1" {...props} />
+                        }}
+                      >
+                        {msg.content}
+                      </ReactMarkdown>
+
+                      {msg.workflowJson && (
+                        <div className="mt-4 flex flex-wrap gap-2 border-t border-border pt-3">
+                           <button
+                             onClick={() => {
+                               try {
+                                 const parsed = JSON.parse(msg.workflowJson);
+                                 setWorkflow(prev => ({
+                                   ...prev,
+                                   nodes: parsed.nodes,
+                                   edges: parsed.edges,
+                                   name: parsed.name || prev.name
+                                 }));
+                                 toast.success("Applied to canvas");
+                               } catch(e) {
+                                 toast.error("Failed to parse JSON");
+                               }
+                             }}
+                             className="flex items-center gap-1.5 px-2.5 py-1.5 bg-accent-primary text-accent-foreground rounded-lg text-[9px] font-black uppercase tracking-widest hover:opacity-90 transition-all"
+                           >
+                             <Check size={12} />
+                             Import to Designer
+                           </button>
+                           <button
+                             onClick={() => {
+                               navigator.clipboard.writeText(msg.workflowJson);
+                               toast.success("JSON copied to clipboard");
+                             }}
+                             className="flex items-center gap-1.5 px-2.5 py-1.5 bg-black/10 hover:bg-black/20 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all"
+                           >
+                             <Copy size={12} />
+                             Copy
+                           </button>
+                           <button
+                             onClick={() => {
+                               const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(msg.workflowJson);
+                               const downloadAnchorNode = document.createElement('a');
+                               downloadAnchorNode.setAttribute("href", dataStr);
+                               downloadAnchorNode.setAttribute("download", `ai-workflow.json`);
+                               document.body.appendChild(downloadAnchorNode);
+                               downloadAnchorNode.click();
+                               downloadAnchorNode.remove();
+                               toast.success("Download started");
+                             }}
+                             className="flex items-center gap-1.5 px-2.5 py-1.5 bg-black/10 hover:bg-black/20 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all"
+                           >
+                             <FileJson size={12} />
+                             Download
+                           </button>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
