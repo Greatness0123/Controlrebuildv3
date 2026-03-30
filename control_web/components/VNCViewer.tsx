@@ -74,13 +74,17 @@ export default function VNCViewer({ url, status = 'stopped', className }: VNCVie
     );
   }
 
+  const [isHttpInHttps, setIsHttpInHttps] = useState(false);
+
   const finalUrl = useMemo(() => {
     if (!url) return null;
     let u = url.includes('/vnc.html') ? url : `${url.endsWith('/') ? url : url + '/'}vnc.html?resize=scale&autoconnect=true&reconnect=true`;
 
     // Check if we are in a production/HTTPS environment but trying to load an HTTP iframe
     if (typeof window !== 'undefined' && window.location.protocol === 'https:' && u.startsWith('http:')) {
-      console.warn("Attempting to load HTTP VNC in an HTTPS environment. This may be blocked by the browser.");
+      setIsHttpInHttps(true);
+    } else {
+      setIsHttpInHttps(false);
     }
 
     return u;
@@ -142,21 +146,38 @@ export default function VNCViewer({ url, status = 'stopped', className }: VNCVie
           </div>
         )}
 
-        {error && (
-          <div className="absolute inset-0 bg-zinc-950 flex flex-col items-center justify-center gap-4 text-center p-6">
-            <div className="w-12 h-12 bg-red-500/10 rounded-full flex items-center justify-center">
-              <Power size={24} className="text-red-500" />
+        {(error || isHttpInHttps) && (
+          <div className="absolute inset-0 bg-zinc-950 flex flex-col items-center justify-center gap-4 text-center p-6 z-50">
+            <div className="w-12 h-12 bg-amber-500/10 rounded-full flex items-center justify-center border border-amber-500/20">
+              <Shield size={24} className="text-amber-500" />
             </div>
-            <div>
-              <h3 className="text-sm font-bold text-white mb-1">Connection Failed</h3>
-              <p className="text-xs text-zinc-500">Could not connect to the remote display service.</p>
+            <div className="max-w-[280px]">
+              <h3 className="text-sm font-bold text-white mb-1">
+                {isHttpInHttps ? "Security Block" : "Connection Failed"}
+              </h3>
+              <p className="text-[10px] text-zinc-500 leading-relaxed">
+                {isHttpInHttps
+                  ? "Browsers block insecure display streams on secure sites. Open the external viewer to access your machine."
+                  : "Could not connect to the remote display service."}
+              </p>
             </div>
-            <button 
-              onClick={handleRefresh}
-              className="px-4 py-2 bg-white/5 border border-white/10 rounded-lg text-xs font-bold hover:bg-white/10 transition-all"
-            >
-              Retry Connection
-            </button>
+            <div className="flex gap-2">
+              <button
+                onClick={() => window.open(finalUrl || '', '_blank')}
+                className="flex items-center gap-2 px-4 py-2 bg-white text-black rounded-lg text-[10px] font-black uppercase tracking-widest hover:bg-zinc-200 transition-all shadow-xl"
+              >
+                <Maximize2 size={12} />
+                Open External
+              </button>
+              {!isHttpInHttps && (
+                <button
+                  onClick={handleRefresh}
+                  className="px-4 py-2 bg-white/5 border border-white/10 rounded-lg text-[10px] font-black uppercase tracking-widest hover:bg-white/10 transition-all"
+                >
+                  Retry
+                </button>
+              )}
+            </div>
           </div>
         )}
       </div>
