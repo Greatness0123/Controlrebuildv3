@@ -85,14 +85,6 @@ export default function VNCViewer({ url, status = 'stopped', className, vmId }: 
     return u;
   }, [url]);
 
-  const handleRefresh = () => {
-    if (iframeRef.current) {
-      setLoading(true);
-      setError(false);
-      iframeRef.current.src = iframeRef.current.src;
-    }
-  };
-
   return (
     <div className={cn("relative group bg-background flex flex-col overflow-hidden", className)}>
 
