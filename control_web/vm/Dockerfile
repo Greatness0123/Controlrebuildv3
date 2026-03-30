@@ -35,7 +35,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && apt-get update && apt-get install -y --no-install-recommends firefox \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
-RUN pip3 install pyautogui websockets mss Pillow supabase
+RUN pip3 install pyautogui websockets mss Pillow
 
 # Create a non-root user
 RUN useradd -m -s /bin/bash controluser && echo "controluser:control" | chpasswd && adduser controluser sudo
