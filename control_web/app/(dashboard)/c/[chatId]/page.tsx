@@ -322,6 +322,7 @@ export default function ChatSessionPage() {
                     key={`vm-${activeVmId}`}
                     url={activeVm?.instance_url}
                     status={activeVm?.status}
+                    vmId={activeVmId}
                     className="flex-1"
                   />
                 ) : (

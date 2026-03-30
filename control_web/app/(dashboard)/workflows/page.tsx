@@ -93,8 +93,8 @@ export default function WorkflowsPage() {
             onClick={handleCreate}
             className="flex items-center justify-center gap-3 px-6 py-3 bg-black dark:bg-white text-white dark:text-black rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-xl hover:opacity-90 transition-all active:scale-[0.98] w-full sm:w-auto"
           >
-            <Bot size={18} />
-            AI Designer
+            <Plus size={18} />
+            New Workflow
           </button>
         </div>
 
