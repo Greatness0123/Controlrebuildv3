@@ -23,6 +23,15 @@ export default function VNCViewer({ url, status = 'stopped', className }: VNCVie
   useEffect(() => {
     setLoading(true);
     setError(false);
+
+    // Safety timeout for loading spinner
+    // If the iframe doesn't trigger onLoad within 12 seconds,
+    // we stop showing the loader so the user can see if there's a partial error or just slow loading
+    const timer = setTimeout(() => {
+      setLoading(false);
+    }, 12000);
+
+    return () => clearTimeout(timer);
   }, [url, status]);
 
   const handleRefresh = () => {
