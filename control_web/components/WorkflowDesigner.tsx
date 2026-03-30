@@ -482,6 +482,16 @@ Example:
           <div className="hidden sm:block w-px h-6 bg-border mx-1" />
 
           <div className="flex gap-1.5 shrink-0">
+            <button
+              onClick={() => {
+                navigator.clipboard.writeText(JSON.stringify(workflow, null, 2));
+                toast.success('Workflow JSON copied');
+              }}
+              className="p-2 bg-secondary border border-border text-text-muted hover:text-foreground rounded-xl transition-all"
+              title="Copy Workflow JSON"
+            >
+              <Copy size={16} />
+            </button>
             <button onClick={handleExport} className="p-2 bg-secondary border border-border text-text-muted hover:text-foreground rounded-xl transition-all" title="Export Workflow"><Download size={16} /></button>
             <button onClick={handleImportClick} className="p-2 bg-secondary border border-border text-text-muted hover:text-foreground rounded-xl transition-all" title="Import Workflow"><Upload size={16} /></button>
           </div>

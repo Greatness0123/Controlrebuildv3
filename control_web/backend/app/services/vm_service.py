@@ -2,6 +2,7 @@ import docker
 import random
 import logging
 import asyncio
+import uuid
 from datetime import datetime, timezone
 from typing import Optional
 from supabase import Client
@@ -47,6 +48,8 @@ class VMService:
         agent_port = self._get_free_port(8080)
 
         try:
+            vm_id = str(uuid.uuid4())
+            from app.config import SUPABASE_URL, SUPABASE_ANON_KEY
             container = self.docker_client.containers.run(
                 VM_IMAGE_NAME,
                 detach=True,
@@ -61,6 +64,9 @@ class VMService:
                     "VNC_PASSWORD": "",
                     "AUTOLOGIN": "yes",
                     "USER": "controluser",
+                    "SUPABASE_URL": SUPABASE_URL,
+                    "SUPABASE_KEY": SUPABASE_ANON_KEY,
+                    "VM_ID": vm_id,
                 },
                 mem_limit="2g",
                 cpu_period=100000,
@@ -73,6 +79,7 @@ class VMService:
             )
 
             vm_data = {
+                "id": vm_id,
                 "user_id": user_id,
                 "name": name,
                 "status": "running",
