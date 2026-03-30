@@ -27,6 +27,7 @@ export default function VNCViewer({ url, status = 'stopped', className, vmId }: 
     if (!url || typeof window === 'undefined') return;
 
     // Dynamically import noVNC for SSR compatibility
+    // @ts-ignore
     const { default: RFB } = await import('@novnc/novnc/lib/rfb');
 
     if (rfbRef.current) {
