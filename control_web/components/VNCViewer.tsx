@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState, useMemo } from 'react';
-import { Maximize2, RefreshCcw, Power, Shield, Loader2, MonitorOff } from 'lucide-react';
+import { useEffect, useRef, useState, useMemo, useCallback } from 'react';
+import { Maximize2, RefreshCcw, Power, Shield, Loader2, MonitorOff, Settings } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
@@ -19,33 +19,102 @@ interface VNCViewerProps {
 export default function VNCViewer({ url, status = 'stopped', className, vmId }: VNCViewerProps) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
-  const iframeRef = useRef<HTMLIFrameElement>(null);
+  const [errorMessage, setErrorMessage] = useState('');
+  const containerRef = useRef<HTMLDivElement>(null);
+  const rfbRef = useRef<any>(null);
+
+  const connect = useCallback(async () => {
+    if (!url || typeof window === 'undefined') return;
+
+    // Dynamically import noVNC for SSR compatibility
+    const { default: RFB } = await import('@novnc/novnc/lib/rfb');
+
+    if (rfbRef.current) {
+        rfbRef.current.disconnect();
+        rfbRef.current = null;
+    }
+
+    try {
+        setLoading(true);
+        setError(false);
+        setErrorMessage('');
+
+        // Parse URL components for RFB connection
+        // Format: http://host:port/vnc.html -> host:port
+        const urlObj = new URL(url);
+        const host = urlObj.hostname;
+        const port = parseInt(urlObj.port) || (urlObj.protocol === 'https:' ? 443 : 80);
+
+        // Browsers block raw TCP. We need to connect via WebSocket.
+        // If the URL is http, we use ws. If https, we use wss.
+        const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const wsUrl = `${wsProtocol}//${host}:${port}/websockify`;
+
+        console.log(`[VNC] Connecting to ${wsUrl}`);
+
+        const rfb = new RFB(containerRef.current, wsUrl, {
+            credentials: { password: '' }
+        });
+
+        rfb.scaleViewport = true;
+        rfb.resizeSession = true;
+        rfb.showDotCursor = true;
+        rfb.background = '#09090b';
+
+        rfb.addEventListener('connect', () => {
+            console.log('[VNC] Connected');
+            setLoading(false);
+            setError(false);
+        });
+
+        rfb.addEventListener('disconnect', (e: any) => {
+            console.log('[VNC] Disconnected', e.detail);
+            if (e.detail.clean === false) {
+                setError(true);
+                setErrorMessage('Connection lost unexpectedly');
+            }
+            setLoading(false);
+        });
+
+        rfb.addEventListener('credentialsrequired', () => {
+            console.log('[VNC] Credentials required');
+            rfb.sendCredentials({ password: '' });
+        });
+
+        rfb.addEventListener('securityfailure', (e: any) => {
+            console.error('[VNC] Security failure', e.detail);
+            setError(true);
+            setErrorMessage(`Security Failure: ${e.detail.reason}`);
+            setLoading(false);
+        });
+
+        rfbRef.current = rfb;
+    } catch (err: any) {
+        console.error('[VNC] Setup error', err);
+        setError(true);
+        setErrorMessage(err.message || 'Failed to initialize VNC client');
+        setLoading(false);
+    }
+  }, [url]);
 
   useEffect(() => {
-    setLoading(true);
-    setError(false);
-
-    // Safety timeout to hide spinner if loading is slow or blocked
-    const timer = setTimeout(() => {
-      setLoading(false);
-    }, 12000);
-
-    return () => clearTimeout(timer);
-  }, [url, status]);
+    if (status === 'running') {
+        // Short delay to ensure DOM is ready
+        const timer = setTimeout(connect, 500);
+        return () => {
+            clearTimeout(timer);
+            if (rfbRef.current) rfbRef.current.disconnect();
+        };
+    }
+  }, [status, connect]);
 
   const handleRefresh = () => {
-    if (iframeRef.current) {
-      setLoading(true);
-      setError(false);
-      iframeRef.current.src = iframeRef.current.src;
-    }
+    connect();
   };
 
   const toggleFullscreen = () => {
-    if (iframeRef.current) {
-      if (iframeRef.current.requestFullscreen) {
-        iframeRef.current.requestFullscreen();
-      }
+    if (containerRef.current?.requestFullscreen) {
+        containerRef.current.requestFullscreen();
     }
   };
 
@@ -73,31 +142,20 @@ export default function VNCViewer({ url, status = 'stopped', className, vmId }: 
     );
   }
 
-  const finalUrl = useMemo(() => {
-    if (!url) return null;
-    let u = url.includes('/vnc.html') ? url : `${url.endsWith('/') ? url : url + '/'}vnc.html?resize=scale&autoconnect=true&reconnect=true`;
-
-    // Check if we are in a production/HTTPS environment but trying to load an HTTP iframe
-    if (typeof window !== 'undefined' && window.location.protocol === 'https:' && u.startsWith('http:')) {
-      console.warn("Attempting to load HTTP VNC in an HTTPS environment. This may be blocked by the browser.");
-    }
-
-    return u;
-  }, [url]);
-
   return (
-    <div className={cn("relative group bg-background flex flex-col overflow-hidden", className)}>
+    <div className={cn("relative group bg-zinc-950 flex flex-col overflow-hidden", className)}>
 
+      {/* Controls Overlay */}
       <div className="absolute top-2 right-2 flex items-center gap-1.5 z-40 opacity-40 hover:opacity-100 transition-opacity">
           <div className="flex items-center gap-1 bg-black/80 backdrop-blur rounded-lg px-2 py-1 border border-white/10">
-              <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-              <span className="text-[8px] font-black text-white/50 uppercase tracking-tighter">Live VNC</span>
+              <div className={cn("w-1.5 h-1.5 rounded-full animate-pulse", error ? "bg-red-500" : "bg-emerald-500")} />
+              <span className="text-[8px] font-black text-white/50 uppercase tracking-tighter">Native RFB</span>
           </div>
 
           <button 
             onClick={handleRefresh}
             className="w-7 h-7 bg-black/80 backdrop-blur border border-white/10 rounded-lg flex items-center justify-center text-white/50 hover:text-white transition-colors"
-            title="Refresh"
+            title="Reconnect"
           >
             <RefreshCcw size={12} />
           </button>
@@ -111,57 +169,50 @@ export default function VNCViewer({ url, status = 'stopped', className, vmId }: 
           </button>
       </div>
 
-      <div className="flex-1 relative overflow-hidden bg-zinc-900">
-        {finalUrl ? (
-          <div className="absolute inset-0 w-full h-full">
-            <iframe
-              ref={iframeRef}
-              src={finalUrl}
-              className={cn(
-                "w-full h-full border-none overflow-hidden transition-opacity duration-500",
-                loading ? "opacity-0" : "opacity-100"
-              )}
-              onLoad={() => setLoading(false)}
-              onError={() => {
-                setError(true);
-                setLoading(false);
-              }}
-              allow="fullscreen"
-            />
-            {loading && (
-              <div className="absolute inset-0 flex flex-col items-center justify-center bg-zinc-900 gap-3">
-                <Loader2 size={32} className="animate-spin text-accent-primary" />
-                <span className="text-[10px] font-black text-white/50 uppercase tracking-widest">Connecting to display...</span>
-              </div>
-            )}
-          </div>
-        ) : (
-          <div className="absolute inset-0 flex items-center justify-center text-zinc-800 text-xs italic">
-            No connection URL provided
+      <div className="flex-1 relative overflow-hidden flex items-center justify-center min-h-0">
+        <div
+          ref={containerRef}
+          className="w-full h-full flex items-center justify-center"
+          style={{ cursor: loading ? 'wait' : 'default' }}
+        />
+
+        {loading && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center bg-zinc-950/80 backdrop-blur-sm gap-3 z-30">
+            <Loader2 size={32} className="animate-spin text-accent-primary" />
+            <span className="text-[10px] font-black text-white/50 uppercase tracking-widest animate-pulse">Establishing Bridge...</span>
           </div>
         )}
 
         {error && (
-          <div className="absolute inset-0 bg-zinc-950 flex flex-col items-center justify-center gap-4 text-center p-6">
-            <div className="w-12 h-12 bg-red-500/10 rounded-full flex items-center justify-center">
+          <div className="absolute inset-0 bg-zinc-950 flex flex-col items-center justify-center gap-4 text-center p-6 z-50">
+            <div className="w-12 h-12 bg-red-500/10 rounded-full flex items-center justify-center border border-red-500/20">
               <Power size={24} className="text-red-500" />
             </div>
-            <div>
-              <h3 className="text-sm font-bold text-white mb-1">Connection Failed</h3>
-              <p className="text-xs text-zinc-500">Could not connect to the remote display service.</p>
+            <div className="max-w-[300px]">
+              <h3 className="text-sm font-bold text-white mb-1">Bridge Connection Failed</h3>
+              <p className="text-[10px] text-zinc-500 leading-relaxed mb-1">{errorMessage}</p>
+              <p className="text-[9px] text-zinc-600 italic">Verify the machine is reachable and websockify is running on the proxy port.</p>
             </div>
-            <button
-              onClick={handleRefresh}
-              className="px-4 py-2 bg-white/5 border border-white/10 rounded-lg text-xs font-bold hover:bg-white/10 transition-all"
-            >
-              Retry Connection
-            </button>
+            <div className="flex gap-2">
+                <button
+                  onClick={handleRefresh}
+                  className="px-6 py-2 bg-white text-black rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-zinc-200 transition-all shadow-xl"
+                >
+                  Retry Connection
+                </button>
+                <button
+                   onClick={() => window.open(url, '_blank')}
+                   className="px-6 py-2 bg-white/5 border border-white/10 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-white/10 transition-all"
+                >
+                    External Viewer
+                </button>
+            </div>
           </div>
         )}
       </div>
 
-      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 px-3 py-1.5 bg-zinc-900/80 backdrop-blur border border-white/10 rounded-full text-[9px] text-zinc-400 font-medium opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
-        Use mouse and keyboard to interact directly
+      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 px-3 py-1.5 bg-zinc-900/80 backdrop-blur border border-white/10 rounded-full text-[9px] text-zinc-400 font-medium opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-30">
+        Direct RFB Bridge via WebSocket
       </div>
     </div>
   );
