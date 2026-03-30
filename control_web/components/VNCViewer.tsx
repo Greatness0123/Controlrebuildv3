@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, useMemo, useCallback } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import { Maximize2, RefreshCcw, Power, Shield, Loader2, MonitorOff, Settings } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';

@@ -8,6 +8,14 @@ const nextConfig = {
       },
     ];
   },
+  webpack: (config) => {
+    config.experiments = {
+      ...config.experiments,
+      topLevelAwait: true,
+    };
+    return config;
+  },
+  transpilePackages: ['@novnc/novnc'],
 };
 
 export default nextConfig;
