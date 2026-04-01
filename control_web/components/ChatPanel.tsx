@@ -472,21 +472,26 @@ export default function ChatPanel({ sessionId }: ChatPanelProps) {
 /* ─── Message Bubble ─── */
 function MessageBubble({ msg }: { msg: any }) {
   const isUser = msg.role === 'user';
-  const isAction = msg.role === 'action';
+  const isAction = msg.role === 'action' || (msg.role === 'assistant' && msg.action_type);
 
   if (isAction) {
     const actionIcon = getActionIcon(msg.action_type);
     return (
-      <div className="flex items-start gap-3 px-1">
-        <div className="w-8 h-8 rounded-xl bg-card border border-border flex items-center justify-center shrink-0">
+      <div className="flex items-start gap-3 px-1 my-2">
+        <div className="w-10 h-10 rounded-2xl bg-secondary border border-border flex items-center justify-center shrink-0 shadow-sm">
           {actionIcon}
         </div>
-        <div className="flex-1 min-w-0 bg-card border border-border rounded-xl px-3 py-2">
-          <div className="text-xs text-text-secondary font-medium items-center flex gap-2 justify-between">
-            <span className="font-bold text-foreground text-[11px] uppercase tracking-wider">{formatActionType(msg.action_type)}</span>
-            <div className="h-1.5 w-1.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]" />
+        <div className="flex-1 min-w-0 bg-secondary/50 border border-border rounded-2xl px-4 py-3 hover:bg-secondary transition-colors">
+          <div className="text-xs text-text-secondary font-medium items-center flex gap-2 justify-between mb-1">
+            <div className="flex items-center gap-2">
+              <span className="font-black text-foreground text-[10px] uppercase tracking-[0.15em]">{formatActionType(msg.action_type)}</span>
+              <span className="text-[9px] text-text-muted font-bold uppercase tracking-widest px-1.5 py-0.5 bg-border/30 rounded">Executed</span>
+            </div>
+            <div className="h-1.5 w-1.5 rounded-full bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.4)] animate-pulse" />
           </div>
-          <div className="text-text-muted text-[11px] mt-1 line-clamp-1">{msg.content}</div>
+          <div className="text-text-secondary text-[11px] font-medium font-mono truncate bg-background/50 px-2 py-1 rounded border border-border/50">
+            {msg.content || (msg.action_data ? JSON.stringify(msg.action_data) : 'Performing action...')}
+          </div>
         </div>
       </div>
     );
@@ -494,9 +499,9 @@ function MessageBubble({ msg }: { msg: any }) {
 
   if (isUser) {
     return (
-      <div className="flex flex-col items-end">
-        <div className="max-w-[85%] text-sm p-4 rounded-2xl rounded-tr-sm bg-accent-primary/10 text-foreground break-words border border-accent-primary/20">
-          <div className="prose prose-sm max-w-none dark:prose-invert">
+      <div className="flex flex-col items-end my-2">
+        <div className="max-w-[85%] text-[13px] p-4 rounded-3xl rounded-tr-lg bg-accent-primary/5 text-foreground break-words border border-accent-primary/10 shadow-sm">
+          <div className="prose prose-sm max-w-none dark:prose-invert prose-p:leading-relaxed">
             <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.content}</ReactMarkdown>
           </div>
         </div>
@@ -506,8 +511,12 @@ function MessageBubble({ msg }: { msg: any }) {
 
   if (msg.is_thought) {
     return (
-      <div className="flex flex-col items-start px-1 opacity-60">
-        <div className="max-w-[90%] text-[11px] px-3 py-2 rounded-xl bg-secondary border border-border italic text-text-secondary leading-relaxed">
+      <div className="flex flex-col items-start px-1 my-3 group">
+        <div className="flex items-center gap-2 mb-1.5 ml-1 opacity-40 group-hover:opacity-100 transition-opacity">
+           <Sparkles size={12} className="text-accent-primary" />
+           <span className="text-[9px] font-black uppercase tracking-[0.2em] text-text-muted">AI Reasoning</span>
+        </div>
+        <div className="max-w-[90%] text-[11px] px-4 py-3 rounded-2xl bg-secondary/30 border border-border/50 italic text-text-secondary leading-relaxed backdrop-blur-sm">
           {msg.content}
         </div>
       </div>
@@ -516,9 +525,9 @@ function MessageBubble({ msg }: { msg: any }) {
 
   // Assistant message
   return (
-    <div className="flex flex-col items-start">
-      <div className="max-w-[95%] text-sm px-1 py-1 break-words leading-relaxed text-foreground">
-        <div className="prose prose-sm max-w-none dark:prose-invert">
+    <div className="flex flex-col items-start my-2">
+      <div className="max-w-[95%] text-[14px] px-2 py-1 break-words leading-relaxed text-foreground">
+        <div className="prose prose-sm max-w-none dark:prose-invert prose-p:leading-relaxed prose-pre:bg-secondary prose-pre:border prose-pre:border-border prose-pre:rounded-2xl">
           <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.content}</ReactMarkdown>
         </div>
       </div>

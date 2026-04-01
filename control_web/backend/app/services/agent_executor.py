@@ -55,6 +55,8 @@ RULES:
 7. Be autonomous — complete the full task without asking for permission unless absolutely necessary.
 8. When using TERMINAL for VM, commands run in the VM's bash shell.
 9. When using TERMINAL for Remote Desktop, commands run on the user's machine.
+10. If the 'Target Status' is not 'running' (for VM) or 'paired' (for Remote Desktop), or if no target is selected, do NOT attempt any actions. Instead, alert the user and explain that the machine is offline or unassigned.
+11. For simple greetings (e.g., "HI", "Hello") or casual questions that do NOT require computer control, respond naturally in plain text/markdown without generating a JSON action. Do NOT perform unnecessary computer control loops for greetings.
 
 SECURE VAULT:
 - SECRET_LOOKUP(service_name) — Search for saved credentials (username/metadata). Does NOT show passwords.
@@ -479,12 +481,6 @@ class AgentExecutor:
 
         provider_config = await self._get_provider_config(db, user_id)
 
-        if not session_id.startswith("wf_gen_"):
-            db.table("chat_messages").insert({
-                "session_id": session_id,
-                "role": "user",
-                "content": user_message,
-            }).execute()
 
         try:
             session = db.table("chat_sessions").select("title").eq("id", session_id).execute()
@@ -515,8 +511,20 @@ class AgentExecutor:
                 except:
                     pass
 
+            target_status = "Unknown"
+            if vm_data:
+                target_status = vm_data.get("status", "Unknown")
+            elif device_id:
+                try:
+                    dev_res = db.table("paired_devices").select("status").eq("id", device_id).execute()
+                    if dev_res.data:
+                        target_status = dev_res.data[0].get("status", "Unknown")
+                except:
+                    pass
+
             initial_msg = (
                 f"Target: {target_name}\n"
+                f"Target Status: {target_status}\n"
                 f"Mode: {'VM' if vm_data else 'Remote Desktop' if device_id else 'Chat Only'}\n"
                 f"Task: {user_message}"
             )
