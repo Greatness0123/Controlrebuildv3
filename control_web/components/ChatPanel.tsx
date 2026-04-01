@@ -237,10 +237,15 @@ export default function ChatPanel({ sessionId }: ChatPanelProps) {
       for await (const event of stream) {
         if (event.type === 'message' || event.type === 'thought') {
           const isThought = event.type === 'thought';
-          const msgId = isThought ? (currentThoughtMessageId || Math.random().toString()) : (currentAssistantMessageId || Math.random().toString());
+          let msgId: string;
 
-          if (isThought) currentThoughtMessageId = msgId;
-          else currentAssistantMessageId = msgId;
+          if (isThought) {
+            msgId = currentThoughtMessageId || Math.random().toString();
+            currentThoughtMessageId = msgId;
+          } else {
+            msgId = currentAssistantMessageId || Math.random().toString();
+            currentAssistantMessageId = msgId;
+          }
 
           const existingMessages = useChatStore.getState().messages;
           if (existingMessages.find(m => m.id === msgId)) {
