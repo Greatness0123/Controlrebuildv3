@@ -143,7 +143,7 @@ export default function VMCard({ vm }: { vm: any }) {
                 "px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-[0.2em] border transition-all",
                 vm.status === 'running' ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-500" : "bg-card border-border text-text-muted"
             )}>
-                {vm.status}
+                {vm.status === 'running' ? 'Online' : vm.status === 'stopped' ? 'Offline' : vm.status}
             </div>
           </div>
         </div>

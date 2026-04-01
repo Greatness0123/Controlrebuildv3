@@ -41,6 +41,8 @@ export default function ChatPanel({ sessionId }: ChatPanelProps) {
   const [attachedFile, setAttachedFile] = useState<{ url: string; name: string; type: string } | null>(null);
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const inputRef = useRef(input);
+  useEffect(() => { inputRef.current = input; }, [input]);
 
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -91,9 +93,13 @@ export default function ChatPanel({ sessionId }: ChatPanelProps) {
 
         recognition.onend = () => {
           if (isListening) {
-             try { recognition.start(); } catch (e) { console.error("Mic restart error", e); setIsListening(false); }
-          } else {
-             setIsListening(false);
+             try {
+                transcriptBeforeListening.current = inputRef.current;
+                recognition.start();
+             } catch (e) {
+                console.error("Mic restart error", e);
+                setIsListening(false);
+             }
           }
         };
 
@@ -251,6 +257,18 @@ export default function ChatPanel({ sessionId }: ChatPanelProps) {
             } as any);
           }
         } else if (event.type === 'action') {
+          // Update last assistant message if it's currently streaming thought/message
+          // Or just add the action message
+          addMessage({
+            id: Math.random().toString(),
+            session_id: sessionId,
+            role: 'action',
+            content: `Executing ${event.action}...`,
+            action_type: event.action,
+            action_data: event.params,
+            created_at: new Date().toISOString()
+          } as any);
+
           if (event.action === 'HITL') {
             setHitlRequired(true);
             addMessage({
@@ -258,16 +276,6 @@ export default function ChatPanel({ sessionId }: ChatPanelProps) {
               session_id: sessionId,
               role: 'assistant',
               content: `🔐 Human assistance needed: ${event.params?.reason || 'Please perform the requested action on the screen.'}`,
-              created_at: new Date().toISOString()
-            } as any);
-          } else {
-            addMessage({
-              id: Math.random().toString(),
-              session_id: sessionId,
-              role: 'action',
-              content: `Executing ${event.action}...`,
-              action_type: event.action,
-              action_data: event.params,
               created_at: new Date().toISOString()
             } as any);
           }

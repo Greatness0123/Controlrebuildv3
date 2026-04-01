@@ -127,8 +127,8 @@ export default function PairPage() {
                     <div className="min-w-0">
                       <h4 className="text-sm font-bold text-foreground truncate">{device.name || 'Unnamed Device'}</h4>
                       <div className="flex items-center gap-2 mt-0.5">
-                        <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                        <span className="text-[10px] font-bold text-emerald-500 uppercase tracking-widest">Active</span>
+                        <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)] animate-pulse" />
+                        <span className="text-[10px] font-bold text-emerald-500 uppercase tracking-widest">Online</span>
                       </div>
                     </div>
                   </div>
@@ -161,7 +161,10 @@ export default function PairPage() {
                     </div>
                     <div className="min-w-0">
                       <h4 className="text-sm font-bold text-text-secondary truncate">{device.name || 'Unnamed Device'}</h4>
-                      <span className="text-[10px] font-bold text-text-muted uppercase tracking-widest">Revoked</span>
+                      <div className="flex items-center gap-2 mt-0.5">
+                        <div className="w-1.5 h-1.5 rounded-full bg-red-500/50" />
+                        <span className="text-[10px] font-bold text-text-muted uppercase tracking-widest">Offline</span>
+                      </div>
                     </div>
                   </div>
                   <button
