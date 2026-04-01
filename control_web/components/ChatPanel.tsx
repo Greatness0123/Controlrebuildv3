@@ -65,23 +65,36 @@ export default function ChatPanel({ sessionId }: ChatPanelProps) {
           const base = transcriptBeforeListening.current.trim();
           const separator = base ? ' ' : '';
 
-          let fullSessionTranscript = '';
+          let sessionFinal = '';
+          let sessionInterim = '';
+
           for (let i = 0; i < event.results.length; i++) {
-              fullSessionTranscript += event.results[i][0].transcript;
+            if (event.results[i].isFinal) {
+              sessionFinal += event.results[i][0].transcript;
+            } else {
+              sessionInterim += event.results[i][0].transcript;
+            }
           }
 
-          setInput((base + separator + fullSessionTranscript).trim());
+          const currentFullText = (base + separator + sessionFinal + sessionInterim).trim();
+          setInput(currentFullText);
         };
 
         recognition.onerror = (event: any) => {
           console.error('Speech recognition error:', event.error);
-          setIsListening(false);
+          if (event.error === 'no-speech' || event.error === 'audio-capture' || event.error === 'not-allowed') {
+              setIsListening(false);
+          }
           const errorMsg = event.error === 'network' ? 'Network error: Speech service is unavailable.' : `Speech error: ${event.error}`;
-          toast.error(errorMsg);
+          if (event.error !== 'no-speech') toast.error(errorMsg);
         };
 
         recognition.onend = () => {
-          setIsListening(false);
+          if (isListening) {
+             try { recognition.start(); } catch (e) { console.error("Mic restart error", e); setIsListening(false); }
+          } else {
+             setIsListening(false);
+          }
         };
 
         recognitionRef.current = recognition;
@@ -92,6 +105,7 @@ export default function ChatPanel({ sessionId }: ChatPanelProps) {
   const toggleListening = (e: React.MouseEvent) => {
     e.preventDefault();
     if (isListening) {
+      setIsListening(false);
       recognitionRef.current?.stop();
     } else {
       if (!recognitionRef.current) {
@@ -211,17 +225,31 @@ export default function ChatPanel({ sessionId }: ChatPanelProps) {
     try {
       const stream = chatApi.sendMessage(sessionId, userMsg, fileUrl, 'act');
 
+      let currentAssistantMessageId: string | null = null;
+      let currentThoughtMessageId: string | null = null;
+
       for await (const event of stream) {
         if (event.type === 'message' || event.type === 'thought') {
-          addMessage({
-            id: Math.random().toString(),
-            session_id: sessionId,
-            role: 'assistant',
-            content: event.content,
-            is_thought: event.type === 'thought',
-            is_final: event.type === 'message',
-            created_at: new Date().toISOString()
-          } as any);
+          const isThought = event.type === 'thought';
+          const msgId = isThought ? (currentThoughtMessageId || Math.random().toString()) : (currentAssistantMessageId || Math.random().toString());
+
+          if (isThought) currentThoughtMessageId = msgId;
+          else currentAssistantMessageId = msgId;
+
+          const existingMessages = useChatStore.getState().messages;
+          if (existingMessages.find(m => m.id === msgId)) {
+            setMessages(existingMessages.map(m => m.id === msgId ? { ...m, content: event.content, is_final: event.type === 'message' } : m));
+          } else {
+            addMessage({
+              id: msgId,
+              session_id: sessionId,
+              role: 'assistant',
+              content: event.content,
+              is_thought: isThought,
+              is_final: event.type === 'message',
+              created_at: new Date().toISOString()
+            } as any);
+          }
         } else if (event.type === 'action') {
           if (event.action === 'HITL') {
             setHitlRequired(true);

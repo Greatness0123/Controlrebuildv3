@@ -214,7 +214,8 @@ export default function ChatSessionPage() {
                     )})}
                     {devices.map((device) => {
                       const isSelected = activeDeviceId === device.id;
-                      const isOnline = device.status === 'paired'; // Assuming status reflects real-time presence or paired state
+                      const isOnline = device.status === 'paired';
+                      const isPending = device.status === 'pending';
                       return (
                       <button
                         key={device.id}
@@ -240,8 +241,11 @@ export default function ChatSessionPage() {
                           <div className="flex flex-col items-start">
                             <span className="text-[11px] font-bold uppercase">{device.name}</span>
                             <div className="flex items-center gap-1">
-                                <span className={cn("text-[7px] font-black uppercase tracking-tighter px-1 rounded", isOnline ? "bg-blue-500/20 text-blue-500" : "bg-zinc-500/20 text-zinc-500")}>
-                                    {isOnline ? "Paired & Active" : "Offline"}
+                                <span className={cn(
+                                  "text-[7px] font-black uppercase tracking-tighter px-1 rounded",
+                                  isOnline ? "bg-emerald-500/20 text-emerald-500" : isPending ? "bg-amber-500/20 text-amber-500" : "bg-red-500/20 text-red-500"
+                                )}>
+                                    {isOnline ? "Online" : isPending ? "Pending" : "Offline"}
                                 </span>
                             </div>
                           </div>
