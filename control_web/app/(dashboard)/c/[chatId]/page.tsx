@@ -204,9 +204,6 @@ export default function ChatSessionPage() {
                           <Cpu size={14} />
                           <div className="flex flex-col items-start">
                              <span className="text-[11px] font-bold uppercase">{vm.name}</span>
-                             <span className={cn("text-[7px] font-black uppercase tracking-tighter px-1 rounded", isRunning ? "bg-emerald-500/20 text-emerald-500" : "bg-zinc-500/20 text-zinc-500")}>
-                                {vm.status}
-                             </span>
                           </div>
                         </div>
                         {isSelected && <Check size={12} />}
@@ -214,7 +211,8 @@ export default function ChatSessionPage() {
                     )})}
                     {devices.map((device) => {
                       const isSelected = activeDeviceId === device.id;
-                      const isOnline = device.status === 'paired'; // Assuming status reflects real-time presence or paired state
+                      const isOnline = device.status === 'paired';
+                      const isPending = device.status === 'pending';
                       return (
                       <button
                         key={device.id}
@@ -239,11 +237,6 @@ export default function ChatSessionPage() {
                           <Laptop size={14} />
                           <div className="flex flex-col items-start">
                             <span className="text-[11px] font-bold uppercase">{device.name}</span>
-                            <div className="flex items-center gap-1">
-                                <span className={cn("text-[7px] font-black uppercase tracking-tighter px-1 rounded", isOnline ? "bg-blue-500/20 text-blue-500" : "bg-zinc-500/20 text-zinc-500")}>
-                                    {isOnline ? "Paired & Active" : "Offline"}
-                                </span>
-                            </div>
                           </div>
                         </div>
                         {isSelected && <Check size={12} />}

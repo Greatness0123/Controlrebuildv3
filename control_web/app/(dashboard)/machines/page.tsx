@@ -194,15 +194,15 @@ export default function MachinesPage() {
                             <div className="w-10 h-10 bg-blue-500/10 rounded-xl flex items-center justify-center border border-blue-500/20">
                               <Monitor size={18} className="text-blue-500" />
                             </div>
-                            <div className="flex items-center gap-1.5 px-2 py-1 bg-card rounded-full border border-border">
-                              <div className="w-1 h-1 rounded-full bg-blue-500" />
-                              <span className="text-[9px] font-black text-blue-500 uppercase tracking-widest">Remote</span>
+                            <div className="flex items-center gap-1.5 px-2 py-1 bg-card rounded-full border border-border shadow-sm">
+                              <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)] animate-pulse" />
+                              <span className="text-[9px] font-black text-emerald-500 uppercase tracking-widest">Online</span>
                             </div>
                           </div>
                           <div className="space-y-1 mb-6">
-                            <h3 className="text-sm font-bold group-hover:text-blue-400 transition-colors">{device.name}</h3>
+                            <h3 className="text-sm font-bold group-hover:text-emerald-400 transition-colors">{device.name}</h3>
                             <p className="text-[10px] text-text-muted font-medium font-mono uppercase tracking-tighter opacity-60">
-                              {device.status.toUpperCase()} • ID: {device.id.split('-')[0]}
+                              Remote Desktop • ID: {device.id.split('-')[0]}
                             </p>
                           </div>
                           <Link
