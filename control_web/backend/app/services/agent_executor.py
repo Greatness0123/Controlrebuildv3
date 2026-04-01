@@ -428,6 +428,13 @@ class AgentExecutor:
             # 3. Update token counts
             if tokens > 0:
                 update_data["total_token_usage"] = (user.get("total_token_usage") or 0) + tokens
+                # Maintain parity with desktop's token_usage map
+                token_usage = user.get("token_usage") or {}
+                if mode not in token_usage: token_usage[mode] = {"prompt": 0, "candidates": 0, "total": 0}
+                token_usage[mode]["prompt"] += tokens // 2
+                token_usage[mode]["candidates"] += tokens // 2
+                token_usage[mode]["total"] += tokens
+                update_data["token_usage"] = token_usage
 
             # 4. Update daily statistics (consolidated in daily_token_usage)
             daily_stats = user.get("daily_token_usage") or {}
@@ -442,6 +449,11 @@ class AgentExecutor:
 
             if tokens > 0:
                 daily_stats[today]["total"] = (daily_stats[today].get("total") or 0) + tokens
+                # Also track raw counts for desktop-web parity
+                if "prompt" not in daily_stats[today]: daily_stats[today]["prompt"] = 0
+                if "candidates" not in daily_stats[today]: daily_stats[today]["candidates"] = 0
+                daily_stats[today]["prompt"] += tokens // 2
+                daily_stats[today]["candidates"] += tokens // 2
 
             update_data["daily_token_usage"] = daily_stats
 

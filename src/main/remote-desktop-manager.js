@@ -181,6 +181,11 @@ class RemoteDesktopManager {
                 console.log('[Remote] Participant joined:', key, newPresences);
             })
             .on('broadcast', { event: 'action' }, async payload => {
+                if (payload.payload?.type === 'list_apps') {
+                    // Reuse the request_apps logic
+                    this.channel.send({ type: 'broadcast', event: 'request_apps', payload: {} });
+                    return;
+                }
                 await this.handleRemoteAction(payload.payload);
             })
             .on('broadcast', { event: 'request_stream' }, () => {
@@ -199,6 +204,32 @@ class RemoteDesktopManager {
                     event: 'workflows_list',
                     payload: { workflows }
                 });
+            })
+            .on('broadcast', { event: 'request_apps' }, async () => {
+                console.log('[Remote] App list requested by web');
+                try {
+                    let apps = [];
+                    if (process.platform === 'win32') {
+                        const stdout = await this.runPowershell(`Get-ItemProperty HKLM:\\Software\\Wow6432Node\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\*, HKLM:\\Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\* | Select-Object DisplayName | Where-Object { $_.DisplayName -ne $null } | Sort-Object DisplayName`);
+                        apps = stdout.split('\r\n').map(a => a.trim()).filter(a => a && a !== 'DisplayName' && !a.startsWith('---'));
+                    } else if (process.platform === 'darwin') {
+                        const { execSync } = require('child_process');
+                        const stdout = execSync('ls /Applications').toString();
+                        apps = stdout.split('\n').map(a => a.replace('.app', '').trim()).filter(Boolean);
+                    } else {
+                        const { execSync } = require('child_process');
+                        const stdout = execSync("find /usr/share/applications -name '*.desktop' -exec grep -h '^Name=' {} + | cut -d'=' -f2").toString();
+                        apps = stdout.split('\n').map(a => a.trim()).filter(Boolean);
+                    }
+
+                    this.channel.send({
+                        type: 'broadcast',
+                        event: 'apps_list',
+                        payload: { apps: [...new Set(apps)].sort() }
+                    });
+                } catch (err) {
+                    console.error('[Remote] Failed to fetch apps:', err);
+                }
             })
             .on('broadcast', { event: 'execute_workflow' }, async (payload) => {
                 const workflowId = payload.payload.id;

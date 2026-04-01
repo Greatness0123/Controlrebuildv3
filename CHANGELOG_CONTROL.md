@@ -52,6 +52,13 @@ All notable changes to this project will be documented in this file.
 
 ## [1.2.1] - 2024-03-27
 
+### Fixed
+- **VNC Viewer Accessibility**: Resolved a z-index conflict where the connection error overlay would block the chat header's resource selector.
+- **VNC Connection Stability**: Improved noVNC integration with automatic focus on connect and enforced secure WebSocket (wss://) protocol handling.
+- **Frontend Errors**: Fixed a missing `favicon.ico` 404 error in the browser console.
+- **Unified Billing**: Synchronized the web backend's usage tracking with the desktop app's schema, ensuring consolidated counting for `act_count`, `ask_count`, and granular token usage (`prompt`, `candidates`, `total`) across all platforms.
+- **Application Discovery**: Implemented dynamic application fetching for both VMs (local bash) and Remote Desktops (Supabase Realtime), enabling the AI and Workflow Designer to accurately reflect available software on any target.
+
 ### Changed
 - **Billing Theme (Web)**: Refined the billing dashboard to strictly adhere to the black and white color system, including theme-aware charts for both Ask/Act metrics and token consumption.
 - **Data Integration**: Standardized the backend usage tracking to consolidate daily metrics into a unified database structure for better chart performance.

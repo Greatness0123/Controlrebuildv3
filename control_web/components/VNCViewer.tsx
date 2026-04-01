@@ -31,7 +31,9 @@ export default function VNCViewer({ url, status = 'stopped', className, vmId }: 
     const { default: RFB } = await import('@novnc/novnc/lib/rfb');
 
     if (rfbRef.current) {
-        rfbRef.current.disconnect();
+        try {
+            rfbRef.current.disconnect();
+        } catch (e) {}
         rfbRef.current = null;
     }
 
@@ -41,22 +43,25 @@ export default function VNCViewer({ url, status = 'stopped', className, vmId }: 
         setErrorMessage('');
 
         // Parse URL components for RFB connection
-        // Format: http://host:port/vnc.html -> host:port
         const urlObj = new URL(url);
         const host = urlObj.hostname;
         const port = parseInt(urlObj.port) || (urlObj.protocol === 'https:' ? 443 : 80);
 
-        // Browsers block raw TCP. We need to connect via WebSocket.
-        // We prioritize the VM URL's protocol, but keep in mind Mixed Content restrictions.
-        // If the dashboard is HTTPS, we generally MUST use WSS for the browser to allow it.
-        // However, if the connection resets, it might be because the server doesn't support SSL.
-        const wsProtocol = urlObj.protocol === 'https:' ? 'wss:' : 'ws:';
+        // Mixed Content Enforcement:
+        // If dashboard is HTTPS, we MUST use WSS.
+        const isDashboardSecure = window.location.protocol === 'https:';
+        const wsProtocol = isDashboardSecure ? 'wss:' : 'ws:';
         const wsUrl = `${wsProtocol}//${host}:${port}/websockify`;
+
+        if (isDashboardSecure && wsProtocol === 'ws:') {
+             console.warn('[VNC] Secure context detected, but attempt was made to use ws://. Forcing wss://');
+        }
 
         console.log(`[VNC] Connecting to ${wsUrl} (Dashboard: ${window.location.protocol})`);
 
         const rfb = new RFB(containerRef.current, wsUrl, {
-            credentials: { password: '' }
+            credentials: { password: '' },
+            wsProtocols: ['binary']
         });
 
         rfb.scaleViewport = true;
@@ -68,6 +73,12 @@ export default function VNCViewer({ url, status = 'stopped', className, vmId }: 
             console.log('[VNC] Connected');
             setLoading(false);
             setError(false);
+            // Small delay to ensure display is ready
+            setTimeout(() => {
+                if (rfbRef.current) {
+                    rfbRef.current.focus();
+                }
+            }, 500);
         });
 
         rfb.addEventListener('disconnect', (e: any) => {
@@ -111,9 +122,16 @@ export default function VNCViewer({ url, status = 'stopped', className, vmId }: 
     }
   }, [status, connect]);
 
-  const handleRefresh = () => {
-    connect();
-  };
+  const handleRefresh = useCallback(() => {
+    setLoading(true);
+    setError(false);
+    setErrorMessage('');
+    if (rfbRef.current) {
+        try { rfbRef.current.disconnect(); } catch (e) {}
+        rfbRef.current = null;
+    }
+    setTimeout(connect, 300);
+  }, [connect]);
 
   const toggleFullscreen = () => {
     if (containerRef.current?.requestFullscreen) {
@@ -206,7 +224,7 @@ export default function VNCViewer({ url, status = 'stopped', className, vmId }: 
             </div>
             <div className="flex flex-col w-full max-w-[200px] gap-2">
                 <button
-                  onClick={handleRefresh}
+                  onClick={(e) => { e.stopPropagation(); handleRefresh(); }}
                   className="w-full py-2.5 bg-white text-black rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-zinc-200 transition-all shadow-xl"
                 >
                   Retry Bridge
@@ -221,7 +239,7 @@ export default function VNCViewer({ url, status = 'stopped', className, vmId }: 
                    onClick={() => setError(false)}
                    className="text-[9px] font-black text-zinc-600 uppercase tracking-widest hover:text-zinc-400 transition-colors mt-2"
                 >
-                    Dismiss Overlay
+                    Dismiss
                 </button>
             </div>
           </div>
