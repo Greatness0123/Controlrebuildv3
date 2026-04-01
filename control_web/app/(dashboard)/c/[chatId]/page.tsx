@@ -204,9 +204,6 @@ export default function ChatSessionPage() {
                           <Cpu size={14} />
                           <div className="flex flex-col items-start">
                              <span className="text-[11px] font-bold uppercase">{vm.name}</span>
-                             <span className={cn("text-[7px] font-black uppercase tracking-tighter px-1 rounded", isRunning ? "bg-emerald-500/20 text-emerald-500" : "bg-zinc-500/20 text-zinc-500")}>
-                                {vm.status}
-                             </span>
                           </div>
                         </div>
                         {isSelected && <Check size={12} />}
@@ -240,14 +237,6 @@ export default function ChatSessionPage() {
                           <Laptop size={14} />
                           <div className="flex flex-col items-start">
                             <span className="text-[11px] font-bold uppercase">{device.name}</span>
-                            <div className="flex items-center gap-1">
-                                <span className={cn(
-                                  "text-[7px] font-black uppercase tracking-tighter px-1 rounded",
-                                  isOnline ? "bg-emerald-500/20 text-emerald-500" : isPending ? "bg-amber-500/20 text-amber-500" : "bg-red-500/20 text-red-500"
-                                )}>
-                                    {isOnline ? "Online" : isPending ? "Pending" : "Offline"}
-                                </span>
-                            </div>
                           </div>
                         </div>
                         {isSelected && <Check size={12} />}
