@@ -807,18 +807,27 @@ function NodeElement({ node, onMouseDown, onPortMouseDown, onPortMouseUp, onDele
           <textarea value={node.data.value} onChange={e => onUpdate({ value: e.target.value })} placeholder="Describe task..." className="w-full bg-secondary border border-border rounded-lg p-2 text-[11px] focus:outline-none focus:border-accent-primary/50 resize-none min-h-[60px]" />
         ) : node.type === 'start_time' ? (
           <input type="time" value={node.data.value} onChange={e => onUpdate({ value: e.target.value })} className="w-full bg-secondary border border-border rounded-lg p-2 text-[11px] focus:outline-none" />
-        ) : node.type === 'app' && apps.length > 0 ? (
-          <select
-            value={node.data.value}
-            onChange={e => onUpdate({ value: e.target.value })}
-            className="w-full bg-secondary border border-border rounded-lg p-2 text-[11px] focus:outline-none appearance-none cursor-pointer"
-          >
-            <option value="">Select App...</option>
-            {apps.map(app => (
-              <option key={app} value={app}>{app}</option>
-            ))}
-            <option value="custom">Custom...</option>
-          </select>
+        ) : node.type === 'app' ? (
+          <div className="space-y-1">
+            {apps.length > 0 && (
+              <select
+                value={apps.includes(node.data.value) ? node.data.value : ""}
+                onChange={e => onUpdate({ value: e.target.value })}
+                className="w-full bg-secondary border border-border rounded-lg p-2 text-[11px] focus:outline-none appearance-none cursor-pointer"
+              >
+                <option value="">Discovered Apps...</option>
+                {apps.map(app => (
+                  <option key={app} value={app}>{app}</option>
+                ))}
+              </select>
+            )}
+            <input
+              value={node.data.value}
+              onChange={e => onUpdate({ value: e.target.value })}
+              placeholder="Application name..."
+              className="w-full bg-secondary border border-border rounded-lg p-2 text-[11px] focus:outline-none"
+            />
+          </div>
         ) : (
           <input value={node.data.value} onChange={e => onUpdate({ value: e.target.value })} placeholder="Value..." className="w-full bg-secondary border border-border rounded-lg p-2 text-[11px] focus:outline-none" />
         )}

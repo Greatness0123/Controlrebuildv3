@@ -175,11 +175,13 @@ export default function ChatSessionPage() {
                 <div className="p-3">
                   <h4 className="text-[10px] font-black text-text-muted uppercase tracking-[0.2em] mb-3">Available Resources</h4>
                   <div className="space-y-1">
-                    {vms.filter(v => v.status === 'running').map((vm) => {
+                    {vms.map((vm) => {
                       const isSelected = activeVmId === vm.id && !activeDeviceId;
+                      const isRunning = vm.status === 'running';
                       return (
                       <button
                         key={vm.id}
+                        disabled={!isRunning}
                         onClick={async () => {
                           const oldSessions = [...sessions];
                           setSessions(sessions.map(s => s.id === chatId ? { ...s, vm_id: vm.id, device_id: undefined } : s));
@@ -194,18 +196,25 @@ export default function ChatSessionPage() {
                         }}
                         className={cn(
                           "w-full flex items-center justify-between p-3 rounded-xl transition-all",
-                          isSelected ? "bg-accent-primary text-accent-foreground" : "hover:bg-card-hover text-text-secondary"
+                          isSelected ? "bg-accent-primary text-accent-foreground" : "hover:bg-card-hover text-text-secondary",
+                          !isRunning && "opacity-40 cursor-not-allowed grayscale"
                         )}
                       >
                         <div className="flex items-center gap-3">
                           <Cpu size={14} />
-                          <span className="text-[11px] font-bold uppercase">{vm.name}</span>
+                          <div className="flex flex-col items-start">
+                             <span className="text-[11px] font-bold uppercase">{vm.name}</span>
+                             <span className={cn("text-[7px] font-black uppercase tracking-tighter px-1 rounded", isRunning ? "bg-emerald-500/20 text-emerald-500" : "bg-zinc-500/20 text-zinc-500")}>
+                                {vm.status}
+                             </span>
+                          </div>
                         </div>
                         {isSelected && <Check size={12} />}
                       </button>
                     )})}
-                    {devices.filter(d => d.status === 'paired').map((device) => {
+                    {devices.map((device) => {
                       const isSelected = activeDeviceId === device.id;
+                      const isOnline = device.status === 'paired'; // Assuming status reflects real-time presence or paired state
                       return (
                       <button
                         key={device.id}
@@ -230,7 +239,11 @@ export default function ChatSessionPage() {
                           <Laptop size={14} />
                           <div className="flex flex-col items-start">
                             <span className="text-[11px] font-bold uppercase">{device.name}</span>
-                            <span className="text-[8px] opacity-50 font-black uppercase tracking-tighter">Your Paired Device</span>
+                            <div className="flex items-center gap-1">
+                                <span className={cn("text-[7px] font-black uppercase tracking-tighter px-1 rounded", isOnline ? "bg-blue-500/20 text-blue-500" : "bg-zinc-500/20 text-zinc-500")}>
+                                    {isOnline ? "Paired & Active" : "Offline"}
+                                </span>
+                            </div>
                           </div>
                         </div>
                         {isSelected && <Check size={12} />}
