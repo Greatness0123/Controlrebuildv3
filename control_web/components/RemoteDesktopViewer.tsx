@@ -21,6 +21,7 @@ export default function RemoteDesktopViewer({ deviceId, className }: RemoteDeskt
   const [lastUpdate, setLastUpdate] = useState<number>(0);
   const [isMobile, setIsMobile] = useState(false);
   const [workflows, setWorkflows] = useState<any[]>([]);
+  const [apps, setApps] = useState<string[]>([]);
   const [showWorkflows, setShowWorkflows] = useState(false);
   const channelRef = useRef<any>(null);
   const isJoinedRef = useRef(false);
@@ -120,6 +121,11 @@ export default function RemoteDesktopViewer({ deviceId, className }: RemoteDeskt
            setWorkflows(payload.payload.workflows);
         }
       })
+      .on('broadcast', { event: 'apps_list' }, (payload) => {
+        if (payload.payload?.apps) {
+           setApps(payload.payload.apps);
+        }
+      })
       .subscribe(async (subStatus, err) => {
         console.log(`[Remote] Subscription status: ${subStatus}`);
         if (err) console.error('[Remote] Subscription error:', err);
@@ -144,6 +150,11 @@ export default function RemoteDesktopViewer({ deviceId, className }: RemoteDeskt
               channel.send({
                 type: 'broadcast',
                 event: 'request_workflows',
+                payload: {}
+              });
+              channel.send({
+                type: 'broadcast',
+                event: 'request_apps',
                 payload: {}
               });
             }

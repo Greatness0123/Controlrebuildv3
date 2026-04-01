@@ -171,18 +171,18 @@ export default function BillingPage() {
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <SummaryCard
-          title="ACT COUNT"
-          value={userData?.act_count?.toString() || "0"}
-          subtitle={`Limit: ${currentLimits.act === 999999 ? '∞' : currentLimits.act}`}
-          unit="actions"
+          title="TOTAL USAGE"
+          value={((userData?.act_count || 0) + (userData?.ask_count || 0)).toString()}
+          subtitle="Merged Act + Ask"
+          unit="interactions"
           icon={<Activity className="w-4 h-4" />}
           color="rose"
         />
         <SummaryCard
-          title="ASK COUNT"
-          value={userData?.ask_count?.toString() || "0"}
-          subtitle={`Limit: ${currentLimits.ask === 999999 ? '∞' : currentLimits.ask}`}
-          unit="queries"
+          title="ACT / ASK"
+          value={`${userData?.act_count || 0} / ${userData?.ask_count || 0}`}
+          subtitle={`Limits: ${currentLimits.act === 999999 ? '∞' : currentLimits.act} / ${currentLimits.ask === 999999 ? '∞' : currentLimits.ask}`}
+          unit=""
           icon={<Users className="w-4 h-4" />}
           color="emerald"
         />

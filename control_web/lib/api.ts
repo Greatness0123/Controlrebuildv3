@@ -32,6 +32,7 @@ export const vmApi = {
   stop: (id: string) => apiFetch<{ vm: any }>(`/api/vm/${id}/stop`, { method: 'POST' }),
   destroy: (id: string) => apiFetch<{ success: boolean }>(`/api/vm/${id}`, { method: 'DELETE' }),
   stats: (id: string) => apiFetch<{ stats: any }>(`/api/vm/${id}/stats`),
+  apps: (id: string) => apiFetch<{ apps: string[] }>(`/api/vm/${id}/apps`),
 };
 
 export const chatApi = {

@@ -36,6 +36,9 @@ TERMINAL:
 - TERMINAL(command) — Execute a terminal/shell command on the target machine
 - TERMINAL_READ() — Read recent terminal output
 
+APPLICATIONS:
+- LIST_APPS() — Fetch a list of installed applications on the target machine. Use this to know what software is available.
+
 HUMAN IN THE LOOP:
 - HITL(reason) — Pause and ask user to perform a sensitive action (e.g., enter credentials). User will click "Done" when finished.
 
@@ -680,11 +683,18 @@ class AgentExecutor:
                     elif device_id:
 
                         try:
-                            db.channel(f"remote_control:{device_id}").send({
-                                "type": "broadcast",
-                                "event": "action",
-                                "payload": {"type": "screenshot"}
-                            })
+                            # Realtime broadcast from server to client
+                            import asyncio
+                            from app.auth import get_async_service_client
+
+                            async def send_and_cleanup():
+                                adb = await get_async_service_client()
+                                channel = adb.channel(f"remote_control:{device_id}")
+                                await channel.subscribe()
+                                await channel.send_broadcast("action", {"type": "screenshot"})
+                                await adb.remove_channel(channel)
+
+                            asyncio.create_task(send_and_cleanup())
                             action_result = "Screenshot requested from desktop."
                         except Exception as e:
                             action_result = f"Screenshot request failed: {e}"
@@ -698,6 +708,33 @@ class AgentExecutor:
                         action_result = f"Page content from {url}:\n{content}"
                     else:
                         action_result = "No URL provided."
+
+                elif action == "LIST_APPS":
+                    if final_agent_port:
+                        # Linux VM: Search for .desktop files
+                        cmd = "find /usr/share/applications /home/controluser/.local/share/applications -name '*.desktop' -exec grep -l 'Exec=' {} + | xargs grep -h '^Name=' | cut -d'=' -f2 | sort -u"
+                        result = await _execute_vm_action(final_agent_port, "terminal", {"command": cmd})
+                        apps = result.get("data", {}).get("output", "") if isinstance(result, dict) else str(result)
+                        action_result = f"Installed Applications:\n{apps}"
+                    elif device_id:
+                        # Desktop: Send broadcast to request apps
+                        try:
+                            import asyncio
+                            from app.auth import get_async_service_client
+
+                            async def send_and_cleanup():
+                                adb = await get_async_service_client()
+                                channel = adb.channel(f"remote_control:{device_id}")
+                                await channel.subscribe()
+                                await channel.send_broadcast("action", {"type": "list_apps"})
+                                await adb.remove_channel(channel)
+
+                            asyncio.create_task(send_and_cleanup())
+                            action_result = "Application list requested from desktop. Please wait for the response in the next turn if not immediately available."
+                        except Exception as e:
+                            action_result = f"Error: {e}"
+                    else:
+                        action_result = "No target connected."
 
                 elif action == "TERMINAL":
                     command = params.get("command", "")
@@ -749,11 +786,17 @@ class AgentExecutor:
                     
                     elif device_id:
                         try:
-                            db.channel(f"remote_control:{device_id}").send({
-                                "type": "broadcast",
-                                "event": "action",
-                                "payload": {"type": action_lower, **params}
-                            })
+                            import asyncio
+                            from app.auth import get_async_service_client
+
+                            async def send_and_cleanup():
+                                adb = await get_async_service_client()
+                                channel = adb.channel(f"remote_control:{device_id}")
+                                await channel.subscribe()
+                                await channel.send_broadcast("action", {"type": action_lower, **params})
+                                await adb.remove_channel(channel)
+
+                            asyncio.create_task(send_and_cleanup())
                             action_result = f"Action '{action}' sent to remote desktop."
                         except Exception as e:
                             action_result = f"Error dispatching action: {e}"
