@@ -20,6 +20,11 @@ def get_service_client():
         _service_client = create_client(SUPABASE_URL, key)
     return _service_client
 
+async def get_async_service_client():
+    from supabase import acreate_client
+    key = SUPABASE_SERVICE_KEY if SUPABASE_SERVICE_KEY else SUPABASE_ANON_KEY
+    return await acreate_client(SUPABASE_URL, key)
+
 async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)):
 
     token = credentials.credentials

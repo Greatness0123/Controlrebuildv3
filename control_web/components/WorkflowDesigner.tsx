@@ -10,7 +10,7 @@ import {
   Monitor, Copy, FileJson
 } from 'lucide-react';
 import { useAuthStore, useVMStore, useDeviceStore } from '@/lib/store';
-import { workflowApi, chatApi } from '@/lib/api';
+import { workflowApi, chatApi, vmApi } from '@/lib/api';
 import { toast } from 'sonner';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -68,6 +68,7 @@ export default function WorkflowDesigner({ initialWorkflow, onSave, onClose }: W
     steps: []
   });
 
+  const [availableApps, setAvailableApps] = useState<string[]>([]);
   const [activeView, setActiveView] = useState<'node' | 'list'>('node');
   const [targetMachine, setTargetMachine] = useState<{ id: string; type: 'vm' | 'device' } | null>(null);
   const [scale, setScale] = useState(1);
@@ -247,6 +248,33 @@ export default function WorkflowDesigner({ initialWorkflow, onSave, onClose }: W
     input.click();
   };
 
+  useEffect(() => {
+    async function fetchApps() {
+      if (!targetMachine) {
+        setAvailableApps([]);
+        return;
+      }
+      try {
+        if (targetMachine.type === 'vm') {
+           const res = await vmApi.apps(targetMachine.id);
+           if (res.apps && res.apps.length > 0) {
+              setAvailableApps(res.apps);
+           } else {
+              setAvailableApps(['Firefox', 'Terminal', 'Text Editor', 'File Manager', 'Calculator']);
+           }
+        } else {
+           // For devices, apps are fetched via broadcast in RemoteDesktopViewer.
+           // In a real app, we might store this in a global DeviceStore or fetch from a DB cache.
+           setAvailableApps(['Browser', 'Terminal', 'Settings', 'Notes']);
+        }
+      } catch (err) {
+        console.error("Failed to fetch apps:", err);
+        setAvailableApps(['Firefox', 'Terminal', 'Text Editor', 'File Manager', 'Calculator']);
+      }
+    }
+    fetchApps();
+  }, [targetMachine]);
+
   const handleAiSend = async () => {
     if (!aiInput.trim() || isAiStreaming) return;
 
@@ -265,6 +293,8 @@ Workflows consist of 'nodes' and 'edges'.
 Node types: 'start_time', 'start_keyword', 'app', 'file', 'web_search', 'nl_task'.
 Node structure: { id: string, type: string, position: { x: number, y: number }, data: { value: string, description: string } }
 Edge structure: { id: string, source: string, target: string }
+
+AVAILABLE APPLICATIONS: ${availableApps.join(', ')}
 
 When asked to create or modify a workflow, always provide the complete JSON representation of the new workflow nodes and edges inside a markdown code block tagged with 'json'.
 Example:
@@ -549,6 +579,7 @@ Example:
                     onPortMouseUp={(type: 'out' | 'in') => handlePortMouseUp(node.id, type)}
                     onDelete={() => deleteNode(node.id)}
                     onUpdate={(data: any) => updateNodeData(node.id, data)}
+                    apps={availableApps}
                   />
                 ))}
               </div>
@@ -722,7 +753,7 @@ Example:
   );
 }
 
-function NodeElement({ node, onMouseDown, onPortMouseDown, onPortMouseUp, onDelete, onUpdate }: any) {
+function NodeElement({ node, onMouseDown, onPortMouseDown, onPortMouseUp, onDelete, onUpdate, apps = [] }: { node: Node; onMouseDown: any; onPortMouseDown: any; onPortMouseUp: any; onDelete: any; onUpdate: any; apps?: string[] }) {
   return (
     <div className="absolute w-[160px] sm:w-[200px] bg-card border border-border rounded-2xl shadow-xl transition-shadow hover:shadow-2xl z-10 overflow-visible"
       style={{ left: node.position.x, top: node.position.y }}
@@ -741,6 +772,18 @@ function NodeElement({ node, onMouseDown, onPortMouseDown, onPortMouseUp, onDele
           <textarea value={node.data.value} onChange={e => onUpdate({ value: e.target.value })} placeholder="Describe task..." className="w-full bg-secondary border border-border rounded-lg p-2 text-[11px] focus:outline-none focus:border-accent-primary/50 resize-none min-h-[60px]" />
         ) : node.type === 'start_time' ? (
           <input type="time" value={node.data.value} onChange={e => onUpdate({ value: e.target.value })} className="w-full bg-secondary border border-border rounded-lg p-2 text-[11px] focus:outline-none" />
+        ) : node.type === 'app' && apps.length > 0 ? (
+          <select
+            value={node.data.value}
+            onChange={e => onUpdate({ value: e.target.value })}
+            className="w-full bg-secondary border border-border rounded-lg p-2 text-[11px] focus:outline-none appearance-none cursor-pointer"
+          >
+            <option value="">Select App...</option>
+            {apps.map(app => (
+              <option key={app} value={app}>{app}</option>
+            ))}
+            <option value="custom">Custom...</option>
+          </select>
         ) : (
           <input value={node.data.value} onChange={e => onUpdate({ value: e.target.value })} placeholder="Value..." className="w-full bg-secondary border border-border rounded-lg p-2 text-[11px] focus:outline-none" />
         )}

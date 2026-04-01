@@ -251,6 +251,28 @@ class VMService:
         except Exception as e:
             logger.error(f"Failed to update VM activity: {e}")
 
+    async def get_vm_apps(self, db: Client, vm_id: str, user_id: str) -> list:
+
+        vm = db.table("virtual_machines").select("*").eq("id", vm_id).eq("user_id", user_id).execute()
+        if not vm.data:
+            raise ValueError("VM not found")
+
+        if not self.docker_client:
+            return []
+
+        try:
+            container = self.docker_client.containers.get(vm.data[0]["container_id"])
+            # Command to list application names from .desktop files
+            cmd = "find /usr/share/applications /home/controluser/.local/share/applications -name '*.desktop' -exec grep -l 'Exec=' {} + | xargs grep -h '^Name=' | cut -d'=' -f2 | sort -u"
+            res = container.exec_run(cmd, user="controluser")
+            if res.exit_code == 0:
+                apps = res.output.decode().strip().split('\n')
+                return [a.strip() for a in apps if a.strip()]
+            return []
+        except Exception as e:
+            logger.error(f"Failed to get VM apps: {e}")
+            return []
+
     async def cleanup_inactive_vms(self, db: Client):
 
         try:

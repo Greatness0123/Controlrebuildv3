@@ -62,3 +62,12 @@ async def get_vm_stats(vm_id: str, user: dict = Depends(get_current_user)):
     
     stats = await vm_service.get_vm_stats(vm_id, vm.data[0].get("container_id", ""))
     return {"stats": stats}
+
+@router.get("/{vm_id}/apps")
+async def get_vm_apps(vm_id: str, user: dict = Depends(get_current_user)):
+    db = get_service_client()
+    try:
+        apps = await vm_service.get_vm_apps(db, vm_id, user["id"])
+        return {"apps": apps}
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
