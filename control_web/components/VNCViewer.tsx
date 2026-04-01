@@ -73,6 +73,12 @@ export default function VNCViewer({ url, status = 'stopped', className, vmId }: 
             console.log('[VNC] Connected');
             setLoading(false);
             setError(false);
+            // Small delay to ensure display is ready
+            setTimeout(() => {
+                if (rfbRef.current) {
+                    rfbRef.current.focus();
+                }
+            }, 500);
         });
 
         rfb.addEventListener('disconnect', (e: any) => {

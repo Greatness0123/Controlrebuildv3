@@ -120,7 +120,7 @@ export default function ChatSessionPage() {
       {modal}
       <div className="flex-1 flex flex-col min-h-0 bg-background text-foreground">
 
-        <header className="h-14 flex items-center justify-between px-4 border-b border-border bg-secondary shrink-0 relative z-30">
+        <header className="h-14 flex items-center justify-between px-4 border-b border-border bg-secondary shrink-0 relative z-[100]">
           <div className="flex items-center gap-4 min-w-0">
             <div className="flex items-center gap-2">
                <div className={cn(
