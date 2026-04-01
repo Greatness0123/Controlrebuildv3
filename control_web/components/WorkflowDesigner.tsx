@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import { useAuthStore, useVMStore, useDeviceStore } from '@/lib/store';
 import { workflowApi, chatApi, vmApi } from '@/lib/api';
+import { getSupabaseClient } from '@/lib/supabase';
 import { toast } from 'sonner';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -249,11 +250,16 @@ export default function WorkflowDesigner({ initialWorkflow, onSave, onClose }: W
   };
 
   useEffect(() => {
+    let channel: any = null;
+
     async function fetchApps() {
       if (!targetMachine) {
         setAvailableApps([]);
         return;
       }
+
+      setAvailableApps([]);
+
       try {
         if (targetMachine.type === 'vm') {
            const res = await vmApi.apps(targetMachine.id);
@@ -263,16 +269,45 @@ export default function WorkflowDesigner({ initialWorkflow, onSave, onClose }: W
               setAvailableApps(['Firefox', 'Terminal', 'Text Editor', 'File Manager', 'Calculator']);
            }
         } else {
-           // For devices, apps are fetched via broadcast in RemoteDesktopViewer.
-           // In a real app, we might store this in a global DeviceStore or fetch from a DB cache.
-           setAvailableApps(['Browser', 'Terminal', 'Settings', 'Notes']);
+           // Realtime fetching for Remote Desktop apps
+           const supabase = getSupabaseClient();
+           const channelName = `remote_control:${targetMachine.id}`;
+           channel = supabase.channel(channelName);
+
+           channel
+             .on('broadcast', { event: 'apps_list' }, (payload: any) => {
+               if (payload.payload?.apps) {
+                 setAvailableApps(payload.payload.apps);
+               }
+             })
+             .subscribe((status: string) => {
+               if (status === 'SUBSCRIBED') {
+                 channel.send({
+                   type: 'broadcast',
+                   event: 'request_apps',
+                   payload: {}
+                 });
+               }
+             });
+
+           // Fallback apps if broadcast takes too long
+           setTimeout(() => {
+             setAvailableApps(prev => prev.length > 0 ? prev : ['Browser', 'Terminal', 'Settings', 'Notes']);
+           }, 5000);
         }
       } catch (err) {
         console.error("Failed to fetch apps:", err);
         setAvailableApps(['Firefox', 'Terminal', 'Text Editor', 'File Manager', 'Calculator']);
       }
     }
+
     fetchApps();
+
+    return () => {
+      if (channel) {
+        channel.unsubscribe();
+      }
+    };
   }, [targetMachine]);
 
   const handleAiSend = async () => {
