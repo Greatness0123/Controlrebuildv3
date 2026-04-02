@@ -49,12 +49,12 @@ export default function VNCViewer({ url, status = 'stopped', className, vmId }: 
         const isDashboardSecure = window.location.protocol === 'https:';
         const wsProtocol = isDashboardSecure ? 'wss:' : 'ws:';
 
-        if (isDashboardSecure && vmId) {
-            // ── PRODUCTION PATH ──────────────────────────────────────────
-            // Route through backend WebSocket proxy at /api/vm/{vmId}/ws
-            // This goes through the same origin as the dashboard (same HTTPS),
-            // then the Next.js rewrite forwards it to the FastAPI backend,
-            // which proxies to the VM container's websockify internally.
+        if (vmId) {
+            // ── PROXY PATH (production + localhost) ─────────────────────
+            // Connect directly to the backend's WebSocket proxy endpoint.
+            // The backend URL is converted: http→ws, https→wss.
+            // On Vercel (HTTPS), the backend MUST also be behind HTTPS
+            // (e.g. via Caddy on the Azure VM) so we get wss://.
             const token = await getAccessToken();
             if (!token) {
                 setError(true);
@@ -62,11 +62,22 @@ export default function VNCViewer({ url, status = 'stopped', className, vmId }: 
                 setLoading(false);
                 return;
             }
-            wsUrl = `${wsProtocol}//${window.location.host}/api/vm/${vmId}/ws?token=${encodeURIComponent(token)}`;
+
+            // Derive WebSocket URL from the backend HTTP URL
+            const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || '';
+            let wsBase: string;
+            if (backendUrl) {
+                // Convert http(s):// to ws(s)://
+                wsBase = backendUrl.replace(/^http/, 'ws');
+            } else {
+                // Fallback: same origin (works for self-hosted Next.js)
+                wsBase = `${wsProtocol}//${window.location.host}`;
+            }
+            wsUrl = `${wsBase}/api/vm/${vmId}/ws?token=${encodeURIComponent(token)}`;
             console.log(`[VNC] Connecting via proxy: ${wsUrl.replace(/token=[^&]+/, 'token=***')}`);
         } else if (url) {
-            // ── LOCALHOST / DIRECT PATH ──────────────────────────────────
-            // On localhost (HTTP), connect directly to the VM's websockify
+            // ── DIRECT PATH (legacy fallback) ───────────────────────────
+            // Connect directly to the VM's websockify port
             const urlObj = new URL(url);
             const host = urlObj.hostname;
             const port = parseInt(urlObj.port) || (urlObj.protocol === 'https:' ? 443 : 80);

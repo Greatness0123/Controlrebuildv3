@@ -44,7 +44,8 @@ app.add_middleware(
         FRONTEND_URL,
         "http://localhost:3000",
         "http://127.0.0.1:3000",
-        "http://20.164.16.171:3000"
+        "http://20.164.16.171:3000",
+        "https://control-website.vercel.app",
     ],
     allow_origin_regex="https?://.*",
     allow_credentials=True,
