@@ -428,14 +428,14 @@ export default function ChatPanel({ sessionId }: ChatPanelProps) {
 
 
       {/* ── Target Selector ────────────────────────────────────── */}
-      <TargetSelector
+      {/* <TargetSelector
         sessionId={sessionId}
         activeTarget={activeTarget}
         vms={vms}
         devices={devices}
         sessions={sessions}
         setSessions={setSessions}
-      />
+      /> */}
 
       <div className="p-4 border-t border-border bg-secondary pb-[calc(1rem+env(safe-area-inset-bottom))]">
         <div className="max-w-4xl mx-auto flex flex-col gap-2">
@@ -592,160 +592,21 @@ function formatActionType(type: string): string {
   return type.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
 }
 
-/* ─── Target Selector ─── */
-interface TargetSelectorProps {
-  sessionId: string;
-  activeTarget: { type: string; id: string; name: string } | null;
-  vms: any[];
-  devices: any[];
-  sessions: any[];
-  setSessions: (sessions: any[]) => void;
+function getActionIcon(type: string) {
+  const size = 10;
+  switch (type?.toLowerCase()) {
+    case 'click':
+    case 'double_click':
+    case 'right_click': return <MousePointer2 size={size} className="text-blue-500" />;
+    case 'type':
+    case 'keyboard': return <Type size={size} className="text-emerald-500" />;
+    case 'terminal': return <Terminal size={size} className="text-green-500" />;
+    case 'screenshot': return <Camera size={size} className="text-purple-500" />;
+    case 'scroll': return <ArrowDown size={size} className="text-orange-500" />;
+    case 'search':
+    case 'find': return <Search size={size} className="text-cyan-500" />;
+    case 'browser_navigate':
+    case 'browser_get_content': return <Globe size={size} className="text-cyan-500" />;
+    default: return <Cog size={size} className="text-text-muted" />;
+  }
 }
-
-function TargetSelector({ sessionId, activeTarget, vms, devices, sessions, setSessions }: TargetSelectorProps) {
-  const [open, setOpen] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-
-  // Close on outside click
-  useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
-    };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, []);
-
-  const selectTarget = async (type: 'vm' | 'device' | null, id: string | null) => {
-    setOpen(false);
-    setSaving(true);
-    try {
-      const update = type === 'vm'
-        ? { vm_id: id, device_id: null }
-        : type === 'device'
-          ? { vm_id: null, device_id: id }
-          : { vm_id: null, device_id: null };
-
-      await chatApi.update(sessionId, update);
-
-      // Optimistic local update
-      setSessions(sessions.map(s =>
-        s.id === sessionId ? { ...s, ...update } : s
-      ));
-      toast.success(id ? `Target set` : 'Target cleared');
-    } catch {
-      toast.error('Failed to update target');
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const runningVMs = vms.filter(v => v.status === 'running');
-  const onlineDevices = devices.filter(d => d.status === 'paired' || d.status === 'online');
-
-  return (
-    <div className="px-4 pb-2 border-b border-border bg-secondary" ref={ref}>
-      <div className="max-w-4xl mx-auto flex items-center gap-2">
-        <span className="text-[9px] font-black uppercase tracking-widest text-text-muted shrink-0">Target</span>
-
-        {/* Current target pill / trigger */}
-        <button
-          onClick={() => setOpen(o => !o)}
-          disabled={saving}
-          className={cn(
-            "flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-semibold border transition-all",
-            activeTarget
-              ? activeTarget.type === 'vm'
-                ? "bg-blue-500/10 border-blue-500/30 text-blue-400 hover:bg-blue-500/20"
-                : "bg-emerald-500/10 border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/20"
-              : "bg-card border-border text-text-muted hover:border-text-muted"
-          )}
-        >
-          {saving ? (
-            <Loader2 size={10} className="animate-spin" />
-          ) : activeTarget ? (
-            activeTarget.type === 'vm' ? <Cpu size={10} /> : <Laptop size={10} />
-          ) : (
-            <ChevronDown size={10} />
-          )}
-          <span className="max-w-[140px] truncate">
-            {activeTarget ? activeTarget.name : 'No target'}
-          </span>
-          <ChevronDown size={10} className={cn("transition-transform shrink-0", open && "rotate-180")} />
-        </button>
-
-        {/* Dropdown */}
-        {open && (
-          <div className="absolute bottom-[calc(100%+4px)] left-4 right-4 max-w-xs bg-card border border-border rounded-2xl shadow-2xl z-50 overflow-hidden animate-in fade-in slide-in-from-bottom-2 duration-150">
-            <div className="p-1">
-              {/* VMs */}
-              {runningVMs.length > 0 && (
-                <>
-                  <p className="text-[9px] font-black uppercase tracking-widest text-text-muted px-3 pt-2 pb-1">Virtual Machines</p>
-                  {runningVMs.map(vm => (
-                    <button
-                      key={vm.id}
-                      onClick={() => selectTarget('vm', vm.id)}
-                      className={cn(
-                        "w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-[12px] text-left transition-colors",
-                        activeTarget?.id === vm.id
-                          ? "bg-blue-500/10 text-blue-400"
-                          : "text-foreground hover:bg-secondary"
-                      )}
-                    >
-                      <Cpu size={12} className="text-blue-400 shrink-0" />
-                      <span className="flex-1 truncate font-medium">{vm.name}</span>
-                      {activeTarget?.id === vm.id && <Check size={12} className="text-blue-400 shrink-0" />}
-                    </button>
-                  ))}
-                </>
-              )}
-
-              {/* Devices */}
-              {onlineDevices.length > 0 && (
-                <>
-                  <p className="text-[9px] font-black uppercase tracking-widest text-text-muted px-3 pt-2 pb-1">Paired Devices</p>
-                  {onlineDevices.map(device => (
-                    <button
-                      key={device.id}
-                      onClick={() => selectTarget('device', device.id)}
-                      className={cn(
-                        "w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-[12px] text-left transition-colors",
-                        activeTarget?.id === device.id
-                          ? "bg-emerald-500/10 text-emerald-400"
-                          : "text-foreground hover:bg-secondary"
-                      )}
-                    >
-                      <Laptop size={12} className="text-emerald-400 shrink-0" />
-                      <span className="flex-1 truncate font-medium">{device.name}</span>
-                      {activeTarget?.id === device.id && <Check size={12} className="text-emerald-400 shrink-0" />}
-                    </button>
-                  ))}
-                </>
-              )}
-
-              {runningVMs.length === 0 && onlineDevices.length === 0 && (
-                <p className="text-[11px] text-text-muted px-3 py-3">No running VMs or online devices</p>
-              )}
-
-              {/* Clear */}
-              {activeTarget && (
-                <>
-                  <div className="h-px bg-border mx-2 my-1" />
-                  <button
-                    onClick={() => selectTarget(null, null)}
-                    className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-[12px] text-text-muted hover:bg-secondary transition-colors text-left"
-                  >
-                    <X size={12} className="shrink-0" />
-                    Clear target
-                  </button>
-                </>
-              )}
-            </div>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
