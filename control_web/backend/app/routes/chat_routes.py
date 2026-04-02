@@ -105,17 +105,27 @@ async def send_message(
             "virtual_machines": None
         }
     else:
-        session = db.table("chat_sessions").select("*, virtual_machines(*)")\
+        session = db.table("chat_sessions").select("*")\
             .eq("id", session_id)\
             .execute()
         if not session.data or session.data[0]["user_id"] != user["id"]:
             raise HTTPException(status_code=404, detail="Session not found")
         session_data = session.data[0]
 
+        # Explicitly look up VM data using vm_id — don't rely on the Supabase
+        # FK join which requires the relationship to be declared in the schema.
+        vm_id = session_data.get("vm_id")
+        if vm_id:
+            vm_res = db.table("virtual_machines").select("*").eq("id", vm_id).execute()
+            session_data["virtual_machines"] = vm_res.data[0] if vm_res.data else None
+        else:
+            session_data["virtual_machines"] = None
+
     session_data["user_id"] = user["id"]
 
     if session_data.get("vm_id"):
         await vm_service.update_activity(db, session_data["vm_id"])
+
 
     message = req.message
     if req.file_url:

@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import os
 from fastapi import APIRouter, Depends, HTTPException, WebSocket, WebSocketDisconnect, Query
 from pydantic import BaseModel
 from supabase import create_client
@@ -7,6 +8,12 @@ from app.auth import get_current_user, get_service_client, get_supabase_client
 from app.services.vm_service import vm_service
 
 logger = logging.getLogger(__name__)
+
+# When running inside Docker, 'localhost' refers to the container itself.
+# VM container ports are mapped to the HOST machine's network interface.
+# Use DOCKER_HOST_IP env var (set in docker-compose) to reach host ports,
+# falling back to the standard Linux Docker bridge gateway address.
+DOCKER_HOST_IP = os.getenv("DOCKER_HOST_IP", "172.17.0.1")
 
 router = APIRouter(prefix="/api/vm", tags=["Virtual Machines"])
 
@@ -132,8 +139,10 @@ async def vnc_ws_proxy(websocket: WebSocket, vm_id: str, token: str = Query(defa
     await websocket.accept(subprotocol="binary")
 
     # --- Connect to the VM's websockify ---
+    # IMPORTANT: must use the Docker host IP, not localhost.
+    # The VM containers' ports are mapped to the HOST, not to this container.
     import websockets
-    target_url = f"ws://localhost:{novnc_port}/websockify"
+    target_url = f"ws://{DOCKER_HOST_IP}:{novnc_port}/websockify"
     logger.info(f"[VNC-WS] Proxying {vm_id} to {target_url}")
 
     try:

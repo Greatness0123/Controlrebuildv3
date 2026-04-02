@@ -39,6 +39,12 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock
     env_file:
       - ./backend/.env
+    environment:
+      # Allows backend container to connect to ports on the Docker host (where VM containers are mapped)
+      - DOCKER_HOST_IP=172.17.0.1
+    # On Linux, adds host.docker.internal -> host-gateway so the container can reach host ports
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     restart: always
     networks:
       - control-net

@@ -2,6 +2,7 @@ import json
 import asyncio
 import logging
 import base64
+import os
 import aiohttp
 import websockets
 from datetime import datetime, timezone
@@ -11,6 +12,11 @@ from bs4 import BeautifulSoup
 from app.config import GEMINI_API_KEY
 
 logger = logging.getLogger(__name__)
+
+# When running inside Docker, 127.0.0.1 is the container's own loopback.
+# VM container ports are mapped to the HOST machine.
+# Use DOCKER_HOST_IP env var (set in docker-compose) to reach host ports.
+DOCKER_HOST_IP = os.getenv("DOCKER_HOST_IP", "172.17.0.1")
 
 ACT_SYSTEM_PROMPT = """You are Control AI, an autonomous agent that controls a virtual computer or paired remote desktop to complete tasks for the user.
 
@@ -247,7 +253,7 @@ async def _take_screenshot_vm(agent_port: Optional[int]) -> Optional[str]:
     if not agent_port: return None
     import websockets
     try:
-        async with websockets.connect(f"ws://127.0.0.1:{agent_port}", open_timeout=5) as ws:
+        async with websockets.connect(f"ws://{DOCKER_HOST_IP}:{agent_port}", open_timeout=5) as ws:
             await ws.send(json.dumps({"type": "command", "data": {"command": "screenshot", "parameters": {}}}))
             response = await asyncio.wait_for(ws.recv(), timeout=15.0)
             if not isinstance(response, str): return None
@@ -262,7 +268,7 @@ async def _execute_vm_action(agent_port: Optional[int], action: str, params: Dic
     if not agent_port: return {"error": "No agent port"}
     import websockets
     try:
-        async with websockets.connect(f"ws://127.0.0.1:{agent_port}", open_timeout=5) as ws:
+        async with websockets.connect(f"ws://{DOCKER_HOST_IP}:{agent_port}", open_timeout=5) as ws:
 
             cmd_map = {
                 "click": "click", "double_click": "double_click", "right_click": "right_click",
