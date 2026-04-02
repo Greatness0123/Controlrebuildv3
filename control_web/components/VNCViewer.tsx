@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import { Maximize2, RefreshCcw, Power, Shield, Loader2, MonitorOff, Settings } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
+import { getAccessToken } from '@/lib/supabase';
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -24,7 +25,9 @@ export default function VNCViewer({ url, status = 'stopped', className, vmId }: 
   const rfbRef = useRef<any>(null);
 
   const connect = useCallback(async () => {
-    if (!url || typeof window === 'undefined') return;
+    if (typeof window === 'undefined') return;
+    // We need either a vmId (to use the proxy) or a url (direct connection)
+    if (!vmId && !url) return;
 
     // Dynamically import noVNC for SSR compatibility
     // @ts-ignore
@@ -42,22 +45,39 @@ export default function VNCViewer({ url, status = 'stopped', className, vmId }: 
         setError(false);
         setErrorMessage('');
 
-        // Parse URL components for RFB connection
-        const urlObj = new URL(url);
-        const host = urlObj.hostname;
-        const port = parseInt(urlObj.port) || (urlObj.protocol === 'https:' ? 443 : 80);
-
-        // Mixed Content Enforcement:
-        // If dashboard is HTTPS, we MUST use WSS.
+        let wsUrl: string;
         const isDashboardSecure = window.location.protocol === 'https:';
         const wsProtocol = isDashboardSecure ? 'wss:' : 'ws:';
-        const wsUrl = `${wsProtocol}//${host}:${port}/websockify`;
 
-        if (isDashboardSecure && wsProtocol === 'ws:') {
-             console.warn('[VNC] Secure context detected, but attempt was made to use ws://. Forcing wss://');
+        if (isDashboardSecure && vmId) {
+            // ── PRODUCTION PATH ──────────────────────────────────────────
+            // Route through backend WebSocket proxy at /api/vm/{vmId}/ws
+            // This goes through the same origin as the dashboard (same HTTPS),
+            // then the Next.js rewrite forwards it to the FastAPI backend,
+            // which proxies to the VM container's websockify internally.
+            const token = await getAccessToken();
+            if (!token) {
+                setError(true);
+                setErrorMessage('Not authenticated — please log in again');
+                setLoading(false);
+                return;
+            }
+            wsUrl = `${wsProtocol}//${window.location.host}/api/vm/${vmId}/ws?token=${encodeURIComponent(token)}`;
+            console.log(`[VNC] Connecting via proxy: ${wsUrl.replace(/token=[^&]+/, 'token=***')}`);
+        } else if (url) {
+            // ── LOCALHOST / DIRECT PATH ──────────────────────────────────
+            // On localhost (HTTP), connect directly to the VM's websockify
+            const urlObj = new URL(url);
+            const host = urlObj.hostname;
+            const port = parseInt(urlObj.port) || (urlObj.protocol === 'https:' ? 443 : 80);
+            wsUrl = `${wsProtocol}//${host}:${port}/websockify`;
+            console.log(`[VNC] Connecting directly to ${wsUrl}`);
+        } else {
+            setError(true);
+            setErrorMessage('No connection target available');
+            setLoading(false);
+            return;
         }
-
-        console.log(`[VNC] Connecting to ${wsUrl} (Dashboard: ${window.location.protocol})`);
 
         const rfb = new RFB(containerRef.current, wsUrl, {
             credentials: { password: '' },
@@ -109,7 +129,7 @@ export default function VNCViewer({ url, status = 'stopped', className, vmId }: 
         setErrorMessage(err.message || 'Failed to initialize VNC client');
         setLoading(false);
     }
-  }, [url]);
+  }, [url, vmId]);
 
   useEffect(() => {
     if (status === 'running') {
