@@ -17,6 +17,8 @@ module.exports = {
         },
         extend: {
             fontFamily: {
+                sans: ['Roboto', 'sans-serif'],
+                roboto: ['Roboto', 'sans-serif'],
                 walter: ['"Walter Turncoat"', 'cursive'],
             },
             colors: {

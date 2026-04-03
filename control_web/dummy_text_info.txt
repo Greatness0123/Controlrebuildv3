@@ -1,0 +1,11 @@
+# Areas for Custom Text in Control Web
+
+The following sections currently use placeholder or research-based text. Please provide your preferred wording for these specific areas:
+
+1. **Hero Section Tagline**: Currently "Your Computer, Controlled by Conversation."
+2. **Company Mission Statement**: In the "Why Control" section.
+3. **Specific Testimonials**: If you have real user quotes, they should replace the "Real-world impact" summaries.
+4. **Detailed Pricing/Plans**: If you have specific pricing tiers (e.g., Free, Pro, Enterprise), let me know.
+5. **Detailed "About Us"**: Currently using a summarized version of pdf4.
+6. **Career/Job Postings**: If the company is actively hiring, specific roles are needed.
+7. **Detailed Documentation Links**: If you have a separate docs site, provide the base URL.

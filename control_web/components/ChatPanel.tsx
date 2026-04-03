@@ -10,8 +10,9 @@ import {
   Sparkles, AlertCircle, Cpu, Laptop, ChevronDown, Check, Paperclip,
   HandMetal, Square, PlayCircle, PauseCircle, MousePointer,
   X, FileText, Image as ImageIcon, ShieldAlert, Command, ChevronRight, ChevronLeft,
-  Mic, MicOff, Cog, Search, Type, ArrowDown, Globe
+  Mic, MicOff, Cog, Search, Type, ArrowDown, Globe, Zap
 } from 'lucide-react';
+
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { clsx, type ClassValue } from 'clsx';
@@ -40,8 +41,26 @@ export default function ChatPanel({ sessionId }: ChatPanelProps) {
 
   const [attachedFile, setAttachedFile] = useState<{ url: string; name: string; type: string } | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [mode, setMode] = useState<'ask' | 'act'>('act');
+  const [isModeOpen, setIsModeOpen] = useState(false);
+  
   const fileInputRef = useRef<HTMLInputElement>(null);
   const inputRef = useRef(input);
+
+  // Persistence for mode
+  useEffect(() => {
+    const savedMode = localStorage.getItem('chat_mode');
+    if (savedMode === 'ask' || savedMode === 'act') {
+      setMode(savedMode);
+    }
+  }, []);
+
+  const changeMode = (newMode: 'ask' | 'act') => {
+    setMode(newMode);
+    localStorage.setItem('chat_mode', newMode);
+    setIsModeOpen(false);
+  };
+
   useEffect(() => { inputRef.current = input; }, [input]);
 
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -229,7 +248,8 @@ export default function ChatPanel({ sessionId }: ChatPanelProps) {
     } as any);
 
     try {
-      const stream = chatApi.sendMessage(sessionId, userMsg, fileUrl, 'act');
+      const stream = chatApi.sendMessage(sessionId, userMsg, fileUrl, mode);
+
 
       let currentAssistantMessageId: string | null = null;
       let currentThoughtMessageId: string | null = null;
@@ -302,7 +322,28 @@ export default function ChatPanel({ sessionId }: ChatPanelProps) {
             content: `🖥️ The AI wants to run a terminal command on your device. Please approve or deny.`,
             created_at: new Date().toISOString()
           } as any);
+        } else if (event.type === 'stream') {
+          // Continuous streaming for ASK mode
+          const sMsgId: string = currentAssistantMessageId || Math.random().toString();
+          currentAssistantMessageId = sMsgId;
+
+          
+          const existingMessages = useChatStore.getState().messages;
+          const target = existingMessages.find(m => m.id === sMsgId);
+          if (target) {
+            setMessages(existingMessages.map(m => m.id === sMsgId ? { ...m, content: m.content + event.content } : m));
+          } else {
+            addMessage({
+              id: sMsgId,
+              session_id: sessionId,
+              role: 'assistant',
+              content: event.content,
+              created_at: new Date().toISOString()
+            } as any);
+          }
+
         } else if (event.type === 'error') {
+
           setError(event.content);
         }
       }
@@ -476,6 +517,48 @@ export default function ChatPanel({ sessionId }: ChatPanelProps) {
               {isListening ? <MicOff size={18} /> : <Mic size={18} />}
             </button>
 
+            {/* Mode Toggle */}
+            <div className="relative mb-1">
+              <button
+                type="button"
+                onClick={() => setIsModeOpen(!isModeOpen)}
+                className={cn(
+                  "p-2.5 rounded-lg transition-all flex items-center justify-center gap-2 border border-transparent",
+                  mode === 'act' ? "text-accent-primary" : "text-emerald-500"
+                )}
+                title={mode === 'act' ? "Act Mode (Computer Automation)" : "Ask Mode (QA & Reasoning)"}
+              >
+                {mode === 'act' ? <Zap size={18} /> : <Bot size={18} />}
+              </button>
+
+              {isModeOpen && (
+                <div className="absolute bottom-full left-0 mb-2 p-1 bg-card border border-border rounded-xl shadow-2xl flex flex-col gap-1 min-w-[120px] animate-in slide-in-from-bottom-2">
+                  <button
+                    type="button"
+                    onClick={() => changeMode('act')}
+                    className={cn(
+                      "flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-bold transition-colors",
+                      mode === 'act' ? "bg-accent-primary/10 text-accent-primary" : "text-text-muted hover:bg-secondary"
+                    )}
+                  >
+                    <Zap size={14} />
+                    <span>ACT</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => changeMode('ask')}
+                    className={cn(
+                      "flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-bold transition-colors",
+                      mode === 'ask' ? "bg-emerald-500/10 text-emerald-500" : "text-text-muted hover:bg-secondary"
+                    )}
+                  >
+                    <Bot size={14} />
+                    <span>ASK</span>
+                  </button>
+                </div>
+              )}
+            </div>
+
             <textarea
               value={input}
               onChange={(e) => setInput(e.target.value)}
@@ -485,9 +568,10 @@ export default function ChatPanel({ sessionId }: ChatPanelProps) {
                   handleSend();
                 }
               }}
-              placeholder="Tell Control what to do or ask a question..."
+              placeholder={mode === 'act' ? "Tell AI to control your computer..." : "Ask AI a question..."}
+
               rows={1}
-              className="flex-1 bg-transparent border-none focus:outline-none text-sm p-2.5 resize-none max-h-40 placeholder:text-text-muted min-h-[42px] leading-relaxed text-foreground"
+              className="flex-1 bg-transparent border-none focus:outline-none text-xs p-1.5 resize-none max-h-32 placeholder:text-text-muted min-h-[36px] leading-relaxed text-foreground"
             />
 
             <button
@@ -495,7 +579,7 @@ export default function ChatPanel({ sessionId }: ChatPanelProps) {
               onClick={isStreaming ? handleStop : undefined}
               disabled={(!input.trim() && !attachedFile) && !isStreaming}
               className={cn(
-                "mb-1 p-2.5 rounded-xl transition-all shadow-sm shrink-0",
+                "mb-1 p-2 rounded-lg transition-all shadow-sm shrink-0",
                 isStreaming
                   ? "bg-red-500/10 text-red-500 hover:bg-red-500/20 shadow-[0_0_15px_rgba(239,68,68,0.1)]"
                   : "bg-accent-primary text-accent-foreground hover:opacity-90 disabled:opacity-30"
@@ -504,19 +588,20 @@ export default function ChatPanel({ sessionId }: ChatPanelProps) {
             >
               {isStreaming ? (
                 <div className="relative flex items-center justify-center">
-                  <Loader2 size={16} className="animate-spin opacity-20 absolute" />
-                  <Square size={14} className="fill-current relative z-10" />
+                  <Loader2 size={14} className="animate-spin opacity-20 absolute" />
+                  <Square size={12} className="fill-current relative z-10" />
                 </div>
               ) : (
-                <Send size={16} />
+                <Send size={14} />
               )}
             </button>
           </form>
         </div>
-        <p className="text-[9px] text-text-muted mt-3 text-center uppercase tracking-widest font-bold">
+        <p className="text-[8px] text-text-muted mt-2 text-center uppercase tracking-widest font-bold">
           AI can make mistakes. Verify important actions.
         </p>
       </div>
+
     </div>
   );
 }
@@ -529,19 +614,19 @@ function MessageBubble({ msg }: { msg: any }) {
   if (isAction) {
     const actionIcon = getActionIcon(msg.action_type);
     return (
-      <div className="flex items-start gap-3 px-1 my-2">
-        <div className="w-10 h-10 rounded-2xl bg-secondary border border-border flex items-center justify-center shrink-0 shadow-sm">
+      <div className="flex items-start gap-2 px-1 my-1.5">
+        <div className="w-8 h-8 rounded-xl bg-secondary border border-border flex items-center justify-center shrink-0 shadow-sm transition-transform hover:scale-105">
           {actionIcon}
         </div>
-        <div className="flex-1 min-w-0 bg-secondary/50 border border-border rounded-2xl px-4 py-3 hover:bg-secondary transition-colors">
-          <div className="text-xs text-text-secondary font-medium items-center flex gap-2 justify-between mb-1">
-            <div className="flex items-center gap-2">
-              <span className="font-black text-foreground text-[10px] uppercase tracking-[0.15em]">{formatActionType(msg.action_type)}</span>
-              <span className="text-[9px] text-text-muted font-bold uppercase tracking-widest px-1.5 py-0.5 bg-border/30 rounded">Executed</span>
+        <div className="flex-1 min-w-0 bg-secondary/30 border border-border/80 rounded-xl px-3 py-2 hover:bg-secondary/50 transition-colors">
+          <div className="text-[10px] text-text-secondary font-medium items-center flex gap-2 justify-between mb-0.5">
+            <div className="flex items-center gap-1.5">
+              <span className="font-black text-foreground text-[9px] uppercase tracking-[0.1em]">{formatActionType(msg.action_type)}</span>
+              <span className="text-[8px] text-text-muted font-bold uppercase tracking-widest px-1 py-0.5 bg-border/20 rounded">Done</span>
             </div>
-            <div className="h-1.5 w-1.5 rounded-full bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.4)] animate-pulse" />
+            <div className="h-1 w-1 rounded-full bg-emerald-500/60 shadow-[0_0_8px_rgba(16,185,129,0.2)]" />
           </div>
-          <div className="text-text-secondary text-[11px] font-medium font-mono truncate bg-background/50 px-2 py-1 rounded border border-border/50">
+          <div className="text-text-secondary text-[10px] font-medium font-mono truncate px-1.5 py-0.5 rounded border border-border/30 bg-background/30">
             {msg.content || (msg.action_data ? JSON.stringify(msg.action_data) : 'Performing action...')}
           </div>
         </div>
@@ -551,9 +636,9 @@ function MessageBubble({ msg }: { msg: any }) {
 
   if (isUser) {
     return (
-      <div className="flex flex-col items-end my-2">
-        <div className="max-w-[85%] text-[13px] p-4 rounded-3xl rounded-tr-lg bg-accent-primary/5 text-foreground break-words border border-accent-primary/10 shadow-sm">
-          <div className="prose prose-sm max-w-none dark:prose-invert prose-p:leading-relaxed">
+      <div className="flex flex-col items-end my-1 px-1">
+        <div className="max-w-[85%] text-[12px] px-3 py-2 rounded-2xl rounded-tr-sm bg-accent-primary/5 text-foreground break-words border border-accent-primary/10 shadow-sm backdrop-blur-sm">
+          <div className="prose prose-xs max-w-none dark:prose-invert prose-p:leading-tight">
             <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.content}</ReactMarkdown>
           </div>
         </div>
@@ -563,12 +648,12 @@ function MessageBubble({ msg }: { msg: any }) {
 
   if (msg.is_thought) {
     return (
-      <div className="flex flex-col items-start px-1 my-3 group">
-        <div className="flex items-center gap-2 mb-1.5 ml-1 opacity-40 group-hover:opacity-100 transition-opacity">
-          <Sparkles size={12} className="text-accent-primary" />
-          <span className="text-[9px] font-black uppercase tracking-[0.2em] text-text-muted">AI Reasoning</span>
+      <div className="flex flex-col items-start px-1 my-1.5 group">
+        <div className="flex items-center gap-1.5 mb-1 ml-1 opacity-40 group-hover:opacity-100 transition-opacity">
+          <Sparkles size={10} className="text-accent-primary/50" />
+          <span className="text-[8px] font-black uppercase tracking-[0.1em] text-text-muted">Reasoning</span>
         </div>
-        <div className="max-w-[90%] text-[11px] px-4 py-3 rounded-2xl bg-secondary/30 border border-border/50 italic text-text-secondary leading-relaxed backdrop-blur-sm">
+        <div className="max-w-[90%] text-[10px] px-3 py-2 rounded-xl bg-secondary/15 border border-border/30 italic text-text-secondary/80 leading-relaxed">
           {msg.content}
         </div>
       </div>
@@ -577,15 +662,16 @@ function MessageBubble({ msg }: { msg: any }) {
 
   // Assistant message
   return (
-    <div className="flex flex-col items-start my-2">
-      <div className="max-w-[95%] text-[14px] px-2 py-1 break-words leading-relaxed text-foreground">
-        <div className="prose prose-sm max-w-none dark:prose-invert prose-p:leading-relaxed prose-pre:bg-secondary prose-pre:border prose-pre:border-border prose-pre:rounded-2xl">
+    <div className="flex flex-col items-start my-1 px-1">
+      <div className="max-w-[95%] text-[13px] px-1 py-0.5 break-words leading-relaxed text-foreground">
+        <div className="prose prose-sm max-w-none dark:prose-invert prose-p:leading-snug prose-pre:bg-secondary/40 prose-pre:border prose-pre:border-border prose-pre:rounded-xl prose-pre:my-2">
           <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.content}</ReactMarkdown>
         </div>
       </div>
     </div>
   );
 }
+
 
 function formatActionType(type: string): string {
   if (!type) return 'Action';

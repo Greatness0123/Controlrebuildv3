@@ -139,8 +139,15 @@ async def send_message(
         }).execute()
 
     async def event_stream():
-        async for event in agent_executor.execute_task(db, session_id, message, session_data, mode=req.mode or "act"):
+        async for event in agent_executor.execute_task(
+            db, session_id, user["id"], message, 
+            machine_id=req.vm_id, 
+            device_id=req.device_id, 
+            uploaded_image=req.file_url if req.file_type and "image" in req.file_type else None,
+            forced_mode=req.mode
+        ):
             yield f"data: {json.dumps(event)}\n\n"
+
 
     return StreamingResponse(
         event_stream(),

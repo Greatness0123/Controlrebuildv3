@@ -1,5 +1,6 @@
 import './globals.css'
 import AuthProvider from '@/components/AuthProvider'
+import { ThemeProvider } from '@/components/ThemeProvider'
 import type { Metadata } from 'next'
 
 export const metadata: Metadata = {
@@ -16,12 +17,20 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="en" className="dark">
+    <html lang="en" suppressHydrationWarning>
       <body className="antialiased">
-        <AuthProvider>
-          {children}
-        </AuthProvider>
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="dark"
+          enableSystem
+          disableTransitionOnChange
+        >
+          <AuthProvider>
+            {children}
+          </AuthProvider>
+        </ThemeProvider>
       </body>
     </html>
   )
 }
+

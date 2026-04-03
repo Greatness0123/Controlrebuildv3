@@ -30,14 +30,39 @@ const initSupabase = () => {
             console.log(`[Supabase] Initializing with URL: ${supabaseUrl}`);
             supabase = createClient(supabaseUrl, supabaseKey, {
                 auth: {
-                    persistSession: false,
-                    autoRefreshToken: false,
-                    detectSessionInUrl: false
+                    persistSession: true,
+                    autoRefreshToken: true,
+                    detectSessionInUrl: false,
+                    storage: {
+                        getItem: (key) => {
+                            try {
+                                const { app } = require('electron');
+                                const authFile = path.join(app.getPath('userData'), `auth_${key}.json`);
+                                if (fs.existsSync(authFile)) return fs.readFileSync(authFile, 'utf8');
+                            } catch (e) {}
+                            return null;
+                        },
+                        setItem: (key, value) => {
+                            try {
+                                const { app } = require('electron');
+                                const authFile = path.join(app.getPath('userData'), `auth_${key}.json`);
+                                fs.writeFileSync(authFile, value);
+                            } catch (e) {}
+                        },
+                        removeItem: (key) => {
+                            try {
+                                const { app } = require('electron');
+                                const authFile = path.join(app.getPath('userData'), `auth_${key}.json`);
+                                if (fs.existsSync(authFile)) fs.unlinkSync(authFile);
+                            } catch (e) {}
+                        }
+                    }
                 },
                 realtime: {
                     timeout: 30000,
                 }
             });
+
             console.log('✓ Supabase Client initialized (stateless mode)');
             return true;
         }
@@ -442,5 +467,16 @@ module.exports = {
             }
         } catch (e) { }
         this.clearCachedUser();
+    },
+
+    async getAccessToken() {
+        try {
+            if (!supabase) return null;
+            const { data: { session } } = await supabase.auth.getSession();
+            return session ? session.access_token : null;
+        } catch (e) {
+            return null;
+        }
     }
 };
+

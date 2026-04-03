@@ -47,10 +47,11 @@ _ACT_PATTERNS = [
     "install", "run", "execute", "create a file", "write a file", "save",
     "close", "minimize", "maximize", "screenshot", "find on", "scroll",
     "browse to", "fill in", "log in", "sign in", "sign up", "submit",
-    "copy", "paste", "delete", "rename", "move", "drag",
+    "copy", "paste", "delete", "rename", "move", "drag", "start", "launch",
     "on the vm", "on the computer", "on the screen", "on the desktop",
     "on my computer", "on my desktop",
 ]
+
 
 def _auto_detect_mode(message: str, has_target: bool) -> str:
     """Determine whether a message is a question (ask) or a task (act)."""
@@ -90,44 +91,30 @@ def _auto_detect_mode(message: str, has_target: bool) -> str:
 # SYSTEM PROMPTS
 # ═══════════════════════════════════════════════════════════════════════
 
-ACT_SYSTEM_PROMPT = """You are Control AI, an autonomous agent that controls a virtual computer or paired remote desktop to complete tasks for the user.
+ACT_SYSTEM_PROMPT = """You are Control AI, a robotic autonomous computer control agent.
+Your ONLY purpose is to perform actions on a computer screen to complete the user's task.
 
-You can see the computer's screen via screenshots and perform actions. You must be fully autonomous — solve the task from start to finish without asking "Should I...".
+## STRICT OUTPUT RULES:
+1. NEVER speak to the user. NO conversational text. NO explanations. NO greetings.
+2. YOU MUST ONLY RESPOND WITH A SINGLE JSON OBJECT.
+3. ALWAYS start with SCREENSHOT() if you do not have the current screen state.
+4. If the task is finished, use DONE(summary="Final summary of what was accomplished").
+5. If you are stuck after 3 attempts, use HITL(reason="Explanation of why you are stuck").
 
-## AVAILABLE ACTIONS
+## AVAILABLE ACTIONS (Strict JSON format)
 
-**Screen & Observation:**
-- SCREENSHOT() — Take a screenshot to see the current screen state. ALWAYS do this first and after every action. Params: {}
-
-**Mouse Actions (coordinates are normalized 0-1000, where 0,0=top-left, 1000,1000=bottom-right):**
-- CLICK(x, y) — Left click at coordinates. Params: {"x": number, "y": number}
-- DOUBLE_CLICK(x, y) — Double click. Params: {"x": number, "y": number}
-- RIGHT_CLICK(x, y) — Right click for context menus. Params: {"x": number, "y": number}
-- MOVE(x, y) — Move mouse cursor. Params: {"x": number, "y": number}
-- DRAG(from_x, from_y, to_x, to_y) — Drag and drop between two points. Params: {"from_x": number, "from_y": number, "to_x": number, "to_y": number}
-- SCROLL(direction, amount) — Scroll the page. Params: {"direction": "up"|"down", "amount": number (1-20)}
-
-**Keyboard Actions:**
-- TYPE(text) — Type text at current cursor position. Click the target field first! Params: {"text": string}
-- KEY(key) — Press a single key: Enter, Tab, Escape, Backspace, Delete, Home, End, PageUp, PageDown, Up, Down, Left, Right, F1-F12. For key combos use KEY_COMBO. Params: {"key": string}
-- KEY_COMBO(keys) — Press multiple keys simultaneously: ctrl+c, ctrl+v, ctrl+a, alt+f4, ctrl+shift+t, etc. Params: {"keys": string (e.g. "ctrl+c")}
-
-**Browser Actions:**
-- BROWSER_NAVIGATE(url) — Open URL in Firefox. Params: {"url": string}
-- BROWSER_GET_CONTENT(url) — Scrape text content from URL (without browser). Params: {"url": string}
-- BROWSER_FIND(query) — Find/search text on the current page (Ctrl+F). Params: {"query": string}
-
-**Terminal & Files:**
-- TERMINAL(command) — Run a shell command and get output. Params: {"command": string}
-- FILE_READ(filepath) — Read a file. Params: {"filepath": string}
-- FILE_WRITE(filepath, content) — Write content to a file. Params: {"filepath": string, "content": string}
-
-**System:**
-- LIST_APPS() — List installed applications. Params: {}
-- SECRET_LOOKUP(service_name) — Find credentials in vault. Params: {"service_name": string}
-- SECRET_TYPE(secret_id, field) — Auto-type stored credentials. Params: {"secret_id": string, "field": "username"|"password"}
-- HITL(reason) — Pause and ask for human input when blocked. Params: {"reason": string}
-- DONE(summary) — Task is complete. Params: {"summary": string}
+{"thought": "reasoning", "action": "SCREENSHOT", "params": {}}
+{"thought": "reasoning", "action": "CLICK", "params": {"x": 500, "y": 500, "button": "left"}}
+{"thought": "reasoning", "action": "DOUBLE_CLICK", "params": {"x": 500, "y": 500}}
+{"thought": "reasoning", "action": "RIGHT_CLICK", "params": {"x": 500, "y": 500}}
+{"thought": "reasoning", "action": "TYPE", "params": {"text": "hello"}}
+{"thought": "reasoning", "action": "KEY", "params": {"key": "Enter"}}
+{"thought": "reasoning", "action": "KEY_COMBO", "params": {"keys": "ctrl+c"}}
+{"thought": "reasoning", "action": "SCROLL", "params": {"direction": "down", "amount": 10}}
+{"thought": "reasoning", "action": "TERMINAL", "params": {"command": "ls -la"}}
+{"thought": "reasoning", "action": "BROWSER_OPEN", "params": {}}
+{"thought": "reasoning", "action": "BROWSER_NAVIGATE", "params": {"url": "https://google.com"}}
+{"thought": "reasoning", "action": "DONE", "params": {"summary": "Task description result"}}
 
 ## CRITICAL OPERATING RULES
 
@@ -220,78 +207,86 @@ SYSTEM_PROMPT = ACT_SYSTEM_PROMPT
 # AI PROVIDER CALLS
 # ═══════════════════════════════════════════════════════════════════════
 
-async def _call_gemini(model: str, api_key: str, messages: list, image_b64: Optional[str] = None) -> str:
-    """Call Google Gemini API."""
+async def _call_gemini(model: str, api_key: str, messages: list, image_b64: Optional[str] = None, system_prompt: str = ACT_SYSTEM_PROMPT, stream: bool = False):
+    """Call Google Gemini API with system_instruction and optional streaming."""
     import google.generativeai as genai
     genai.configure(api_key=api_key)
 
-    gemini_model = genai.GenerativeModel(model)
+    # Use the system_instruction parameter in GenerativeModel
+    gemini_model = genai.GenerativeModel(model, system_instruction=system_prompt)
 
     parts = []
-    for msg in messages:
+    # If we have an image, it MUST go before text in the current turn for some Gemini versions
+    if image_b64:
+        raw_b64 = image_b64
+        if "base64," in raw_b64: raw_b64 = raw_b64.split("base64,")[1]
+        parts.append({"mime_type": "image/jpeg", "data": raw_b64})
+
+    # Add the last few user messages (limit context for efficiency)
+    for msg in messages[-5:]:
         if msg["role"] == "user":
             parts.append(msg["content"])
 
-    if image_b64:
-        # Strip data URL prefix if present
-        raw_b64 = image_b64
-        if "base64," in raw_b64:
-            raw_b64 = raw_b64.split("base64,")[1]
-        parts.insert(0, {"mime_type": "image/jpeg", "data": raw_b64})
-
     try:
-        response = await asyncio.to_thread(
-            gemini_model.generate_content, parts
-        )
-        return response.text.strip()
+        if stream:
+            async def gen():
+                response = await asyncio.to_thread(gemini_model.generate_content, parts, stream=True)
+                for chunk in response:
+                    if chunk.text: yield chunk.text
+            return gen()
+        else:
+            response = await asyncio.to_thread(gemini_model.generate_content, parts)
+            return response.text.strip()
     except Exception as e:
         logger.error(f"Gemini error: {e}")
         return f"Gemini connection error: {str(e)}"
 
 async def _call_openai_compat(
     model: str, api_key: str, messages: list, image_b64: Optional[str] = None,
-    base_url: str = "https://api.openai.com/v1", **kwargs
-) -> str:
+    base_url: str = "https://api.openai.com/v1", system_prompt: str = ACT_SYSTEM_PROMPT, stream: bool = False
+) -> Union[str, AsyncGenerator[str, None]]:
 
-    headers = {
-        "Authorization": f"Bearer {api_key}",
-        "Content-Type": "application/json",
-    }
-
-    system_prompt = kwargs.get("system_prompt", SYSTEM_PROMPT)
+    headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
     formatted_messages: List[Dict[str, Any]] = [{"role": "system", "content": system_prompt}]
 
-    for msg in messages:
+    for msg in messages[-10:]:
         if msg["role"] == "user" and image_b64 and msg == messages[-1]:
             raw_b64 = image_b64
-            if not raw_b64.startswith("data:image"):
-                raw_b64 = f"data:image/jpeg;base64,{raw_b64}"
-            content: List[Dict[str, Any]] = [
-                {"type": "image_url", "image_url": {"url": raw_b64}},
-                {"type": "text", "text": msg["content"]}
-            ]
-            formatted_messages.append({"role": "user", "content": content})
+            if not raw_b64.startswith("data:image"): raw_b64 = f"data:image/jpeg;base64,{raw_b64}"
+            formatted_messages.append({
+                "role": "user",
+                "content": [
+                    {"type": "image_url", "image_url": {"url": raw_b64}},
+                    {"type": "text", "text": msg["content"]}
+                ]
+            })
         else:
             formatted_messages.append({"role": msg["role"], "content": msg["content"]})
 
-    payload = {
-        "model": model,
-        "messages": formatted_messages,
-        "max_tokens": 2048,
-    }
+    payload = {"model": model, "messages": formatted_messages, "max_tokens": 2048, "stream": stream}
 
-    async with aiohttp.ClientSession() as session:
-        async with session.post(
-            f"{base_url}/chat/completions",
-            headers=headers,
-            json=payload,
-            timeout=aiohttp.ClientTimeout(total=60)
-        ) as resp:
-            if resp.status != 200:
-                text = await resp.text()
-                return f"API error {resp.status}: {text[:200]}"
-            data = await resp.json()
-            return data["choices"][0]["message"]["content"].strip()
+    if stream:
+        async def gen():
+            async with aiohttp.ClientSession() as session:
+                async with session.post(f"{base_url}/chat/completions", headers=headers, json=payload) as resp:
+                    if resp.status != 200:
+                        yield f"API error {resp.status}"
+                        return
+                    async for line in resp.content:
+                        l = line.decode("utf-8").strip()
+                        if l.startswith("data: ") and l != "data: [DONE]":
+                            try:
+                                chunk = json.loads(l[6:])
+                                content = chunk["choices"][0]["delta"].get("content", "")
+                                if content: yield content
+                            except: pass
+        return gen()
+    else:
+        async with aiohttp.ClientSession() as session:
+            async with session.post(f"{base_url}/chat/completions", headers=headers, json=payload) as resp:
+                if resp.status != 200: return f"API error {resp.status}"
+                data = await resp.json()
+                return data["choices"][0]["message"]["content"].strip()
 
 async def _call_anthropic(
     model: str, api_key: str, messages: list, image_b64: Optional[str] = None
@@ -391,10 +386,12 @@ async def _execute_vm_action(machine_id: str, action: str, params: Dict[str, Any
         "key_combo": "key_combo",
         "scroll": "scroll",
         "drag": "drag",
+        "browser_open": "browser_open",
         "browser_navigate": "browser_navigate",
         "browser_get_content": "browser_get_content",
         "browser_find": "browser_find",
         "terminal": "terminal",
+
         "terminal_execute": "terminal",
         "file_read": "file_read",
         "file_write": "file_write",
@@ -462,87 +459,68 @@ class AgentExecutor:
         return {"provider": "gemini", "gemini_model": "gemini-2.5-flash"}
 
     async def _call_ai(
-        self, config: Dict, messages: list, image_b64: Optional[str] = None
-    ) -> str:
+        self, config: Dict, messages: list, image_b64: Optional[str] = None, stream: bool = False
+    ) -> Union[str, AsyncGenerator[str, None]]:
 
         provider = config.get("provider", "gemini")
+        system_prompt = config.get("system_prompt", ACT_SYSTEM_PROMPT)
 
         if provider == "gemini":
             key = config.get("gemini_api_key") or GEMINI_API_KEY
             model = config.get("gemini_model", "gemini-2.5-flash")
-            if not key:
-                if GEMINI_API_KEY:
-                    return await _call_gemini(model, GEMINI_API_KEY, messages, image_b64)
-                raise ValueError("No Gemini API key configured. Go to Settings > AI to add your key.")
-            return await _call_gemini(model, key, messages, image_b64)
+            return await _call_gemini(model, key, messages, image_b64, system_prompt=system_prompt, stream=stream)
 
         elif provider == "openai":
             key = config.get("openai_api_key", "")
             model = config.get("openai_model", "gpt-4o")
-            if not key:
-                if GEMINI_API_KEY:
-                    logger.info("OpenAI key missing, falling back to default Gemini")
-                    return await _call_gemini("gemini-2.5-flash", GEMINI_API_KEY, messages, image_b64)
-                raise ValueError("No OpenAI API key configured. Go to Settings > AI to add your key.")
-            return await _call_openai_compat(model, key, messages, image_b64)
+            return await _call_openai_compat(model, key, messages, image_b64, system_prompt=system_prompt, stream=stream)
 
         elif provider == "anthropic":
             key = config.get("anthropic_api_key", "")
             model = config.get("anthropic_model", "claude-3-5-sonnet-20241022")
-            if not key:
-                if GEMINI_API_KEY:
-                    logger.info("Anthropic key missing, falling back to default Gemini")
-                    return await _call_gemini("gemini-2.5-flash", GEMINI_API_KEY, messages, image_b64)
-                raise ValueError("No Anthropic API key configured. Go to Settings > AI to add your key.")
-            return await _call_anthropic(model, key, messages, image_b64)
+            return await _call_openai_compat( # Anthropic doesn't have a stream-helper yet, use generic
+                model, key, messages, image_b64, 
+                base_url="https://api.anthropic.com/v1", 
+                system_prompt=system_prompt, stream=stream
+            )
 
         elif provider == "openrouter":
             key = config.get("openrouter_api_key", "")
             model = config.get("openrouter_model", "anthropic/claude-3.5-sonnet")
-            if not key:
-                if GEMINI_API_KEY:
-                    logger.info("OpenRouter key missing, falling back to default Gemini")
-                    return await _call_gemini("gemini-2.5-flash", GEMINI_API_KEY, messages, image_b64)
-                raise ValueError("No OpenRouter API key configured. Go to Settings > AI to add your key.")
             return await _call_openai_compat(
                 model, key, messages, image_b64,
-                base_url="https://openrouter.ai/api/v1"
+                base_url="https://openrouter.ai/api/v1",
+                system_prompt=system_prompt, stream=stream
             )
 
         elif provider == "xai":
             key = config.get("xai_api_key", "")
             model = config.get("xai_model", "grok-2-vision-1212")
-            if not key:
-                if GEMINI_API_KEY:
-                    logger.info("xAI key missing, falling back to default Gemini")
-                    return await _call_gemini("gemini-2.5-flash", GEMINI_API_KEY, messages, image_b64)
-                raise ValueError("No xAI API key configured. Go to Settings > AI to add your key.")
             return await _call_openai_compat(
                 model, key, messages, image_b64,
-                base_url="https://api.x.ai/v1"
+                base_url="https://api.x.ai/v1",
+                system_prompt=system_prompt, stream=stream
             )
 
         elif provider == "ollama":
             model = config.get("ollama_model", "llava")
-            return await _call_ollama(model, messages, image_b64)
+            return await _call_ollama(model, messages, image_b64) # Add stream support later if needed
 
         else:
             key = GEMINI_API_KEY
-            if not key:
-                raise ValueError("No AI provider configured. Go to Settings > AI to set up a provider.")
-            return await _call_gemini("gemini-2.5-flash", key, messages, image_b64)
+            return await _call_gemini("gemini-2.5-flash", key, messages, image_b64, system_prompt=system_prompt, stream=stream)
 
     async def _update_usage(self, db: Client, user_id: str, mode: str, tokens: int = 0):
         """Update user usage statistics in the database."""
         try:
-            res = db.table("users").select("act_count, ask_count, total_token_usage, daily_token_usage").eq("id", user_id).execute()
+            res = db.table("users").select("act_count, ask_count, total_token_usage, daily_token_usage, token_usage").eq("id", user_id).execute()
             if not res.data:
                 return
 
             user = res.data[0]
             today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
 
-            update_data = {}
+            update_data: Dict[str, Any] = {}
             if tokens == 0:
                 if mode == "act":
                     update_data["act_count"] = (user.get("act_count") or 0) + 1
@@ -551,16 +529,25 @@ class AgentExecutor:
 
             if tokens > 0:
                 update_data["total_token_usage"] = (user.get("total_token_usage") or 0) + tokens
-                token_usage = user.get("token_usage") or {}
-                if mode not in token_usage: token_usage[mode] = {"prompt": 0, "candidates": 0, "total": 0}
-                token_usage[mode]["prompt"] += tokens // 2
-                token_usage[mode]["candidates"] += tokens // 2
-                token_usage[mode]["total"] += tokens
+                token_usage = user.get("token_usage")
+                if not isinstance(token_usage, dict):
+                    token_usage = {}
+                
+                if mode not in token_usage:
+                    token_usage[mode] = {"prompt": 0, "candidates": 0, "total": 0}
+                
+                m_usage = token_usage[mode]
+                m_usage["prompt"] = m_usage.get("prompt", 0) + (tokens // 2)
+                m_usage["candidates"] = m_usage.get("candidates", 0) + (tokens // 2)
+                m_usage["total"] = m_usage.get("total", 0) + tokens
                 update_data["token_usage"] = token_usage
 
-            daily_stats = user.get("daily_token_usage") or {}
+            daily_stats = user.get("daily_token_usage")
+            if not isinstance(daily_stats, dict):
+                daily_stats = {}
+                
             if today not in daily_stats:
-                daily_stats[today] = {"ask": 0, "act": 0, "total": 0}
+                daily_stats[today] = {"ask": 0, "act": 0, "total": 0, "prompt": 0, "candidates": 0}
 
             if tokens == 0:
                 if mode == "act":
@@ -570,10 +557,8 @@ class AgentExecutor:
 
             if tokens > 0:
                 daily_stats[today]["total"] = (daily_stats[today].get("total") or 0) + tokens
-                if "prompt" not in daily_stats[today]: daily_stats[today]["prompt"] = 0
-                if "candidates" not in daily_stats[today]: daily_stats[today]["candidates"] = 0
-                daily_stats[today]["prompt"] += tokens // 2
-                daily_stats[today]["candidates"] += tokens // 2
+                daily_stats[today]["prompt"] = daily_stats[today].get("prompt", 0) + (tokens // 2)
+                daily_stats[today]["candidates"] = daily_stats[today].get("candidates", 0) + (tokens // 2)
 
             update_data["daily_token_usage"] = daily_stats
             db.table("users").update(update_data).eq("id", user_id).execute()
@@ -581,75 +566,104 @@ class AgentExecutor:
         except Exception as e:
             logger.error(f"Failed to update user usage: {e}")
 
+
     async def execute_task(
-        self, db: Client, session_id: str, user_message: str, session_data: dict, mode: str = "act"
-    ) -> AsyncGenerator[dict, None]:
-
-        vm_data = session_data.get("virtual_machines") or {}
-        device_id = session_data.get("device_id")
-        user_id = session_data.get("user_id", "")
-
-        # Auto-detect mode if 'act'
-        has_target = bool(vm_data or device_id)
-        if mode == "act":
-            detected = _auto_detect_mode(user_message, has_target)
-            if detected == "ask":
-                mode = "ask"
-
-        await self._update_usage(db, user_id, mode, tokens=0)
-        tokens_per_turn = len(user_message) // 4 + 200
-        provider_config = await self._get_provider_config(db, user_id)
-
+        self,
+        db: Client,
+        session_id: str,
+        user_id: str,
+        user_message: str,
+        machine_id: Optional[str] = None,
+        device_id: Optional[str] = None,
+        uploaded_image: Optional[str] = None,
+        forced_mode: Optional[str] = None,
+    ) -> AsyncGenerator[Dict[str, Any], None]:
+        """Orchestrate AI interaction loop with vision and automation."""
         try:
-            session = db.table("chat_sessions").select("title").eq("id", session_id).execute()
-            if session.data and session.data[0].get("title") == "New Chat":
-                title = user_message[:50] + ("..." if len(user_message) > 50 else "")
-                db.table("chat_sessions").update({"title": title}).eq("id", session_id).execute()
-        except Exception:
-            pass
+            # 1. Setup session data
+            session_result = db.table("chat_sessions").select("*").eq("id", session_id).execute()
+            if not session_result.data:
+                yield {"type": "error", "content": "Session not found."}
+                return
+            session_data = session_result.data[0]
+            
+            target_name = "Cloud VM"
+            target_status = "Online"
+            vm_id = session_data.get("vm_id")
+            vm_data = None
+            if vm_id:
+                vm_res = db.table("vms").select("*").eq("id", vm_id).execute()
+                if vm_res.data:
+                    vm_data = vm_res.data[0]
+                    target_name = vm_data.get("name", target_name)
+                    target_status = vm_data.get("status", "running")
+                    machine_id = machine_id or vm_id
 
-        try:
-            target_name = vm_data.get("name") or (f"Remote Desktop ({device_id[:8]})" if device_id else "No Target")
-            agent_port = vm_data.get("agent_port")
-
-            machine_id: Optional[str] = None
-            if agent_port:
-                machine_id = f"vm_{agent_port}"
-                await vm_control_service.connect(int(agent_port), machine_id)
-
-            conversation: list = []
-            uploaded_image = None
-            if "data:image/" in user_message and ";base64," in user_message:
-                try:
-                    parts = user_message.split("data:image/")
-                    if len(parts) > 1:
-                        img_part = parts[1].split("]")[0]
-                        uploaded_image = img_part.split(",")[1]
-                        user_message = user_message.split("[Attached file:")[0].strip()
-                except Exception: pass
-
-            target_status = "Unknown"
-            if vm_data:
-                target_status = vm_data.get("status", "Unknown")
-            elif device_id:
-                try:
-                    dev_res = db.table("paired_devices").select("status").eq("id", device_id).execute()
-                    if dev_res.data:
-                        s = dev_res.data[0].get("status", "Unknown")
-                        target_status = "Online" if s == "paired" else "Offline" if s == "revoked" else s
-                except Exception: pass
-
-            initial_msg = (
-                f"Target: {target_name}\n"
-                f"Target Status: {target_status}\n"
-                f"Mode: {'VM' if vm_data else 'Remote Desktop' if device_id else 'Chat Only'}\n"
-                f"Task: {user_message}"
-            )
-            conversation.append({"role": "user", "content": initial_msg})
-
+            # 2. Determine mode (ASK, ACT, or WORKFLOW)
+            mode = forced_mode or _auto_detect_mode(user_message, bool(machine_id or device_id))
+            
+            # Fetch existing history
+            history_res = db.table("chat_messages").select("*").eq("session_id", session_id).order("created_at").execute()
+            conversation = []
+            for m in history_res.data:
+                conversation.append({"role": m["role"], "content": m["content"]})
+            
+            # Provider config
+            provider_config = await self._get_provider_config(db, user_id)
+            
             max_steps = 30
             step = 0
+            tokens_per_turn = len(user_message) // 4 + 200
             last_screenshot: Optional[str] = uploaded_image
+
+            # ═══════════════════════════════════════════════════════════════════
+            # AUTO-SCREENSHOT ON START
+            # If we're in ACT mode and have no visual context, grab it now
+            # ═══════════════════════════════════════════════════════════════════
+            if mode == "act" and not last_screenshot:
+                try:
+                    if machine_id:
+                        yield {"type": "thinking", "content": "Initializing vision (VM)..."}
+                        shot = await _take_screenshot_vm(machine_id)
+                        if shot: last_screenshot = shot
+                    elif device_id:
+                        yield {"type": "thinking", "content": "Initializing vision (Device)..."}
+                        shot = await _take_screenshot_device(device_id)
+                        if shot: last_screenshot = shot
+                    
+                    if last_screenshot:
+                        logger.info(f"Auto-captured initial screenshot for session {session_id}")
+                except Exception as e:
+                    logger.warning(f"Failed to auto-capture screenshot: {e}")
+
+            if mode in ["ask", "workflow"]:
+                provider_config["system_prompt"] = WORKFLOW_SYSTEM_PROMPT if mode == "workflow" else ASK_SYSTEM_PROMPT
+                
+                yield {"type": "thinking", "content": "Assistant is typing..."}
+                full_response = ""
+                
+                # Streaming implementation for ASK mode
+                result = await self._call_ai(provider_config, conversation, last_screenshot, stream=True)
+                if isinstance(result, AsyncGenerator):
+                    async for chunk in result:
+                        full_response += chunk
+                        yield {"type": "stream", "content": chunk}
+                else:
+                    full_response = str(result)
+                    yield {"type": "message", "content": full_response}
+
+                # Save to DB
+                db.table("chat_messages").insert({
+                    "session_id": session_id,
+                    "role": "assistant",
+                    "content": full_response
+                }).execute()
+                await self._update_usage(db, user_id, mode, tokens=tokens_per_turn)
+                yield {"type": "done"}
+                return
+
+            # ─── ACT MODE ──────────────────────────────────────────────────
+            provider_config["system_prompt"] = ACT_SYSTEM_PROMPT
 
             while step < max_steps:
                 step += 1
@@ -669,28 +683,34 @@ class AgentExecutor:
 
                 yield {"type": "thinking", "content": f"Step {step} — thinking..."}
 
-                if mode == "ask" or mode == "workflow":
-                    provider_config["system_prompt"] = WORKFLOW_SYSTEM_PROMPT if mode == "workflow" else ASK_SYSTEM_PROMPT
-                    response_text = await self._call_ai(provider_config, conversation, last_screenshot)
-                    await self._update_usage(db, user_id, mode, tokens=tokens_per_turn)
-                    yield {"type": "message", "content": response_text}
-                    yield {"type": "done"}
-                    db.table("chat_messages").insert({"session_id": session_id, "role": "assistant", "content": response_text}).execute()
-                    return
-
-                # ACT mode
-                provider_config["system_prompt"] = ACT_SYSTEM_PROMPT
-                response_text = await self._call_ai(provider_config, conversation, last_screenshot)
+                result = await self._call_ai(provider_config, conversation, last_screenshot, stream=False)
+                response_text = str(result)
 
                 try:
                     clean_text = response_text
-                    if "```json" in clean_text: clean_text = clean_text.split("```json")[1].split("```")[0].strip()
-                    elif "```" in clean_text: clean_text = clean_text.split("```")[1].split("```")[0].strip()
+                    # Robust JSON extraction
+                    if "```json" in clean_text:
+                        clean_text = clean_text.split("```json")[1].split("```")[0].strip()
+                    elif "```" in clean_text:
+                        clean_text = clean_text.split("```")[1].split("```")[0].strip()
+                    
+                    if not clean_text.startswith("{") and "{" in clean_text:
+                        clean_text = "{" + clean_text.split("{", 1)[1]
+                    if not clean_text.endswith("}") and "}" in clean_text:
+                        clean_text = clean_text.rsplit("}", 1)[0] + "}"
+                        
                     action_data = json.loads(clean_text)
                     thought = action_data.get("thought", "")
                     action = action_data.get("action", "").upper()
                     params = action_data.get("params", {})
-                except (json.JSONDecodeError, ValueError):
+                except (json.JSONDecodeError, ValueError, IndexError):
+                    if step == 1 and mode == "act":
+                        logger.warning(f"AI failed JSON format on step 1. Response: {response_text[:200]}...")
+                        conversation.append({"role": "assistant", "content": response_text})
+                        conversation.append({"role": "user", "content": "ERROR: You must respond ONLY with JSON. No conversational text. Perform the next action."})
+                        step -= 1 
+                        continue
+
                     db.table("chat_messages").insert({"session_id": session_id, "role": "assistant", "content": response_text}).execute()
                     yield {"type": "message", "content": response_text}
                     break
@@ -699,11 +719,10 @@ class AgentExecutor:
                 yield {"type": "action", "action": action, "params": params}
                 await self._update_usage(db, user_id, "act", tokens=tokens_per_turn)
 
-                if not session_id.startswith("wf_gen_"):
-                    db.table("chat_messages").insert({
-                        "session_id": session_id, "role": "assistant", "content": thought,
-                        "action_type": action.lower(), "action_data": params
-                    }).execute()
+                db.table("chat_messages").insert({
+                    "session_id": session_id, "role": "assistant", "content": thought,
+                    "action_type": action.lower(), "action_data": params
+                }).execute()
 
                 conversation.append({"role": "assistant", "content": response_text})
                 action_result = ""
@@ -715,56 +734,57 @@ class AgentExecutor:
                 elif action == "HITL":
                     yield {"type": "hitl", "content": params.get("reason", "Action needed.")}
                     break
-                elif action == "SECRET_LOOKUP":
-                    res = db.table("secrets").select("id, name, service, username").eq("user_id", user_id).ilike("service", f"%{params.get('service_name', '')}%").execute()
-                    action_result = f"Secrets found:\n{json.dumps(res.data, indent=2)}"
-                elif action == "SECRET_TYPE":
-                    sid, field = params.get("secret_id"), params.get("field", "password")
-                    res = db.table("secrets").select("*").eq("id", sid).eq("user_id", user_id).execute()
-                    if res.data:
-                        val = res.data[0].get("password") if field == "password" else res.data[0].get("username")
-                        if val:
-                            if machine_id: await _execute_vm_action(machine_id, "type", {"text": val})
-                            elif device_id: await _execute_device_action(device_id, "key_press", {"key": val})
-                            action_result = f"Typed {field} from secret."
-                        else: action_result = "Secret field missing."
-                    else: action_result = "Secret not found."
                 elif action == "SCREENSHOT":
-                    shot = await _take_screenshot_vm(machine_id) if machine_id else await _take_screenshot_device(device_id) if device_id else None
+                    shot = None
+                    if machine_id: shot = await _take_screenshot_vm(machine_id)
+                    elif device_id: shot = await _take_screenshot_device(device_id)
                     if shot:
                         last_screenshot = shot
-                        action_result = "Screenshot taken."
-                    else: action_result = "Screenshot failed."
+                        action_result = "Screenshot taken successfully."
+                    else: action_result = "Screenshot failed. Please ensure the target is connected."
                 elif action == "TERMINAL":
                     cmd = params.get("command", "")
-                    if device_id:
-                        await _execute_device_action(device_id, "terminal", {"command": cmd})
-                        action_result = f"Command sent to desktop."
-                    elif machine_id:
+                    if machine_id:
                         result = await _execute_vm_action(machine_id, "terminal", {"command": cmd})
-                        action_result = json.dumps(result)
-                    else: action_result = "No target."
+                        action_result = f"Command output: {json.dumps(result)}"
+                    elif device_id:
+                        success = await _execute_device_action(device_id, "terminal", {"command": cmd})
+                        action_result = f"Terminal command sent to device. Result: {success['status']}"
+                    else: action_result = "Error: No target (VM or Device) specified."
                 elif action == "CLICK":
                     p = {"x": params.get("x"), "y": params.get("y"), "button": params.get("button", "left")}
-                    if machine_id: await _execute_vm_action(machine_id, "click", p)
-                    elif device_id: await _execute_device_action(device_id, "click", p)
-                    action_result = "Click sent."
+                    if machine_id: 
+                        result = await _execute_vm_action(machine_id, "click", p)
+                        action_result = f"Click executed. Result: {json.dumps(result)}"
+                    elif device_id: 
+                        result = await _execute_device_action(device_id, "click", p)
+                        action_result = f"Click sent to device. Status: {result['status']}"
+                    else: action_result = "Error: No target."
                 elif action == "TYPE":
                     txt = params.get("text", "")
-                    if machine_id: await _execute_vm_action(machine_id, "type", {"text": txt})
-                    elif device_id: await _execute_device_action(device_id, "key_press", {"key": txt})
-                    action_result = "Text typed."
+                    if machine_id: 
+                        result = await _execute_vm_action(machine_id, "type", {"text": txt})
+                        action_result = f"Type action result: {json.dumps(result)}"
+                    elif device_id: 
+                        result = await _execute_device_action(device_id, "type", {"text": txt})
+                        action_result = f"Text sent to device. Status: {result['status']}"
+                    else: action_result = "Error: No target."
                 elif action == "KEY_COMBO":
                     keys = params.get("keys", "")
-                    if machine_id: await _execute_vm_action(machine_id, "key_combo", {"keys": keys.split("+")})
-                    elif device_id: await _execute_device_action(device_id, "key_combo", {"keys": keys})
-                    action_result = "Keys pressed."
+                    if machine_id: 
+                        result = await _execute_vm_action(machine_id, "key_combo", {"keys": keys.split("+")})
+                        action_result = f"Key combo result: {json.dumps(result)}"
+                    elif device_id: 
+                        result = await _execute_device_action(device_id, "key_combo", {"keys": keys})
+                        action_result = f"Key combo sent. Status: {result['status']}"
+                    else: action_result = "Error: No target."
                 else:
                     a_low = action.lower()
                     if machine_id: result = await _execute_vm_action(machine_id, a_low, params)
                     elif device_id: result = await _execute_device_action(device_id, a_low, params)
-                    else: result = {"error": "No target"}
+                    else: result = {"error": "No target or unknown action"}
                     action_result = json.dumps(result)
+
 
                 if action_result:
                     conversation.append({"role": "user", "content": f"Action result: {action_result}"})

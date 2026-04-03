@@ -1,0 +1,11 @@
+# Social Media Links for Control Web
+
+I have provided placeholders for these in the footer and help sections. When you are ready, please update them with your official profiles:
+
+1. **X (formerly Twitter)**: Place your link in `app/page.tsx` and `components/Footer.tsx`.
+2. **GitHub**: Add your public repo URL here.
+3. **Discord**: Add your community invite link.
+4. **LinkedIn**: Company page link.
+5. **YouTube**: Tutorial or marketing channel.
+
+Look for the string `"#SOCIAL_LINK_HERE"` in the codebase to find where to update.

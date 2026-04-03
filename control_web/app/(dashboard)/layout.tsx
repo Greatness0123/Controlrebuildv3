@@ -7,6 +7,7 @@ import { getSupabaseClient } from '@/lib/supabase';
 import { chatApi, vmApi, pairApi } from '@/lib/api';
 import { useAuthStore, useChatStore, useVMStore, useDeviceStore } from '@/lib/store';
 import { useModal } from '@/lib/useModal';
+import { useTheme } from 'next-themes';
 import {
   Command, Monitor, MessageSquare, Cpu, Settings, LogOut, Plus, Sun, Moon, Zap,
   Link as LinkIcon, ChevronLeft, ChevronRight, Loader2, Menu, X, Trash, Edit2, LayoutDashboard, Crown, Shield
@@ -19,7 +20,8 @@ function cn(...classes: (string | undefined | false | null)[]) {
 export default function WorkspaceLayout({ children }: { children: ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
-  const { user, loading, setUser, setLoading, theme, setTheme } = useAuthStore();
+  const { user, loading, setUser, setLoading } = useAuthStore();
+  const { theme: nextTheme, setTheme: setNextTheme } = useTheme();
   const { sessions, setSessions } = useChatStore();
   const { vms, setVMs } = useVMStore();
   const { devices, setDevices } = useDeviceStore();
@@ -44,18 +46,8 @@ export default function WorkspaceLayout({ children }: { children: ReactNode }) {
     return () => subscription.unsubscribe();
   }, [router, setUser, setLoading]);
 
-  useEffect(() => {
-    const saved = localStorage.getItem('theme') as 'light' | 'dark' | null;
-    const initial = saved || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
-    setTheme(initial);
-    document.documentElement.classList.toggle('dark', initial === 'dark');
-  }, []);
-
   const toggleTheme = () => {
-    const next = theme === 'dark' ? 'light' : 'dark';
-    setTheme(next);
-    localStorage.setItem('theme', next);
-    document.documentElement.classList.toggle('dark', next === 'dark');
+    setNextTheme(nextTheme === 'dark' ? 'light' : 'dark');
   };
 
   useEffect(() => { setMobileOpen(false); }, [pathname]);
@@ -126,7 +118,7 @@ export default function WorkspaceLayout({ children }: { children: ReactNode }) {
     <>
       {modal}
 
-      <div className="h-14 flex items-center px-3 border-b border-border shrink-0">
+      <div className="h-12 flex items-center px-3 border-b border-border shrink-0">
         <div className="flex items-center gap-2 flex-1 min-w-0">
 
           <div className="w-7 h-7 flex items-center justify-center shrink-0 transition-all group-hover:scale-110 text-foreground">
@@ -159,7 +151,7 @@ export default function WorkspaceLayout({ children }: { children: ReactNode }) {
           onClick={handleNewChat}
           disabled={isCreatingChat}
           className={cn(
-            "h-10 flex items-center gap-2 rounded-xl transition-all disabled:opacity-50 active:scale-[0.98]",
+            "h-9 flex items-center gap-2 rounded-xl transition-all disabled:opacity-50 active:scale-[0.98]",
             (sidebarOpen || isMobile) 
               ? "w-full px-3 bg-accent-primary text-accent-foreground font-black text-[10px] uppercase tracking-[0.2em] shadow-xl shadow-primary/10 hover:bg-opacity-90" 
               : "w-10 justify-center bg-card border border-border text-foreground hover:bg-card-hover"
@@ -251,10 +243,10 @@ export default function WorkspaceLayout({ children }: { children: ReactNode }) {
             "w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs text-text-secondary hover:bg-card-hover hover:text-foreground transition-all",
             (sidebarOpen || isMobile) ? "" : "justify-center"
           )}
-          title={theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+          title={nextTheme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
         >
-          {theme === 'dark' ? <Sun size={14} /> : <Moon size={14} />}
-          {(sidebarOpen || isMobile) && (theme === 'dark' ? 'Light Mode' : 'Dark Mode')}
+          {nextTheme === 'dark' ? <Sun size={14} /> : <Moon size={14} />}
+          {(sidebarOpen || isMobile) && (nextTheme === 'dark' ? 'Light Mode' : 'Dark Mode')}
         </button>
 
         {(sidebarOpen || isMobile) && (
@@ -356,7 +348,7 @@ function NavLink({
     <Link
       href={href}
       className={cn(
-        "flex items-center h-10 px-3 rounded-xl text-xs transition-all relative group",
+        "flex items-center h-9 px-3 rounded-xl text-xs transition-all relative group",
         active ? 'bg-card-hover text-foreground font-bold' : 'text-text-muted hover:bg-card hover:text-foreground',
         "gap-3"
       )}

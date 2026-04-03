@@ -297,13 +297,13 @@ class RemoteDesktopManager {
         }
 
         try {
-            const { data: { session } } = await supabase.supabase.auth.getSession();
-            const token = session ? session.access_token : '';
+            const token = await supabase.getAccessToken();
             
             if (!token) {
                 console.warn('[Remote] Relay: No auth token available, skipping direct connection');
                 return;
             }
+
 
             // Get backend URL from env or fallback to default
             const backendUrl = process.env.BACKEND_URL || 'http://20.164.16.171:8000';
