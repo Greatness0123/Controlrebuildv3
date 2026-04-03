@@ -519,16 +519,19 @@ class AgentExecutor:
 
             user = res.data[0]
             today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-
             update_data: Dict[str, Any] = {}
-            if tokens == 0:
-                if mode == "act":
-                    update_data["act_count"] = (user.get("act_count") or 0) + 1
-                else:
-                    update_data["ask_count"] = (user.get("ask_count") or 0) + 1
 
+            # Always increment the interaction count for the mode
+            if mode == "act":
+                update_data["act_count"] = (user.get("act_count") or 0) + 1
+            else:
+                update_data["ask_count"] = (user.get("ask_count") or 0) + 1
+
+            # Update lifetime token usage if provided
             if tokens > 0:
                 update_data["total_token_usage"] = (user.get("total_token_usage") or 0) + tokens
+                
+                # Update detailed token breakdown
                 token_usage = user.get("token_usage")
                 if not isinstance(token_usage, dict):
                     token_usage = {}
@@ -542,6 +545,7 @@ class AgentExecutor:
                 m_usage["total"] = m_usage.get("total", 0) + tokens
                 update_data["token_usage"] = token_usage
 
+            # Update daily statistics
             daily_stats = user.get("daily_token_usage")
             if not isinstance(daily_stats, dict):
                 daily_stats = {}
@@ -549,12 +553,13 @@ class AgentExecutor:
             if today not in daily_stats:
                 daily_stats[today] = {"ask": 0, "act": 0, "total": 0, "prompt": 0, "candidates": 0}
 
-            if tokens == 0:
-                if mode == "act":
-                    daily_stats[today]["act"] = (daily_stats[today].get("act") or 0) + 1
-                else:
-                    daily_stats[today]["ask"] = (daily_stats[today].get("ask") or 0) + 1
+            # Increment daily interaction count
+            if mode == "act":
+                daily_stats[today]["act"] = (daily_stats[today].get("act") or 0) + 1
+            else:
+                daily_stats[today]["ask"] = (daily_stats[today].get("ask") or 0) + 1
 
+            # Increment daily token totals
             if tokens > 0:
                 daily_stats[today]["total"] = (daily_stats[today].get("total") or 0) + tokens
                 daily_stats[today]["prompt"] = daily_stats[today].get("prompt", 0) + (tokens // 2)

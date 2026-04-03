@@ -169,8 +169,9 @@ export default function WorkspaceLayout({ children }: { children: ReactNode }) {
       </div>
 
       {(sidebarOpen || isMobile) && (
-        <div className="flex-1 overflow-y-auto px-2 space-y-0.5 min-h-0">
-          <div className="text-[9px] font-bold text-text-muted uppercase tracking-widest px-2 py-2">Recent Chats</div>
+        <div className="flex-1 overflow-y-auto px-2 space-y-0.25 min-h-0">
+          <div className="text-[9px] font-bold text-text-muted uppercase tracking-widest px-2 py-3">Recent Chats</div>
+
           {sessions.map((session) => (
             <div key={session.id} className="relative group/session">
               {editingSessionId === session.id ? (
@@ -226,8 +227,9 @@ export default function WorkspaceLayout({ children }: { children: ReactNode }) {
 
       {!sidebarOpen && !isMobile && <div className="flex-1" />}
 
-      <div className="p-2 space-y-0.5 border-t border-border shrink-0">
+      <div className="p-2 pt-4 space-y-0.25 border-t border-border shrink-0">
         <NavLink href="/workspace" icon={<LayoutDashboard size={14} />} label="Workspace" active={pathname === '/workspace'} collapsed={isCollapsed && !isMobile} />
+
         <NavLink href="/machines" icon={<Cpu size={14} />} label="Machines" active={pathname === '/machines'} collapsed={isCollapsed && !isMobile} />
         <NavLink href="/workflows" icon={<Zap size={14} />} label="Workflows" active={pathname === '/workflows'} collapsed={isCollapsed && !isMobile} />
         <NavLink href="/pair" icon={<LinkIcon size={14} />} label="Pair Device" active={pathname === '/pair'} collapsed={isCollapsed && !isMobile} />
@@ -348,10 +350,11 @@ function NavLink({
     <Link
       href={href}
       className={cn(
-        "flex items-center h-9 px-3 rounded-xl text-xs transition-all relative group",
-        active ? 'bg-card-hover text-foreground font-bold' : 'text-text-muted hover:bg-card hover:text-foreground',
+        "flex items-center h-8 px-3 rounded-lg text-xs transition-all relative group",
+        active ? 'bg-card-hover text-foreground font-bold' : 'text-text-secondary hover:bg-card hover:text-foreground',
         "gap-3"
       )}
+
     >
       <div className="w-5 flex items-center justify-center shrink-0">
         {icon}
