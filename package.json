@@ -142,7 +142,8 @@
     "python-shell": "^5.0.0",
     "say": "^0.16.0",
     "screenshot-desktop": "^1.15.3",
-    "uuid": "^11.0.0"
+    "uuid": "^11.0.0",
+    "ws": "^8.20.0"
   },
   "devDependencies": {
     "@playwright/test": "^1.58.2",

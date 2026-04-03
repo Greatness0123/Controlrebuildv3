@@ -4,6 +4,7 @@ const deviceManager = require('./device-manager');
 const { mouse, keyboard, Button, Point, Key } = require("@computer-use/nut-js");
 const { desktopCapturer } = require('electron');
 const os = require('os');
+const WebSocket = require('ws');
 
 class RemoteDesktopManager {
     constructor(windowManager, settingsManager) {
@@ -14,6 +15,9 @@ class RemoteDesktopManager {
         this.streamInterval = null;
         this.heartbeatInterval = null;
         this.channel = null;
+        this.relayWs = null;
+        this.isRelayConnected = false;
+        this.lastFrameTimestamp = 0;
         
         this.setupIPCHandlers();
 
@@ -137,9 +141,10 @@ class RemoteDesktopManager {
         try {
             if (enabled) {
                 this.startSignalingListener(user.id);
-
+                this.connectRelay(user.id);
             } else {
                 this.stopSignalingListener();
+                this.disconnectRelay();
                 this.stopStreaming();
             }
             return { success: true, enabled };
@@ -280,6 +285,86 @@ class RemoteDesktopManager {
                     }, 10000);
                 }
             }, 30000); // Increased timeout to 30s
+    }
+
+    async connectRelay(userId, retryCount = 0) {
+        if (!userId) return;
+        const pairing = deviceManager.getPairingData();
+        const deviceId = pairing ? pairing.id : userId;
+        
+        if (this.relayWs) {
+            this.relayWs.close();
+        }
+
+        try {
+            const { data: { session } } = await supabase.supabase.auth.getSession();
+            const token = session ? session.access_token : '';
+            
+            if (!token) {
+                console.warn('[Remote] Relay: No auth token available, skipping direct connection');
+                return;
+            }
+
+            // Get backend URL from env or fallback to default
+            const backendUrl = process.env.BACKEND_URL || 'http://20.164.16.171:8000';
+            const wsUrl = `${backendUrl.replace(/^http/, 'ws')}/api/remote/${deviceId}/producer?token=${encodeURIComponent(token)}`;
+            
+            console.log(`[Remote] Connecting to relay: ${wsUrl.split('?')[0]}`);
+            
+            const ws = new WebSocket(wsUrl);
+            this.relayWs = ws;
+
+            ws.on('open', () => {
+                console.log('[Remote] Direct relay connected successfully');
+                this.isRelayConnected = true;
+                ws.send(JSON.stringify({ type: 'status', message: 'ready' }));
+            });
+
+            ws.on('message', async (data) => {
+                try {
+                    const message = JSON.parse(data.toString());
+                    console.log(`[Remote] Relay action: ${message.type}`);
+                    
+                    if (message.type === 'pong') return;
+                    if (message.type === 'request_stream') {
+                        this.startStreaming(userId);
+                        return;
+                    }
+
+                    await this.handleRemoteAction(message);
+                } catch (err) {
+                    console.error('[Remote] Relay message error:', err);
+                }
+            });
+
+            ws.on('close', (code, reason) => {
+                console.log(`[Remote] Relay connection closed: ${code} ${reason}`);
+                this.isRelayConnected = false;
+                this.relayWs = null;
+                
+                // Reconnect if still enabled
+                const settings = this.settingsManager.getSettings();
+                if (settings.remoteAccessEnabled && retryCount < 10) {
+                    const delay = Math.min(1000 * Math.pow(2, retryCount), 30000);
+                    setTimeout(() => this.connectRelay(userId, retryCount + 1), delay);
+                }
+            });
+
+            ws.on('error', (err) => {
+                console.warn('[Remote] Relay socket error:', err.message);
+            });
+
+        } catch (err) {
+            console.error('[Remote] Relay connection failed:', err);
+        }
+    }
+
+    disconnectRelay() {
+        if (this.relayWs) {
+            this.relayWs.close();
+            this.relayWs = null;
+        }
+        this.isRelayConnected = false;
     }
 
     async startHeartbeat(deviceId) {
@@ -455,15 +540,30 @@ class RemoteDesktopManager {
             });
             
             if (sources.length > 0) {
-                const screenshot = sources[0].thumbnail.toDataURL();
+                const thumbnail = sources[0].thumbnail;
                 
-                if (this.channel) {
+                // 1. Direct Relay (Fastest)
+                if (this.isRelayConnected && this.relayWs) {
+                    try {
+                        const jpegBuffer = thumbnail.toJPEG(65);
+                        this.relayWs.send(jpegBuffer);
+                    } catch (e) {
+                        console.warn('[Remote] Failed to send via relay:', e.message);
+                        this.isRelayConnected = false;
+                    }
+                }
+
+                // 2. Supabase Fallback (Slower, Base64)
+                if (this.channel && (!this.isRelayConnected || Date.now() - this.lastFrameTimestamp > 1000)) {
+                    const screenshot = thumbnail.toDataURL();
                     this.channel.send({
                         type: 'broadcast',
                         event: 'screen_update',
                         payload: { image: screenshot, timestamp: Date.now() }
                     });
                 }
+                
+                this.lastFrameTimestamp = Date.now();
             }
         } catch (err) {
             console.error('[Remote] Streaming error:', err);

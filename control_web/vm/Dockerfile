@@ -23,6 +23,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     python3-tk \
     python3-dev \
     scrot \
+    xdotool \
     at-spi2-core \
     curl \
     git \

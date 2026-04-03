@@ -51,10 +51,6 @@ export default function VNCViewer({ url, status = 'stopped', className, vmId }: 
 
         if (vmId) {
             // ── PROXY PATH (production + localhost) ─────────────────────
-            // Connect directly to the backend's WebSocket proxy endpoint.
-            // The backend URL is converted: http→ws, https→wss.
-            // On Vercel (HTTPS), the backend MUST also be behind HTTPS
-            // (e.g. via Caddy on the Azure VM) so we get wss://.
             const token = await getAccessToken();
             if (!token) {
                 setError(true);
@@ -67,17 +63,14 @@ export default function VNCViewer({ url, status = 'stopped', className, vmId }: 
             const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || '';
             let wsBase: string;
             if (backendUrl) {
-                // Convert http(s):// to ws(s)://
                 wsBase = backendUrl.replace(/^http/, 'ws');
             } else {
-                // Fallback: same origin (works for self-hosted Next.js)
                 wsBase = `${wsProtocol}//${window.location.host}`;
             }
             wsUrl = `${wsBase}/api/vm/${vmId}/ws?token=${encodeURIComponent(token)}`;
             console.log(`[VNC] Connecting via proxy: ${wsUrl.replace(/token=[^&]+/, 'token=***')}`);
         } else if (url) {
             // ── DIRECT PATH (legacy fallback) ───────────────────────────
-            // Connect directly to the VM's websockify port
             const urlObj = new URL(url);
             const host = urlObj.hostname;
             const port = parseInt(urlObj.port) || (urlObj.protocol === 'https:' ? 443 : 80);
@@ -95,21 +88,33 @@ export default function VNCViewer({ url, status = 'stopped', className, vmId }: 
             wsProtocols: ['binary']
         });
 
+        // ── Performance-critical settings ──────────────────────
         rfb.scaleViewport = true;
         rfb.resizeSession = true;
         rfb.showDotCursor = true;
         rfb.background = '#09090b';
+        rfb.qualityLevel = 6;       // 0-9, lower = faster (JPEG quality)
+        rfb.compressionLevel = 2;   // 0-9, lower = less CPU, faster
+        rfb.clipViewport = false;
+
+        // Prefer Tight encoding with JPEG for speed
+        // noVNC negotiates automatically but these hints help
+        try {
+            if (rfb._rfbConnectionState !== undefined) {
+                rfb._fbDepth = 24;
+            }
+        } catch (e) {}
 
         rfb.addEventListener('connect', () => {
             console.log('[VNC] Connected');
             setLoading(false);
             setError(false);
-            // Small delay to ensure display is ready
+            // Focus immediately for faster interaction
             setTimeout(() => {
                 if (rfbRef.current) {
                     rfbRef.current.focus();
                 }
-            }, 500);
+            }, 100);
         });
 
         rfb.addEventListener('disconnect', (e: any) => {
@@ -117,6 +122,13 @@ export default function VNCViewer({ url, status = 'stopped', className, vmId }: 
             if (e.detail.clean === false) {
                 setError(true);
                 setErrorMessage('Connection lost unexpectedly');
+                // Auto-reconnect after brief delay
+                setTimeout(() => {
+                    if (status === 'running') {
+                        console.log('[VNC] Auto-reconnecting...');
+                        connect();
+                    }
+                }, 2000);
             }
             setLoading(false);
         });
@@ -140,12 +152,12 @@ export default function VNCViewer({ url, status = 'stopped', className, vmId }: 
         setErrorMessage(err.message || 'Failed to initialize VNC client');
         setLoading(false);
     }
-  }, [url, vmId]);
+  }, [url, vmId, status]);
 
   useEffect(() => {
     if (status === 'running') {
-        // Short delay to ensure DOM is ready
-        const timer = setTimeout(connect, 500);
+        // Shorter delay for faster connection
+        const timer = setTimeout(connect, 200);
         return () => {
             clearTimeout(timer);
             if (rfbRef.current) rfbRef.current.disconnect();
@@ -161,7 +173,7 @@ export default function VNCViewer({ url, status = 'stopped', className, vmId }: 
         try { rfbRef.current.disconnect(); } catch (e) {}
         rfbRef.current = null;
     }
-    setTimeout(connect, 300);
+    setTimeout(connect, 100);
   }, [connect]);
 
   const toggleFullscreen = () => {
