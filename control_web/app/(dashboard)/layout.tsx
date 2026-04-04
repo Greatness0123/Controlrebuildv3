@@ -9,9 +9,10 @@ import { useAuthStore, useChatStore, useVMStore, useDeviceStore } from '@/lib/st
 import { useModal } from '@/lib/useModal';
 import { useTheme } from 'next-themes';
 import {
-  Command, Monitor, MessageSquare, Cpu, Settings, LogOut, Plus, Sun, Moon, Zap,
+  Command, Monitor, MessageSquare, Cpu, Settings, LogOut, Plus, Sun, Moon, GitBranch,
   Link as LinkIcon, ChevronLeft, ChevronRight, Loader2, Menu, X, Trash, Edit2, LayoutDashboard, Crown, Shield
 } from 'lucide-react';
+import { WorkspaceTour } from '@/components/workspace/WorkspaceTour';
 
 function cn(...classes: (string | undefined | false | null)[]) {
   return classes.filter(Boolean).join(' ');
@@ -35,22 +36,34 @@ export default function WorkspaceLayout({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const supabase = getSupabaseClient();
+    const loginWithReturn = () => {
+      const q = pathname ? `?next=${encodeURIComponent(pathname)}` : '';
+      router.push(`/auth/login${q}`);
+    };
     supabase.auth.getSession().then(({ data: { session } }) => {
-      if (!session) router.push('/auth/login');
+      if (!session) loginWithReturn();
       else { setUser(session.user); setLoading(false); }
     });
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === 'SIGNED_OUT' || !session) { router.push('/auth/login'); setUser(null); }
+      if (event === 'SIGNED_OUT' || !session) { loginWithReturn(); setUser(null); }
       else setUser(session.user);
     });
     return () => subscription.unsubscribe();
-  }, [router, setUser, setLoading]);
+  }, [router, setUser, setLoading, pathname]);
 
   const toggleTheme = () => {
     setNextTheme(nextTheme === 'dark' ? 'light' : 'dark');
   };
 
   useEffect(() => { setMobileOpen(false); }, [pathname]);
+
+  useEffect(() => {
+    if (!user || !pathname) return;
+    if (pathname.startsWith('/onboarding')) return;
+    if (user.user_metadata?.onboarding_completed === false) {
+      router.replace(`/onboarding?next=${encodeURIComponent(pathname)}`);
+    }
+  }, [user, pathname, router]);
 
   useEffect(() => {
     if (!user) return;
@@ -231,7 +244,7 @@ export default function WorkspaceLayout({ children }: { children: ReactNode }) {
         <NavLink href="/workspace" icon={<LayoutDashboard size={14} />} label="Workspace" active={pathname === '/workspace'} collapsed={isCollapsed && !isMobile} />
 
         <NavLink href="/machines" icon={<Cpu size={14} />} label="Machines" active={pathname === '/machines'} collapsed={isCollapsed && !isMobile} />
-        <NavLink href="/workflows" icon={<Zap size={14} />} label="Workflows" active={pathname === '/workflows'} collapsed={isCollapsed && !isMobile} />
+        <NavLink href="/workflows" icon={<GitBranch size={14} />} label="Workflows" active={pathname === '/workflows'} collapsed={isCollapsed && !isMobile} />
         <NavLink href="/pair" icon={<LinkIcon size={14} />} label="Pair Device" active={pathname === '/pair'} collapsed={isCollapsed && !isMobile} />
         <NavLink href="/vault" icon={<Shield size={14} />} label="Secure Vault" active={pathname === '/vault'} collapsed={isCollapsed && !isMobile} />
         <NavLink href="/pricing" icon={<Crown size={14} className="text-yellow-500/50" />} label="Pricing Plans" active={pathname === '/pricing'} collapsed={isCollapsed && !isMobile} />
@@ -280,6 +293,7 @@ export default function WorkspaceLayout({ children }: { children: ReactNode }) {
     <div className={cn(
       "h-[100dvh] flex overflow-hidden bg-background text-foreground"
     )}>
+      <WorkspaceTour userId={user.id} />
 
       {mobileOpen && (
         <div

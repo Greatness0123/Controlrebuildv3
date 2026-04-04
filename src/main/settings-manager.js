@@ -74,6 +74,8 @@ class SettingsManager {
                 stopAction: 'Alt+Z'
             },
             remoteAccessEnabled: false,
+            /** Optional: same origin as control_web API, e.g. https://your-app.com — used for remote desktop WebSocket relay if env BACKEND_URL is unset */
+            controlBackendUrl: 'https://control.southafricanorth.cloudapp.azure.com',
             userDetails: null
         };
     }

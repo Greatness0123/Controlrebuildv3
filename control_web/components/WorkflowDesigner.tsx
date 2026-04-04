@@ -2,12 +2,12 @@
 
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import {
-  Plus, Play, Save, Download, Upload, Trash2, X, Bot, Send,
+  Plus, Play, Save, Download, Upload, Trash2, X, Send,
   Paperclip, Loader2, MessageSquare, ChevronRight, ChevronLeft,
-  Settings, StopCircle, Zap, Clock, MousePointer2, FileText,
+  Settings, StopCircle, GitBranch, Clock, MousePointer2, FileText,
   Globe, Search, Brain, Maximize2, Minimize2, GripVertical,
   MoreVertical, Edit3, Trash, Check, AlertCircle, File, Sparkles,
-  Monitor, Copy, FileJson
+  Monitor, Copy, FileJson, Wand2, Hash
 } from 'lucide-react';
 import { useAuthStore, useVMStore, useDeviceStore } from '@/lib/store';
 import { workflowApi, chatApi, vmApi } from '@/lib/api';
@@ -506,21 +506,10 @@ Example:
   return (
     <div className="flex-1 flex flex-col bg-background h-full overflow-hidden relative sm:border sm:border-border sm:rounded-3xl sm:shadow-2xl max-h-screen">
 
-      {!isAiOverlayOpen && (
-        <button
-          onClick={() => setIsAiOverlayOpen(true)}
-          className="fixed right-6 bottom-24 z-[100] w-14 h-14 bg-black dark:bg-white text-white dark:text-black rounded-full shadow-2xl flex items-center justify-center hover:scale-110 transition-all group"
-          title="Open AI Designer"
-        >
-          <Bot size={24} />
-          <div className="absolute top-0 right-0 w-3.5 h-3.5 bg-accent-primary rounded-full border-2 border-background animate-pulse" />
-        </button>
-      )}
-
       <header className="min-h-16 flex flex-col sm:flex-row items-center justify-between px-4 py-3 sm:px-6 sm:py-0 border-b border-border bg-card shrink-0 gap-3 sm:gap-0">
         <div className="flex items-center gap-4 w-full sm:w-auto">
           <div className="w-10 h-10 rounded-xl bg-accent-primary flex items-center justify-center text-accent-foreground shadow-lg shrink-0">
-            <Zap size={20} />
+            <GitBranch size={20} />
           </div>
           <div className="min-w-0 flex-1">
             <input
@@ -546,7 +535,20 @@ Example:
 
           <div className="hidden sm:block w-px h-6 bg-border mx-1" />
 
-          <div className="flex gap-1.5 shrink-0">
+          <div className="flex gap-1.5 shrink-0 items-center">
+            <button
+              type="button"
+              onClick={() => setIsAiOverlayOpen((o) => !o)}
+              className={cn(
+                'p-2 rounded-xl border transition-all shrink-0',
+                isAiOverlayOpen
+                  ? 'bg-accent-primary/15 border-accent-primary/40 text-accent-primary'
+                  : 'bg-secondary border-border text-text-muted hover:text-foreground hover:bg-card-hover'
+              )}
+              title={isAiOverlayOpen ? 'Close AI panel' : 'Open Workflow AI'}
+            >
+              <Wand2 size={16} strokeWidth={2} />
+            </button>
             <button
               onClick={() => {
                 navigator.clipboard.writeText(JSON.stringify(workflow, null, 2));
@@ -664,7 +666,7 @@ Example:
       <div className={cn("fixed inset-y-0 right-0 w-full sm:w-[450px] bg-background border-l border-border shadow-[0_0_50px_rgba(0,0,0,0.3)] pointer-events-auto flex flex-col transition-all duration-500 ease-out z-[101]", isAiOverlayOpen ? "translate-x-0" : "translate-x-full", isAiMinimized && isAiOverlayOpen ? "h-16 top-auto bottom-0 translate-y-0 rounded-t-3xl border-t" : "")}>
           <div className="h-16 flex items-center justify-between px-6 border-b border-border shrink-0 bg-secondary rounded-t-3xl sm:rounded-none">
             <div className="flex items-center gap-3">
-              <Bot size={20} className="text-foreground" />
+              <Wand2 size={20} className="text-foreground" />
               <span className="text-[11px] font-black uppercase tracking-[0.2em]">Workflow AI Designer</span>
             </div>
             <div className="flex items-center gap-2">
@@ -678,7 +680,7 @@ Example:
           <div className="flex-1 overflow-y-auto p-6 space-y-6">
             {aiMessages.length === 0 ? (
               <div className="text-center py-20 space-y-4">
-                <div className="w-16 h-16 bg-accent-primary/10 rounded-3xl flex items-center justify-center mx-auto"><Sparkles size={32} className="text-accent-primary" /></div>
+                <div className="w-16 h-16 bg-accent-primary/10 rounded-3xl flex items-center justify-center mx-auto"><Wand2 size={32} className="text-accent-primary" /></div>
                 <h3 className="text-lg font-black tracking-tight">Need a workflow?</h3>
                 <p className="text-xs text-text-muted font-medium max-w-[250px] mx-auto leading-relaxed">Tell me what you want to automate, and I'll build the visual flow for you.</p>
                 <div className="flex flex-wrap gap-2 justify-center pt-4">
@@ -843,7 +845,7 @@ function NodeElement({ node, onMouseDown, onPortMouseDown, onPortMouseUp, onDele
 function NodeIcon({ type, size, className }: { type: string; size: number; className?: string }) {
   switch (type) {
     case 'start_time': return <Clock size={size} className={className} />;
-    case 'start_keyword': return <Zap size={size} className={className} />;
+    case 'start_keyword': return <Hash size={size} className={className} />;
     case 'app': return <Maximize2 size={size} className={className} />;
     case 'file': return <FileText size={size} className={className} />;
     case 'document': return <File size={size} className={className} />;
@@ -858,7 +860,7 @@ function NodePicker({ onPick }: { onPick: (type: string) => void }) {
   const [open, setOpen] = useState(false);
   const types = [
     { type: 'start_time', label: 'Trigger: Time', icon: <Clock size={12}/> },
-    { type: 'start_keyword', label: 'Trigger: Keyword', icon: <Zap size={12}/> },
+    { type: 'start_keyword', label: 'Trigger: Keyword', icon: <Hash size={12}/> },
     { type: 'app', label: 'Open App', icon: <Maximize2 size={12}/> },
     { type: 'file', label: 'Open File', icon: <FileText size={12}/> },
     { type: 'web_search', label: 'Web Search', icon: <Search size={12}/> },

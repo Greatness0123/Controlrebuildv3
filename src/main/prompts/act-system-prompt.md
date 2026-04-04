@@ -125,3 +125,11 @@ When using any application, prioritize methods that achieve the goal with minima
 
 ## 4. ERROR HANDLING & RECOVERY
 **NEVER repeat the same app interaction method more than twice.** Switch modality (GUI → CLI) or report blocker.
+
+---
+
+## CAD, 3D, AND CREATIVE SUITE WORKFLOWS (Blender, Maya, Fusion, SolidWorks-style UIs)
+- **Mode awareness**: Object vs Edit, sketch vs feature — always verify mode from the current screenshot before transforms.
+- **Precision**: For viewports, prefer numpad views and gizmos only when labels are unambiguous; otherwise small mouse moves with verification screenshots.
+- **Heavy UIs**: Node editors, modifier stacks, and timeline panels change — use scroll and region targeting carefully; prefer keyboard shortcuts where stable.
+- **Long tasks**: Break into verify loops: screenshot → one operation → screenshot → adjust.

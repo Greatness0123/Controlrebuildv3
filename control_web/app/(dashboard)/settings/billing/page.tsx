@@ -6,20 +6,21 @@ import { getSupabaseClient } from '@/lib/supabase';
 import { chatApi } from '@/lib/api';
 import Link from 'next/link';
 import {
-  Zap,
   TrendingUp,
   Wallet,
   Activity,
   Check,
   ChevronRight,
-  Monitor,
-  Users,
   Clock,
   Download,
   Filter,
   AlertTriangle,
   ArrowUpRight,
-  ArrowDownLeft
+  ArrowDownLeft,
+  MousePointerClick,
+  MessageCircleQuestion,
+  Fuel,
+  User,
 } from 'lucide-react';
 import {
   AreaChart,
@@ -175,7 +176,7 @@ export default function BillingPage() {
           value={userData?.act_count?.toString() || "0"}
           subtitle={`Limit: ${currentLimits.act === 999999 ? '∞' : currentLimits.act}`}
           unit="actions"
-          icon={<Activity className="w-4 h-4" />}
+          icon={<MousePointerClick className="w-4 h-4" />}
           color="rose"
         />
         <SummaryCard
@@ -183,7 +184,7 @@ export default function BillingPage() {
           value={userData?.ask_count?.toString() || "0"}
           subtitle={`Limit: ${currentLimits.ask === 999999 ? '∞' : currentLimits.ask}`}
           unit="queries"
-          icon={<Users className="w-4 h-4" />}
+          icon={<MessageCircleQuestion className="w-4 h-4" />}
           color="emerald"
         />
         <SummaryCard
@@ -191,7 +192,7 @@ export default function BillingPage() {
           value={userData ? (userData.total_token_usage || 0).toString() : "..."}
           subtitle="lifetime usage"
           unit="tokens"
-          icon={<Zap className="w-4 h-4" />}
+          icon={<Fuel className="w-4 h-4" />}
           color="blue"
         />
         <SummaryCard
@@ -237,7 +238,7 @@ export default function BillingPage() {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 rounded-lg bg-secondary flex items-center justify-center text-foreground border border-border">
-              <Zap size={16} />
+              <Fuel size={16} />
             </div>
             <h3 className="text-sm font-black text-foreground uppercase tracking-tight">Token Consumption</h3>
           </div>
@@ -305,7 +306,7 @@ export default function BillingPage() {
                 subtitle={`${new Date(action.created_at).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })} · Session: ${action.session_id.substring(0, 8)}`}
                 amount={action.role === 'action' ? "-1 act" : action.role === 'user' ? "query" : "resp"}
                 balance=""
-                icon={action.role === 'action' ? <Zap className="w-4 h-4" /> : action.role === 'user' ? <Users className="w-4 h-4" /> : <Activity className="w-4 h-4" />}
+                icon={action.role === 'action' ? <MousePointerClick className="w-4 h-4" /> : action.role === 'user' ? <User className="w-4 h-4" /> : <Activity className="w-4 h-4" />}
               />
             ))
           ) : (

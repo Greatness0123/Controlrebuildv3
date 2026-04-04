@@ -204,7 +204,13 @@ class VMService:
     async def get_vm_stats(self, vm_id: str, container_id: str) -> dict:
 
         if not self.docker_client:
-            return {"cpu": 0, "memory": 0, "memory_limit": 0}
+            return {
+                "cpu": 0,
+                "memory": 0,
+                "memory_limit": 0,
+                "storage_used": 0,
+                "storage_limit": 0,
+            }
         try:
             container = self.docker_client.containers.get(container_id)
             stats = container.stats(stream=False)
@@ -240,7 +246,13 @@ class VMService:
                 "storage_limit": round(float(storage_limit or 0) / 1024, 1),
             }
         except Exception:
-            return {"cpu": 0, "memory": 0, "memory_limit": 0}
+            return {
+                "cpu": 0,
+                "memory": 0,
+                "memory_limit": 0,
+                "storage_used": 0,
+                "storage_limit": 0,
+            }
 
     async def update_activity(self, db: Client, vm_id: str):
 

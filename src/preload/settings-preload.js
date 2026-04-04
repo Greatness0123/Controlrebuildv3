@@ -52,6 +52,7 @@ contextBridge.exposeInMainWorld('settingsAPI', {
     importSkill: () => ipcRenderer.invoke('import-skill'),
     uploadSkillFolder: () => ipcRenderer.invoke('upload-skill-folder'),
     deleteSkill: (name) => ipcRenderer.invoke('delete-skill', name),
+    updateSkill: (payload) => ipcRenderer.invoke('update-skill', payload),
     getSkills: () => ipcRenderer.invoke('read-behaviors'),
     showConfirmModal: (options) => ipcRenderer.invoke('show-confirm-modal', options),
     promptModal: (message, defaultValue, options) => ipcRenderer.invoke('show-prompt-modal', message, defaultValue, options),

@@ -26,15 +26,25 @@ export default function VMCard({ vm }: { vm: any }) {
   const [stats, setStats] = useState<any>(null);
 
   useEffect(() => {
-    if (vm.status === 'running') {
-      const interval = setInterval(async () => {
-        try {
-          const res = await vmApi.stats(vm.id);
-          setStats(res.stats);
-        } catch {}
-      }, 5000);
-      return () => clearInterval(interval);
+    if (vm.status !== 'running') {
+      setStats(null);
+      return;
     }
+    let cancelled = false;
+    const pull = async () => {
+      try {
+        const res = await vmApi.stats(vm.id);
+        if (!cancelled) setStats(res.stats);
+      } catch {
+        if (!cancelled) setStats(null);
+      }
+    };
+    pull();
+    const interval = setInterval(pull, 5000);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
   }, [vm.id, vm.status]);
 
   const handleStart = async () => {
@@ -105,8 +115,20 @@ export default function VMCard({ vm }: { vm: any }) {
     }
   };
 
-  const memoryUsagePercent = stats ? (stats.memory / stats.memory_limit) * 100 : 0;
-  const storageUsagePercent = stats?.storage_limit ? (stats.storage_used / stats.storage_limit) * 100 : 21;
+  const memLimit = Number(stats?.memory_limit) || 0;
+  const memUsed = Number(stats?.memory) || 0;
+  const memoryUsagePercent =
+    memLimit > 0 ? Math.min(100, Math.max(0, (memUsed / memLimit) * 100)) : 0;
+
+  const storLimit = Number(stats?.storage_limit) || 0;
+  const storUsed = Number(stats?.storage_used) || 0;
+  const storageUsagePercent =
+    storLimit > 0 ? Math.min(100, Math.max(0, (storUsed / storLimit) * 100)) : 0;
+
+  const cpuPct = Math.min(100, Math.max(0, Number(stats?.cpu) || 0));
+  const memLabel =
+    memUsed > 0 ? `${memUsed.toFixed(0)}MB` : vm.status === 'running' ? '—' : '—';
+  const memLimitLabel = memLimit > 0 ? `${memLimit.toFixed(0)}MB cap` : '';
 
   return (
     <>
@@ -155,12 +177,14 @@ export default function VMCard({ vm }: { vm: any }) {
                 <span className="text-[8px] font-black text-text-muted uppercase tracking-widest flex items-center gap-1.5">
                     <Cpu size={10} /> CPU
                 </span>
-                <span className="text-[9px] font-mono text-text-secondary">{stats?.cpu || 0}%</span>
+                <span className="text-[9px] font-mono text-text-secondary">
+                  {vm.status === 'running' ? `${cpuPct.toFixed(1)}%` : '—'}
+                </span>
               </div>
               <div className="h-1 bg-secondary rounded-full overflow-hidden">
                 <div
-                  className="h-full bg-accent-primary transition-all duration-1000"
-                  style={{ width: `${stats?.cpu || 0}%` }}
+                  className="h-full bg-accent-primary transition-all duration-700 ease-out"
+                  style={{ width: vm.status === 'running' ? `${cpuPct}%` : '0%' }}
                 />
               </div>
             </div>
@@ -169,12 +193,14 @@ export default function VMCard({ vm }: { vm: any }) {
                 <span className="text-[8px] font-black text-text-muted uppercase tracking-widest flex items-center gap-1.5">
                     <Activity size={10} /> Memory
                 </span>
-                <span className="text-[9px] font-mono text-text-secondary">{stats?.memory ? `${(stats.memory / 1024).toFixed(1)}GB` : '0GB'}</span>
+                <span className="text-[9px] font-mono text-text-secondary text-right leading-tight max-w-[120px] truncate" title={memLimitLabel}>
+                  {vm.status !== 'running' ? '—' : memLimit > 0 ? `${memLabel} / ${memLimit.toFixed(0)}MB` : memLabel}
+                </span>
               </div>
               <div className="h-1 bg-secondary rounded-full overflow-hidden">
                 <div
-                  className="h-full bg-text-muted transition-all duration-1000"
-                  style={{ width: `${memoryUsagePercent}%` }}
+                  className="h-full bg-text-muted transition-all duration-700 ease-out"
+                  style={{ width: vm.status === 'running' && memLimit > 0 ? `${memoryUsagePercent}%` : '0%' }}
                 />
               </div>
             </div>
@@ -185,12 +211,16 @@ export default function VMCard({ vm }: { vm: any }) {
                 <span className="text-[8px] font-black text-text-muted uppercase tracking-widest flex items-center gap-1.5">
                     <HardDrive size={10} /> Storage
                 </span>
-                <span className="text-[9px] font-mono text-text-secondary">{stats?.storage_used || '0.0'}GB <span className="text-border">/</span> {stats?.storage_limit || '20'}GB</span>
+                <span className="text-[9px] font-mono text-text-secondary">
+                  {vm.status !== 'running' || storLimit <= 0
+                    ? '—'
+                    : `${storUsed.toFixed(1)}GB / ${storLimit.toFixed(1)}GB`}
+                </span>
             </div>
             <div className="h-1 bg-secondary rounded-full overflow-hidden">
                 <div
-                  className="h-full bg-text-secondary transition-all duration-1000"
-                  style={{ width: `${storageUsagePercent}%` }}
+                  className="h-full bg-text-secondary transition-all duration-700 ease-out"
+                  style={{ width: vm.status === 'running' && storLimit > 0 ? `${storageUsagePercent}%` : '0%' }}
                 />
             </div>
           </div>

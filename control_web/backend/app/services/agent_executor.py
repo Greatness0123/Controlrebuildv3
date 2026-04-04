@@ -144,8 +144,11 @@ Your ONLY purpose is to perform actions on a computer screen to complete the use
 ## RESPONSE FORMAT (Strict JSON only)
 {"thought": "reasoning about current state and next step", "action": "ACTION_NAME", "params": {"key": "value"}}
 
-## GREETING HANDLING
-For casual messages like "Hi", "Hello", etc. — just respond naturally in plain text. Do NOT use JSON actions.
+## PROFESSIONAL & CREATIVE SOFTWARE (CAD, Blender, DCC, IDEs)
+- Treat toolbars, modifiers, and node editors as precision workflows: confirm the active mode (Object/Edit, etc.) via SCREENSHOT before destructive edits.
+- Prefer keyboard shortcuts documented for the app when faster than mouse (Blender: G/R/S, Tab, Space; CAD: ortho/snaps where applicable).
+- For complex UIs, work in small loops: SCREENSHOT → one focused action → SCREENSHOT to verify.
+- If viewport navigation is unclear, use middle-mouse / view menus via TERMINAL only when CLI exists; otherwise click conservatively with HITL if credentials or licensing block progress.
 
 ## STOP POLICY
 - If blocked by CAPTCHA, paywall, or hard login → use HITL
@@ -163,7 +166,8 @@ RULES:
 4. Do NOT output JSON action commands — just respond in plain text/markdown.
 5. Be concise but complete.
 6. If the user asks something you're unsure about, say so honestly.
-7. You may reference the user's computer setup context if relevant to answering their question."""
+7. You may reference the user's computer setup context if relevant to answering their question.
+8. For CAD, 3D (Blender, Maya), and creative suites: explain concepts, shortcuts, and safe workflows; do not pretend you are executing clicks unless the user switched to Act mode."""
 
 WORKFLOW_SYSTEM_PROMPT = """You are Control AI Workflow Designer. Your goal is to help the user create a visual automation workflow.
 
@@ -595,14 +599,18 @@ class AgentExecutor:
             target_name = "Cloud VM"
             target_status = "Online"
             vm_id = session_data.get("vm_id")
+            device_sid = session_data.get("device_id")
+            # Always bind targets from the chat session (request body does not carry vm_id/device_id).
+            machine_id = machine_id or vm_id
+            device_id = device_id or device_sid
+
             vm_data = None
             if vm_id:
-                vm_res = db.table("vms").select("*").eq("id", vm_id).execute()
+                vm_res = db.table("virtual_machines").select("*").eq("id", vm_id).execute()
                 if vm_res.data:
                     vm_data = vm_res.data[0]
                     target_name = vm_data.get("name", target_name)
                     target_status = vm_data.get("status", "running")
-                    machine_id = machine_id or vm_id
 
             # 2. Determine mode (ASK, ACT, or WORKFLOW)
             mode = forced_mode or _auto_detect_mode(user_message, bool(machine_id or device_id))
@@ -628,11 +636,11 @@ class AgentExecutor:
             if mode == "act" and not last_screenshot:
                 try:
                     if machine_id:
-                        yield {"type": "thinking", "content": "Initializing vision (VM)..."}
+                        yield {"type": "thought", "content": "Initializing vision (VM)…"}
                         shot = await _take_screenshot_vm(machine_id)
                         if shot: last_screenshot = shot
                     elif device_id:
-                        yield {"type": "thinking", "content": "Initializing vision (Device)..."}
+                        yield {"type": "thought", "content": "Initializing vision (device)…"}
                         shot = await _take_screenshot_device(device_id)
                         if shot: last_screenshot = shot
                     
@@ -644,7 +652,7 @@ class AgentExecutor:
             if mode in ["ask", "workflow"]:
                 provider_config["system_prompt"] = WORKFLOW_SYSTEM_PROMPT if mode == "workflow" else ASK_SYSTEM_PROMPT
                 
-                yield {"type": "thinking", "content": "Assistant is typing..."}
+                yield {"type": "thought", "content": "Assistant is typing…"}
                 full_response = ""
                 
                 # Streaming implementation for ASK mode
@@ -670,6 +678,14 @@ class AgentExecutor:
             # ─── ACT MODE ──────────────────────────────────────────────────
             provider_config["system_prompt"] = ACT_SYSTEM_PROMPT
 
+            if not machine_id and not device_id:
+                yield {
+                    "type": "message",
+                    "content": "No VM or paired device is assigned to this chat. Open the session header, pick a running VM or an online device, then send your task again.",
+                }
+                yield {"type": "done"}
+                return
+
             while step < max_steps:
                 step += 1
                 try:
@@ -681,12 +697,12 @@ class AgentExecutor:
                     yield {"type": "message", "content": "🛑 AI stopped by user."}
                     break
                 if current_status == "paused":
-                    yield {"type": "thinking", "content": "⏸️ Paused..."}
+                    yield {"type": "thought", "content": "⏸️ Paused…"}
                     await asyncio.sleep(2)
                     step -= 1
                     continue
 
-                yield {"type": "thinking", "content": f"Step {step} — thinking..."}
+                yield {"type": "thought", "content": f"Step {step} — planning next action…"}
 
                 result = await self._call_ai(provider_config, conversation, last_screenshot, stream=False)
                 response_text = str(result)

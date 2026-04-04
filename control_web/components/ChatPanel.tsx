@@ -6,11 +6,12 @@ import { useChatStore, useVMStore, useDeviceStore, useAuthStore } from '@/lib/st
 import { chatApi, vmApi } from '@/lib/api';
 import { toast } from 'sonner';
 import {
-  Send, User, Bot, Terminal, MousePointer2, Camera, Loader2,
-  Sparkles, AlertCircle, Cpu, Laptop, ChevronDown, Check, Paperclip,
+  Send, User, Terminal, MousePointer2, Camera, Loader2,
+  AlertCircle, Cpu, Laptop, ChevronDown, Check, Paperclip,
   HandMetal, Square, PlayCircle, PauseCircle, MousePointer,
   X, FileText, Image as ImageIcon, ShieldAlert, Command, ChevronRight, ChevronLeft,
-  Mic, MicOff, Cog, Search, Type, ArrowDown, Globe, Zap
+  Mic, MicOff, Cog, Search, Type, ArrowDown, Globe,
+  MousePointerClick, MessageCircleQuestion, Lightbulb
 } from 'lucide-react';
 
 import ReactMarkdown from 'react-markdown';
@@ -20,6 +21,15 @@ import { twMerge } from 'tailwind-merge';
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
+}
+
+function formatActionLabel(action: string): string {
+  if (!action) return 'Action';
+  return action
+    .split(/[_\s]+/)
+    .filter(Boolean)
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+    .join(' ');
 }
 
 interface ChatPanelProps {
@@ -281,16 +291,32 @@ export default function ChatPanel({ sessionId }: ChatPanelProps) {
               created_at: new Date().toISOString()
             } as any);
           }
+        } else if (event.type === 'thinking') {
+          const msgId: string = currentThoughtMessageId ?? Math.random().toString();
+          currentThoughtMessageId = msgId;
+          const existingMessages = useChatStore.getState().messages;
+          const line = String(event.content || '');
+          if (existingMessages.find(m => m.id === msgId)) {
+            setMessages(existingMessages.map(m => m.id === msgId ? { ...m, content: line, is_thought: true } : m));
+          } else {
+            addMessage({
+              id: msgId,
+              session_id: sessionId,
+              role: 'assistant',
+              content: line,
+              is_thought: true,
+              created_at: new Date().toISOString()
+            } as any);
+          }
         } else if (event.type === 'action') {
-          // Update last assistant message if it's currently streaming thought/message
-          // Or just add the action message
           addMessage({
             id: Math.random().toString(),
             session_id: sessionId,
             role: 'action',
-            content: `Executing ${event.action}...`,
+            content: `${formatActionLabel(event.action)}`,
             action_type: event.action,
             action_data: event.params,
+            action_status: 'running',
             created_at: new Date().toISOString()
           } as any);
 
@@ -353,6 +379,14 @@ export default function ChatPanel({ sessionId }: ChatPanelProps) {
       setStreaming(false);
       setAiState('idle');
       isSendingRef.current = false;
+      const final = useChatStore.getState().messages;
+      setMessages(
+        final.map((m) =>
+          m.role === 'action' && (m as { action_status?: string }).action_status === 'running'
+            ? ({ ...m, action_status: 'done' } as typeof m)
+            : m
+        )
+      );
     }
   };
 
@@ -528,7 +562,7 @@ export default function ChatPanel({ sessionId }: ChatPanelProps) {
                 )}
                 title={mode === 'act' ? "Act Mode (Computer Automation)" : "Ask Mode (QA & Reasoning)"}
               >
-                {mode === 'act' ? <Zap size={18} /> : <Bot size={18} />}
+                {mode === 'act' ? <MousePointerClick size={18} /> : <MessageCircleQuestion size={18} />}
               </button>
 
               {isModeOpen && (
@@ -541,7 +575,7 @@ export default function ChatPanel({ sessionId }: ChatPanelProps) {
                       mode === 'act' ? "bg-accent-primary/10 text-accent-primary" : "text-text-muted hover:bg-secondary"
                     )}
                   >
-                    <Zap size={14} />
+                    <MousePointerClick size={14} />
                     <span>ACT</span>
                   </button>
                   <button
@@ -552,7 +586,7 @@ export default function ChatPanel({ sessionId }: ChatPanelProps) {
                       mode === 'ask' ? "bg-emerald-500/10 text-emerald-500" : "text-text-muted hover:bg-secondary"
                     )}
                   >
-                    <Bot size={14} />
+                    <MessageCircleQuestion size={14} />
                     <span>ASK</span>
                   </button>
                 </div>
@@ -606,32 +640,77 @@ export default function ChatPanel({ sessionId }: ChatPanelProps) {
   );
 }
 
+/* ─── Action log row (tool-style, open-computer-use–inspired) ─── */
+function ActionLogRow({ msg }: { msg: any }) {
+  const [paramsOpen, setParamsOpen] = useState(false);
+  const actionIcon = getActionIcon(msg.action_type);
+  const running = msg.action_status === 'running';
+  const payload = msg.action_data != null ? JSON.stringify(msg.action_data, null, 2) : '';
+
+  return (
+    <div className="flex items-start gap-2.5 px-1 my-2">
+      <div
+        className={cn(
+          'w-9 h-9 rounded-xl border flex items-center justify-center shrink-0 shadow-sm',
+          running
+            ? 'bg-amber-500/10 border-amber-500/25 text-amber-500'
+            : 'bg-secondary border-border text-text-secondary'
+        )}
+      >
+        {running ? <Loader2 size={16} className="animate-spin" /> : actionIcon}
+      </div>
+      <div
+        className={cn(
+          'flex-1 min-w-0 rounded-xl border px-3 py-2.5 transition-colors',
+          running
+            ? 'bg-amber-500/[0.06] border-amber-500/20'
+            : 'bg-secondary/40 border-border/80 hover:bg-secondary/55'
+        )}
+      >
+        <div className="flex items-center justify-between gap-2 mb-1">
+          <span className="font-black text-foreground text-[10px] uppercase tracking-[0.12em]">
+            {formatActionType(msg.action_type)}
+          </span>
+          <span
+            className={cn(
+              'text-[8px] font-bold uppercase tracking-widest px-1.5 py-0.5 rounded',
+              running ? 'bg-amber-500/15 text-amber-600 dark:text-amber-400' : 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
+            )}
+          >
+            {running ? 'Running' : 'Done'}
+          </span>
+        </div>
+        {payload ? (
+          <div className="mt-1">
+            <button
+              type="button"
+              onClick={() => setParamsOpen(!paramsOpen)}
+              className="text-[9px] text-text-muted flex items-center gap-1 font-bold uppercase tracking-wider hover:text-foreground transition-colors"
+            >
+              <ChevronRight size={10} className={cn('transition-transform', paramsOpen && 'rotate-90')} />
+              Parameters
+            </button>
+            {paramsOpen && (
+              <pre className="mt-2 text-[10px] font-mono text-text-secondary bg-background/60 border border-border/50 rounded-lg p-2 overflow-x-auto max-h-40 whitespace-pre-wrap">
+                {payload}
+              </pre>
+            )}
+          </div>
+        ) : (
+          <p className="text-[10px] text-text-muted">{msg.content || '—'}</p>
+        )}
+      </div>
+    </div>
+  );
+}
+
 /* ─── Message Bubble ─── */
 function MessageBubble({ msg }: { msg: any }) {
   const isUser = msg.role === 'user';
   const isAction = msg.role === 'action' || (msg.role === 'assistant' && msg.action_type);
 
   if (isAction) {
-    const actionIcon = getActionIcon(msg.action_type);
-    return (
-      <div className="flex items-start gap-2 px-1 my-1.5">
-        <div className="w-8 h-8 rounded-xl bg-secondary border border-border flex items-center justify-center shrink-0 shadow-sm transition-transform hover:scale-105">
-          {actionIcon}
-        </div>
-        <div className="flex-1 min-w-0 bg-secondary/30 border border-border/80 rounded-xl px-3 py-2 hover:bg-secondary/50 transition-colors">
-          <div className="text-[10px] text-text-secondary font-medium items-center flex gap-2 justify-between mb-0.5">
-            <div className="flex items-center gap-1.5">
-              <span className="font-black text-foreground text-[9px] uppercase tracking-[0.1em]">{formatActionType(msg.action_type)}</span>
-              <span className="text-[8px] text-text-muted font-bold uppercase tracking-widest px-1 py-0.5 bg-border/20 rounded">Done</span>
-            </div>
-            <div className="h-1 w-1 rounded-full bg-emerald-500/60 shadow-[0_0_8px_rgba(16,185,129,0.2)]" />
-          </div>
-          <div className="text-text-secondary text-[10px] font-medium font-mono truncate px-1.5 py-0.5 rounded border border-border/30 bg-background/30">
-            {msg.content || (msg.action_data ? JSON.stringify(msg.action_data) : 'Performing action...')}
-          </div>
-        </div>
-      </div>
-    );
+    return <ActionLogRow msg={msg} />;
   }
 
   if (isUser) {
@@ -648,13 +727,17 @@ function MessageBubble({ msg }: { msg: any }) {
 
   if (msg.is_thought) {
     return (
-      <div className="flex flex-col items-start px-1 my-1.5 group">
-        <div className="flex items-center gap-1.5 mb-1 ml-1 opacity-40 group-hover:opacity-100 transition-opacity">
-          <Sparkles size={10} className="text-accent-primary/50" />
-          <span className="text-[8px] font-black uppercase tracking-[0.1em] text-text-muted">Reasoning</span>
+      <div className="flex flex-col items-start px-1 my-2 group">
+        <div className="flex items-center gap-2 mb-1.5 ml-0.5">
+          <div className="flex items-center justify-center w-6 h-6 rounded-lg bg-violet-500/10 border border-violet-500/20">
+            <Lightbulb size={12} className="text-violet-500/90" />
+          </div>
+          <span className="text-[9px] font-black uppercase tracking-[0.14em] text-violet-600/90 dark:text-violet-300/90">
+            Thought process
+          </span>
         </div>
-        <div className="max-w-[90%] text-[10px] px-3 py-2 rounded-xl bg-secondary/15 border border-border/30 italic text-text-secondary/80 leading-relaxed">
-          {msg.content}
+        <div className="max-w-[92%] text-[11px] px-3.5 py-2.5 rounded-2xl rounded-tl-sm bg-gradient-to-br from-violet-500/[0.07] to-transparent border border-violet-500/15 text-text-secondary leading-relaxed shadow-sm">
+          <div className="whitespace-pre-wrap">{msg.content}</div>
         </div>
       </div>
     );

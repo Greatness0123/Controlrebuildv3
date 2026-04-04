@@ -25,6 +25,24 @@ class RemoteDesktopManager {
         keyboard.config.autoDelayMs = 0;
     }
 
+    /**
+     * Web viewer connects to the same host (NEXT_PUBLIC_BACKEND_URL / API origin).
+     * Desktop producer must use that exact HTTP origin for ws://.../api/remote/:id/producer
+     */
+    resolveBackendUrl() {
+        const fromEnv = process.env.BACKEND_URL || process.env.CONTROL_BACKEND_URL;
+        if (fromEnv && String(fromEnv).trim()) {
+            return String(fromEnv).trim().replace(/\/$/, '');
+        }
+        try {
+            const configured = this.settingsManager.getSettings().controlBackendUrl;
+            if (configured && String(configured).trim()) {
+                return String(configured).trim().replace(/\/$/, '');
+            }
+        } catch (e) { /* noop */ }
+        return 'http://127.0.0.1:8000';
+    }
+
     async checkAndAutoStart() {
         const user = supabase.checkCachedUser();
         if (!user) {
@@ -305,8 +323,7 @@ class RemoteDesktopManager {
             }
 
 
-            // Get backend URL from env or fallback to default
-            const backendUrl = process.env.BACKEND_URL || 'http://20.164.16.171:8000';
+            const backendUrl = this.resolveBackendUrl();
             const wsUrl = `${backendUrl.replace(/^http/, 'ws')}/api/remote/${deviceId}/producer?token=${encodeURIComponent(token)}`;
             
             console.log(`[Remote] Connecting to relay: ${wsUrl.split('?')[0]}`);

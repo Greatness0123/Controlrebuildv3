@@ -61,98 +61,112 @@ export function SecretDialog({ open, onOpenChange, secret, onSaved }: SecretDial
     }
   };
 
-  const inputClass = "w-full bg-secondary border border-border rounded-2xl px-5 py-4 text-sm text-foreground placeholder:text-text-muted focus:border-border focus:outline-none transition-all font-medium";
+  const inputClass =
+    'w-full bg-secondary border border-border rounded-xl px-3 py-2.5 text-xs text-foreground placeholder:text-text-muted focus:border-border focus:outline-none transition-all font-medium';
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 md:p-6 bg-black/80 backdrop-blur-xl animate-in fade-in duration-300">
-      <div className="w-full max-w-xl bg-card border border-border rounded-[40px] shadow-2xl overflow-hidden relative active:scale-[0.99] transition-transform">
-        <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-blue-500 via-purple-500 to-cyan-500 opacity-50" />
-        
-        <header className="px-8 pt-8 pb-6 flex items-center justify-between border-b border-border">
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 bg-secondary border border-border rounded-2xl flex items-center justify-center">
-              <Shield className="text-foreground" size={24} />
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-200">
+      <div
+        className="w-full max-w-md max-h-[min(92vh,640px)] flex flex-col bg-card border border-border rounded-2xl shadow-2xl overflow-hidden"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="secret-dialog-title"
+      >
+        <div className="absolute top-0 inset-x-0 h-0.5 bg-gradient-to-r from-blue-500/80 via-purple-500/80 to-cyan-500/80 opacity-60" />
+
+        <header className="px-4 pt-4 pb-3 flex items-start justify-between gap-3 border-b border-border shrink-0">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-9 h-9 bg-secondary border border-border rounded-xl flex items-center justify-center shrink-0">
+              <Shield className="text-foreground" size={18} />
             </div>
-            <div>
-              <h2 className="text-xl font-black text-foreground tracking-tighter">
-                {secret ? 'Modify Node' : 'Deploy Node'}
+            <div className="min-w-0">
+              <h2 id="secret-dialog-title" className="text-base font-black text-foreground tracking-tight truncate">
+                {secret ? 'Edit secret' : 'Add secret'}
               </h2>
-              <p className="text-[10px] text-text-muted font-bold uppercase tracking-widest">Vault Authentication Protocol</p>
+              <p className="text-[9px] text-text-muted font-bold uppercase tracking-widest mt-0.5">
+                Stored credentials for automation
+              </p>
             </div>
           </div>
-          <button 
+          <button
+            type="button"
             onClick={() => onOpenChange(false)}
-            className="w-10 h-10 rounded-full hover:bg-card-hover flex items-center justify-center text-text-muted hover:text-foreground transition-all"
+            className="w-9 h-9 rounded-lg hover:bg-card-hover flex items-center justify-center text-text-muted hover:text-foreground transition-all shrink-0"
+            aria-label="Close"
           >
-            <X size={20} />
+            <X size={18} />
           </button>
         </header>
 
-        <form onSubmit={handleSubmit} className="p-8 space-y-6">
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <label className="text-[9px] font-black text-text-muted uppercase tracking-widest ml-1">Friendly Name</label>
-              <input 
+        <form onSubmit={handleSubmit} className="p-4 space-y-3 overflow-y-auto flex-1 min-h-0">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="space-y-1">
+              <label className="text-[9px] font-black text-text-muted uppercase tracking-widest ml-0.5">Name</label>
+              <input
                 required
                 value={formData.name}
-                onChange={e => setFormData(prev => ({ ...prev, name: e.target.value }))}
-                placeholder="Work Email"
+                onChange={(e) => setFormData((prev) => ({ ...prev, name: e.target.value }))}
+                placeholder="e.g. Work email"
                 className={inputClass}
               />
             </div>
-            <div className="space-y-2">
-              <label className="text-[9px] font-black text-text-muted uppercase tracking-widest ml-1">Service / Domain</label>
-              <input 
+            <div className="space-y-1">
+              <label className="text-[9px] font-black text-text-muted uppercase tracking-widest ml-0.5">Service</label>
+              <input
                 required
                 value={formData.service}
-                onChange={e => setFormData(prev => ({ ...prev, service: e.target.value }))}
-                placeholder="google.com"
+                onChange={(e) => setFormData((prev) => ({ ...prev, service: e.target.value }))}
+                placeholder="e.g. app.example.com"
                 className={inputClass}
               />
             </div>
           </div>
 
-          <div className="space-y-2">
-            <label className="text-[9px] font-black text-text-muted uppercase tracking-widest ml-1">Username / ID</label>
-            <input 
+          <div className="space-y-1">
+            <label className="text-[9px] font-black text-text-muted uppercase tracking-widest ml-0.5">Username</label>
+            <input
               value={formData.username}
-              onChange={e => setFormData(prev => ({ ...prev, username: e.target.value }))}
-              placeholder="user@example.com"
+              onChange={(e) => setFormData((prev) => ({ ...prev, username: e.target.value }))}
+              placeholder="Optional"
               className={inputClass}
             />
           </div>
 
-          <div className="space-y-2">
-            <label className="text-[9px] font-black text-text-muted uppercase tracking-widest ml-1">Secure Password</label>
+          <div className="space-y-1">
+            <label className="text-[9px] font-black text-text-muted uppercase tracking-widest ml-0.5">Password</label>
             <div className="relative group">
-              <Lock className="absolute left-5 top-1/2 -translate-y-1/2 text-text-muted group-focus-within:text-foreground transition-colors" size={16} />
-              <input 
+              <Lock
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted group-focus-within:text-foreground transition-colors pointer-events-none"
+                size={14}
+              />
+              <input
                 required
                 type="password"
                 value={formData.password}
-                onChange={e => setFormData(prev => ({ ...prev, password: e.target.value }))}
-                className="w-full bg-secondary border border-border rounded-2xl pl-12 pr-5 py-4 text-sm text-foreground focus:border-border focus:outline-none transition-all font-medium"
+                onChange={(e) => setFormData((prev) => ({ ...prev, password: e.target.value }))}
+                className={`${inputClass} pl-9`}
               />
             </div>
           </div>
 
-          <div className="space-y-2">
-            <label className="text-[9px] font-black text-text-muted uppercase tracking-widest ml-1">Contextual Notes</label>
-            <textarea 
+          <div className="space-y-1">
+            <label className="text-[9px] font-black text-text-muted uppercase tracking-widest ml-0.5">Notes</label>
+            <textarea
               value={formData.notes}
-              onChange={e => setFormData(prev => ({ ...prev, notes: e.target.value }))}
-              placeholder="Optional: specific instructions for AI behavior..."
-              rows={3}
-              className={inputClass + " resize-none"}
+              onChange={(e) => setFormData((prev) => ({ ...prev, notes: e.target.value }))}
+              placeholder="Optional context (not shown to models by default)"
+              rows={2}
+              className={`${inputClass} resize-none min-h-[4rem]`}
             />
           </div>
 
-          <button 
+          <button
+            type="submit"
             disabled={loading}
-            className="w-full py-5 bg-accent-primary text-accent-foreground rounded-[24px] font-black text-[12px] uppercase tracking-[0.3em] hover:opacity-90 transition-all shadow-2xl flex items-center justify-center gap-3 disabled:opacity-50"
+            className="w-full py-3 bg-accent-primary text-accent-foreground rounded-xl font-black text-[10px] uppercase tracking-widest hover:opacity-90 transition-all flex items-center justify-center gap-2 disabled:opacity-50 shrink-0"
           >
-            {loading ? <Loader2 className="animate-spin" size={16} /> : <Shield size={16} strokeWidth={3} />}
-            {secret ? 'Authorize Changes' : 'Seal Vault Node'}
+            {loading ? <Loader2 className="animate-spin" size={14} /> : <Shield size={14} strokeWidth={2.5} />}
+            {secret ? 'Save changes' : 'Save secret'}
           </button>
         </form>
       </div>

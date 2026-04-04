@@ -20,6 +20,8 @@ module.exports = {
                 sans: ['Roboto', 'sans-serif'],
                 roboto: ['Roboto', 'sans-serif'],
                 walter: ['"Walter Turncoat"', 'cursive'],
+                landing: ['var(--font-landing-display)', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+                'landing-body': ['var(--font-landing-body)', 'ui-sans-serif', 'system-ui', 'sans-serif'],
             },
             colors: {
                 border: "var(--border-primary)",

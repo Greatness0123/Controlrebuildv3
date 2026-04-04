@@ -805,7 +805,8 @@ class ComputerUseAgent {
         ipcMain.handle('import-skill', async (event) => {
             const { dialog } = require('electron');
             const window = BrowserWindow.fromWebContents(event.sender);
-
+            if (window) window.isModalActive = true;
+            try {
             const result = await dialog.showOpenDialog(window, {
                 title: 'Import Skill',
                 filters: [
@@ -856,12 +857,16 @@ class ComputerUseAgent {
                 return { success: totalCount > 0, count: totalCount };
             }
             return { success: false };
+            } finally {
+                if (window && !window.isDestroyed()) window.isModalActive = false;
+            }
         });
 
         ipcMain.handle('upload-skill-folder', async (event) => {
             const { dialog } = require('electron');
             const window = BrowserWindow.fromWebContents(event.sender);
-
+            if (window) window.isModalActive = true;
+            try {
             const result = await dialog.showOpenDialog(window, {
                 title: 'Import Skill Folder',
                 properties: ['openDirectory']
@@ -912,6 +917,9 @@ class ComputerUseAgent {
                 return { success: totalCount > 0, count: totalCount };
             }
             return { success: false };
+            } finally {
+                if (window && !window.isDestroyed()) window.isModalActive = false;
+            }
         });
 
         ipcMain.handle('delete-skill', async (event, name) => {
@@ -921,6 +929,20 @@ class ComputerUseAgent {
                 this.windowManager.broadcast('skills-updated');
             }
             return { success };
+        });
+
+        ipcMain.handle('update-skill', async (event, payload) => {
+            const storageManager = require('./storage-manager');
+            if (!payload || !payload.originalName) return { success: false, error: 'Missing skill name' };
+            const ok = storageManager.updateBehavior(payload.originalName, {
+                name: payload.name,
+                description: payload.description,
+                pattern: payload.pattern
+            });
+            if (ok) {
+                this.windowManager.broadcast('skills-updated');
+            }
+            return { success: ok, error: ok ? undefined : 'Could not update (duplicate name or not found)' };
         });
 
         ipcMain.handle('import-workflow', async (event) => {

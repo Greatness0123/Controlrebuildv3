@@ -140,11 +140,9 @@ async def send_message(
 
     async def event_stream():
         async for event in agent_executor.execute_task(
-            db, session_id, user["id"], message, 
-            machine_id=req.vm_id, 
-            device_id=req.device_id, 
+            db, session_id, user["id"], message,
             uploaded_image=req.file_url if req.file_type and "image" in req.file_type else None,
-            forced_mode=req.mode
+            forced_mode=req.mode,
         ):
             yield f"data: {json.dumps(event)}\n\n"
 

@@ -40,6 +40,7 @@ export async function signUp(email: string, password: string, firstName: string,
         last_name: lastName,
         name: `${firstName} ${lastName}`.trim(),
         plan: 'free',
+        onboarding_completed: false,
       } 
     },
   });

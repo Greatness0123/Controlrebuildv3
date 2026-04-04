@@ -1,0 +1,667 @@
+'use client';
+
+import Link from 'next/link';
+import Image from 'next/image';
+import { motion, useScroll, useTransform } from 'framer-motion';
+import {
+  ArrowRight,
+  ArrowUpRight,
+  Check,
+  ChevronRight,
+  Command,
+  Cpu,
+  Eye,
+  Globe,
+  Layers,
+  Lock,
+  Menu,
+  Mic,
+  Monitor,
+  MousePointer2,
+  Shield,
+  Sparkles,
+  Terminal,
+  X,
+  Twitter,
+  Github,
+  Linkedin,
+  MessagesSquare,
+} from 'lucide-react';
+import { useRef, useState, type ComponentType } from 'react';
+import { getSocialLinks } from '@/lib/social-links';
+
+const fadeUp = {
+  initial: { opacity: 0, y: 24 },
+  whileInView: { opacity: 1, y: 0 },
+  viewport: { once: true, margin: '-40px' },
+  transition: { duration: 0.55, ease: [0.22, 1, 0.36, 1] as const },
+};
+
+export default function LandingMarketing() {
+  const shell = useRef<HTMLDivElement>(null);
+  const { scrollYProgress } = useScroll({ target: shell, offset: ['start start', 'end end'] });
+  const heroY = useTransform(scrollYProgress, [0, 0.12], [0, -32]);
+
+  return (
+    <div
+      ref={shell}
+      className="min-h-screen bg-[#050505] text-[#f5f5f5] font-landing-body selection:bg-white selection:text-black overflow-x-hidden"
+    >
+      <div className="pointer-events-none fixed inset-0 z-0">
+        <div
+          className="absolute inset-0 opacity-[0.35]"
+          style={{
+            backgroundImage: `radial-gradient(ellipse 80% 50% at 50% -20%, rgba(255,255,255,0.14), transparent),
+              radial-gradient(ellipse 60% 40% at 100% 50%, rgba(255,255,255,0.06), transparent),
+              radial-gradient(ellipse 50% 30% at 0% 80%, rgba(255,255,255,0.05), transparent)`,
+          }}
+        />
+        <div
+          className="absolute inset-0 opacity-[0.12] mix-blend-overlay"
+          style={{
+            backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")`,
+          }}
+        />
+      </div>
+
+      <LandingNav />
+
+      <main className="relative z-10">
+        {/* Hero */}
+        <section className="relative px-5 sm:px-8 pt-28 pb-20 sm:pt-32 sm:pb-28 max-w-6xl mx-auto">
+          <motion.div style={{ y: heroY }} className="max-w-3xl">
+            <motion.p
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5 }}
+              className="text-[10px] sm:text-[11px] font-semibold uppercase tracking-[0.28em] text-neutral-500 mb-6"
+            >
+              Desktop agent + cloud workspace
+            </motion.p>
+            <motion.h1
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.55, delay: 0.05 }}
+              className="font-landing text-[2.35rem] sm:text-5xl md:text-6xl lg:text-[3.5rem] font-bold leading-[1.05] tracking-tight text-white"
+            >
+              Your computer,
+              <br />
+              <span className="text-neutral-500">driven by intent.</span>
+            </motion.h1>
+            <motion.p
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.55, delay: 0.12 }}
+              className="mt-6 text-base sm:text-lg text-neutral-400 max-w-xl leading-relaxed"
+            >
+              Control watches the same screen you do, understands the interface, and moves the mouse and keyboard to
+              finish work across the apps you already use. Run it on your machine, or automate a cloud desktop from the
+              browser.
+            </motion.p>
+            <motion.div
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.55, delay: 0.18 }}
+              className="mt-10 flex flex-col sm:flex-row gap-3 sm:gap-4"
+            >
+              <Link
+                href="/auth/login?next=/workspace"
+                className="group inline-flex items-center justify-center gap-2 px-7 py-3.5 bg-white text-black text-[11px] sm:text-xs font-semibold uppercase tracking-[0.18em] rounded-full hover:bg-neutral-200 transition-colors"
+              >
+                Try Control Web
+                <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-0.5" strokeWidth={2} />
+              </Link>
+              <Link
+                href="/download"
+                className="inline-flex items-center justify-center gap-2 px-7 py-3.5 border border-white/20 text-white text-[11px] sm:text-xs font-semibold uppercase tracking-[0.18em] rounded-full hover:border-white/40 hover:bg-white/[0.04] transition-colors"
+              >
+                Download the app
+                <ArrowUpRight className="w-4 h-4" strokeWidth={2} />
+              </Link>
+            </motion.div>
+          </motion.div>
+
+          <motion.div
+            initial={{ opacity: 0, y: 40 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.7, delay: 0.25, ease: [0.22, 1, 0.36, 1] }}
+            className="mt-16 sm:mt-20 relative rounded-2xl border border-white/[0.08] bg-white/[0.02] overflow-hidden aspect-[16/10] sm:aspect-[2/1] max-w-5xl"
+          >
+            <div className="absolute inset-0 bg-gradient-to-t from-[#050505] via-transparent to-transparent z-10 pointer-events-none" />
+            <Image
+              src="https://images.pexels.com/photos/3861969/pexels-photo-3861969.jpeg?auto=compress&cs=tinysrgb&w=1600"
+              alt=""
+              fill
+              className="object-cover grayscale contrast-[1.05] opacity-50 sm:opacity-60"
+              sizes="(max-width: 768px) 100vw, 1024px"
+              priority
+            />
+            <div className="absolute inset-0 z-20 flex items-end p-6 sm:p-10">
+              <div className="flex flex-wrap gap-4 text-[10px] sm:text-[11px] font-medium uppercase tracking-[0.2em] text-neutral-500">
+                <span className="flex items-center gap-2 text-neutral-300">
+                  <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
+                  Live desktop
+                </span>
+                <span>Vision-guided actions</span>
+                <span className="hidden sm:inline">Voice or text</span>
+              </div>
+            </div>
+          </motion.div>
+        </section>
+
+        {/* Problem */}
+        <section className="px-5 sm:px-8 py-16 sm:py-24 border-t border-white/[0.06]">
+          <div className="max-w-6xl mx-auto grid lg:grid-cols-2 gap-12 lg:gap-20 items-center">
+            <motion.div {...fadeUp}>
+              <h2 className="font-landing text-2xl sm:text-3xl md:text-4xl font-bold text-white tracking-tight leading-tight">
+                Powerful software should not require a certification in its own interface.
+              </h2>
+              <p className="mt-6 text-neutral-400 leading-relaxed">
+                Most knowledge work still means hunting through menus, dialogs, and file trees. Traditional automation
+                is either brittle—built for one app—or heavy enough that only specialists deploy it. Control is built for
+                the gap: open-ended tasks on real desktop software, described in plain language.
+              </p>
+            </motion.div>
+            <motion.div
+              {...fadeUp}
+              transition={{ ...fadeUp.transition, delay: 0.08 }}
+              className="space-y-4"
+            >
+              {[
+                { t: 'Intent in, actions out', d: 'You describe the outcome; the system plans clicks, keys, and shell steps.' },
+                { t: 'Any visible UI', d: 'Professional tools, internal line-of-business apps, and browsers—if it paints pixels, it can be steered.' },
+                { t: 'Local execution option', d: 'Sensitive work can stay on hardware you control, with approvals for risky operations.' },
+              ].map((item) => (
+                <div
+                  key={item.t}
+                  className="p-5 rounded-xl border border-white/[0.07] bg-white/[0.02] hover:border-white/[0.12] transition-colors"
+                >
+                  <p className="font-landing text-sm font-semibold text-white">{item.t}</p>
+                  <p className="mt-2 text-sm text-neutral-500 leading-relaxed">{item.d}</p>
+                </div>
+              ))}
+            </motion.div>
+          </div>
+        </section>
+
+        {/* How */}
+        <section id="how" className="px-5 sm:px-8 py-16 sm:py-24 bg-white/[0.02] border-y border-white/[0.06]">
+          <div className="max-w-6xl mx-auto">
+            <motion.div {...fadeUp} className="max-w-2xl mb-14 sm:mb-16">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.28em] text-neutral-500 mb-3">How it works</p>
+              <h2 className="font-landing text-2xl sm:text-3xl font-bold text-white tracking-tight">From sentence to sequence</h2>
+              <p className="mt-4 text-neutral-400 leading-relaxed">
+                Each turn combines visual context with reasoning, then executes through the same input devices you use.
+              </p>
+            </motion.div>
+            <div className="grid sm:grid-cols-3 gap-6 sm:gap-8">
+              {[
+                { step: '01', title: 'Capture context', body: 'The current screen (and optional voice or text instruction) grounds the model in what is on display.', icon: Eye },
+                { step: '02', title: 'Plan the next move', body: 'A multimodal model proposes concrete steps: where to click, what to type, or which command to run.', icon: Sparkles },
+                { step: '03', title: 'Execute and verify', body: 'Mouse, keyboard, terminal, and browser automation run locally or on your cloud machine; the loop repeats until the task is done.', icon: MousePointer2 },
+              ].map(({ step, title, body, icon: Icon }, i) => (
+                <motion.div
+                  key={step}
+                  initial={{ opacity: 0, y: 20 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ delay: i * 0.1, duration: 0.5 }}
+                  className="relative pl-0 sm:pl-8 border-l-0 sm:border-l border-white/[0.08] sm:pb-0"
+                >
+                  <div className="hidden sm:block absolute left-0 top-0 -translate-x-[9px] w-[17px] h-[17px] rounded-full border-2 border-white bg-[#050505]" />
+                  <span className="text-[10px] font-semibold text-neutral-600 uppercase tracking-widest">{step}</span>
+                  <div className="mt-3 flex items-center gap-2">
+                    <Icon className="w-4 h-4 text-neutral-500" strokeWidth={1.75} />
+                    <h3 className="font-landing text-lg font-semibold text-white">{title}</h3>
+                  </div>
+                  <p className="mt-3 text-sm text-neutral-500 leading-relaxed">{body}</p>
+                </motion.div>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* Product split */}
+        <section id="product" className="px-5 sm:px-8 py-16 sm:py-24">
+          <div className="max-w-6xl mx-auto grid md:grid-cols-2 gap-6">
+            <motion.article
+              {...fadeUp}
+              className="group relative rounded-2xl border border-white/[0.08] bg-gradient-to-b from-white/[0.05] to-transparent p-8 sm:p-10 overflow-hidden"
+            >
+              <Monitor className="w-8 h-8 text-neutral-400 mb-6" strokeWidth={1.25} />
+              <h3 className="font-landing text-xl font-bold text-white">Desktop application</h3>
+              <p className="mt-4 text-neutral-400 text-sm leading-relaxed">
+                Runs on Windows, macOS, and Linux. Optional wake-word activation, push-to-talk, and a chat surface for Ask
+                (explanations) versus Act (hands-on automation). Your screen drives decisions; actions happen on your
+                hardware with guardrails for terminal and destructive work.
+              </p>
+              <ul className="mt-6 space-y-2 text-sm text-neutral-500">
+                <li className="flex gap-2"><Check className="w-4 h-4 shrink-0 text-neutral-400 mt-0.5" strokeWidth={2} />Workflows with time or keyword triggers</li>
+                <li className="flex gap-2"><Check className="w-4 h-4 shrink-0 text-neutral-400 mt-0.5" strokeWidth={2} />Browser automation alongside native windows</li>
+                <li className="flex gap-2"><Check className="w-4 h-4 shrink-0 text-neutral-400 mt-0.5" strokeWidth={2} />Pairing for remote viewing from the web</li>
+              </ul>
+            </motion.article>
+            <motion.article
+              {...fadeUp}
+              transition={{ ...fadeUp.transition, delay: 0.06 }}
+              className="group relative rounded-2xl border border-white/[0.08] p-8 sm:p-10 overflow-hidden"
+            >
+              <Globe className="w-8 h-8 text-neutral-400 mb-6" strokeWidth={1.25} />
+              <h3 className="font-landing text-xl font-bold text-white">Control Web</h3>
+              <p className="mt-4 text-neutral-400 text-sm leading-relaxed">
+                Sign in, attach a running cloud machine or a paired desktop, and chat with an agent that sees the remote
+                display. Built-in streaming shows the desktop while automation runs—useful for demos, support, and
+                offload-heavy jobs away from your laptop.
+              </p>
+              <ul className="mt-6 space-y-2 text-sm text-neutral-500">
+                <li className="flex gap-2"><Check className="w-4 h-4 shrink-0 text-neutral-400 mt-0.5" strokeWidth={2} />Session-based AI with action trace</li>
+                <li className="flex gap-2"><Check className="w-4 h-4 shrink-0 text-neutral-400 mt-0.5" strokeWidth={2} />VM lifecycle from the dashboard</li>
+                <li className="flex gap-2"><Check className="w-4 h-4 shrink-0 text-neutral-400 mt-0.5" strokeWidth={2} />Low-latency relay option for desktop preview</li>
+              </ul>
+            </motion.article>
+          </div>
+        </section>
+
+        {/* Bento capabilities */}
+        <section id="capabilities" className="px-5 sm:px-8 py-16 sm:py-24 border-t border-white/[0.06]">
+          <div className="max-w-6xl mx-auto">
+            <motion.div {...fadeUp} className="mb-12 sm:mb-14">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.28em] text-neutral-500 mb-3">Capabilities</p>
+              <h2 className="font-landing text-2xl sm:text-3xl font-bold text-white tracking-tight">Built for real interfaces</h2>
+            </motion.div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-4 sm:gap-5">
+              <Bento className="lg:col-span-7 min-h-[220px]" icon={Eye} title="Screen-grounded reasoning" desc="Understands layout and controls without a per-app integration list. Suited to creative suites, CAD, IDEs, and legacy enterprise UIs alike." />
+              <Bento className="lg:col-span-5 min-h-[220px]" icon={Mic} title="Voice and text" desc="Hands-busy scenarios: speak a command or type while the agent keeps context across steps." />
+              <Bento className="lg:col-span-4 min-h-[200px]" icon={Terminal} title="Shell when it is faster" desc="Uses the terminal for checks and batch work when that is more reliable than clicking through wizards." />
+              <Bento className="lg:col-span-4 min-h-[200px]" icon={Layers} title="Workflows" desc="Save and trigger repeatable sequences on a schedule or when a keyword is spoken." />
+              <Bento className="lg:col-span-4 min-h-[200px]" icon={Cpu} title="Cloud machines" desc="Isolate experiments or long jobs on provisioned desktops you control from the browser." />
+              <Bento className="lg:col-span-12 min-h-[160px]" icon={Lock} title="Safety-minded design" desc="Sensitive steps can require explicit approval. You choose when the agent acts versus when it only advises. API traffic uses standard encrypted transport; pair desktop streaming only with accounts you trust." />
+            </div>
+          </div>
+        </section>
+
+        {/* Use cases */}
+        <section className="px-5 sm:px-8 py-16 sm:py-24 bg-white/[0.02] border-y border-white/[0.06]">
+          <div className="max-w-6xl mx-auto">
+            <motion.h2 {...fadeUp} className="font-landing text-2xl sm:text-3xl font-bold text-white tracking-tight mb-10 sm:mb-12">
+              Where teams feel it first
+            </motion.h2>
+            <div className="grid sm:grid-cols-3 gap-6">
+              {[
+                {
+                  title: 'Creative production',
+                  copy: 'Export presets, batch renames, and multi-step toolchains in DCC and editing software without memorizing every panel.',
+                  img: 'https://images.pexels.com/photos/6476589/pexels-photo-6476589.jpeg?auto=compress&cs=tinysrgb&w=800',
+                },
+                {
+                  title: 'Engineering and BIM',
+                  copy: 'Navigate dense CAD and model-review UIs for repetitive documentation, checks, and exports.',
+                  img: 'https://images.pexels.com/photos/3862130/pexels-photo-3862130.jpeg?auto=compress&cs=tinysrgb&w=800',
+                },
+                {
+                  title: 'Operations and knowledge work',
+                  copy: 'Cross applications for reporting, internal portals, and file hygiene—areas where copy-paste and manual clicking still dominate.',
+                  img: 'https://images.pexels.com/photos/1181677/pexels-photo-1181677.jpeg?auto=compress&cs=tinysrgb&w=800',
+                },
+              ].map((u) => (
+                <motion.div key={u.title} {...fadeUp} className="rounded-xl border border-white/[0.08] overflow-hidden bg-white/[0.02]">
+                  <div className="relative aspect-[4/3]">
+                    <Image src={u.img} alt="" fill className="object-cover grayscale opacity-40" sizes="(max-width:640px) 100vw, 33vw" />
+                  </div>
+                  <div className="p-5">
+                    <h3 className="font-landing text-base font-semibold text-white">{u.title}</h3>
+                    <p className="mt-2 text-sm text-neutral-500 leading-relaxed">{u.copy}</p>
+                  </div>
+                </motion.div>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* Competitors - careful */}
+        <section id="compare" className="px-5 sm:px-8 py-16 sm:py-24">
+          <div className="max-w-6xl mx-auto">
+            <motion.div {...fadeUp} className="max-w-2xl mb-10 sm:mb-14">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.28em] text-neutral-500 mb-3">Landscape</p>
+              <h2 className="font-landing text-2xl sm:text-3xl font-bold text-white tracking-tight">How Control differs</h2>
+              <p className="mt-4 text-neutral-400 text-sm sm:text-base leading-relaxed">
+                The market mixes OS assistants, cloud research agents, classic RPA, and DIY stacks. Positioning below is
+                directional—evaluate against your own security and procurement requirements.
+              </p>
+            </motion.div>
+            <motion.div {...fadeUp} className="overflow-x-auto rounded-xl border border-white/[0.08]">
+              <table className="w-full min-w-[640px] text-left text-sm">
+                <thead>
+                  <tr className="border-b border-white/[0.08] text-[10px] uppercase tracking-[0.2em] text-neutral-500">
+                    <th className="px-4 py-4 font-semibold w-[28%]">Topic</th>
+                    <th className="px-4 py-4 font-semibold text-white w-[24%]">Control</th>
+                    <th className="px-4 py-4 font-semibold w-[24%]">OS-level assistants</th>
+                    <th className="px-4 py-4 font-semibold w-[24%]">Cloud / hosted agents</th>
+                    <th className="px-4 py-4 font-semibold">RPA suites</th>
+                  </tr>
+                </thead>
+                <tbody className="text-neutral-400">
+                  <CompareRow
+                    topic="Primary surface"
+                    control="User-chosen desktop apps and browsers, local or streamed."
+                    os="Tight coupling to vendor OS and first-party experiences."
+                    cloud="Often remote browser or VM; workload may leave the device."
+                    rpa="Designer-built flows; strong in structured enterprise processes."
+                  />
+                  <CompareRow
+                    topic="Setup for one-off tasks"
+                    control="Natural language goal; minimal per-app configuration."
+                    os="Varies; may prioritize vendor app ecosystems."
+                    cloud="Depends on product; may need environment provisioning."
+                    rpa="Typically analyst or developer configuration."
+                  />
+                  <CompareRow
+                    topic="Latency-sensitive UI work"
+                    control="Local execution path for pointer and keyboard actions."
+                    os="Generally low latency within OS-supported scenarios."
+                    cloud="Network and hosting hops can add delay."
+                    rpa="Usually runs on managed robots; not always interactive desktop."
+                  />
+                  <CompareRow
+                    topic="Open-source / self-hosted stacks"
+                    control="Productized app plus web dashboard; less DIY assembly."
+                    os="N/A"
+                    cloud="Some users assemble agents manually for full control."
+                    rpa="Less common in pure OSS for enterprise RPA."
+                  />
+                </tbody>
+              </table>
+            </motion.div>
+            <p className="mt-6 text-xs text-neutral-600 max-w-3xl leading-relaxed">
+              Trademarks belong to their owners. Compare features in your own pilot; assistant capabilities change frequently
+              across vendors.
+            </p>
+          </div>
+        </section>
+
+        {/* CTA */}
+        <section className="px-5 sm:px-8 pb-24 sm:pb-32">
+          <motion.div
+            {...fadeUp}
+            className="max-w-6xl mx-auto rounded-2xl border border-white/[0.12] bg-gradient-to-br from-white/[0.08] to-white/[0.02] px-8 py-14 sm:px-16 sm:py-20 text-center"
+          >
+            <h2 className="font-landing text-2xl sm:text-4xl font-bold text-white tracking-tight max-w-2xl mx-auto">
+              Stop translating your goal into two hundred clicks.
+            </h2>
+            <p className="mt-5 text-neutral-400 max-w-lg mx-auto text-sm sm:text-base">
+              Try the web workspace with your account, or install the desktop agent for local automation.
+            </p>
+            <div className="mt-10 flex flex-col sm:flex-row gap-3 justify-center">
+              <Link
+                href="/auth/login?next=/workspace"
+                className="inline-flex items-center justify-center gap-2 px-8 py-3.5 bg-white text-black text-xs font-semibold uppercase tracking-[0.18em] rounded-full hover:bg-neutral-200 transition-colors"
+              >
+                Try Control Web
+              </Link>
+              <Link
+                href="/download"
+                className="inline-flex items-center justify-center gap-2 px-8 py-3.5 border border-white/30 text-white text-xs font-semibold uppercase tracking-[0.18em] rounded-full hover:bg-white/5 transition-colors"
+              >
+                Download the app
+              </Link>
+            </div>
+          </motion.div>
+        </section>
+      </main>
+
+      <LandingFooter />
+    </div>
+  );
+}
+
+function Bento({
+  className,
+  icon: Icon,
+  title,
+  desc,
+}: {
+  className?: string;
+  icon: React.ComponentType<{ className?: string; strokeWidth?: number }>;
+  title: string;
+  desc: string;
+}) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 16 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true }}
+      transition={{ duration: 0.45 }}
+      className={`rounded-xl border border-white/[0.08] bg-white/[0.02] p-6 sm:p-7 hover:border-white/[0.14] transition-colors ${className || ''}`}
+    >
+      <Icon className="w-5 h-5 text-neutral-400 mb-4" strokeWidth={1.5} />
+      <h3 className="font-landing text-base font-semibold text-white">{title}</h3>
+      <p className="mt-2 text-sm text-neutral-500 leading-relaxed">{desc}</p>
+    </motion.div>
+  );
+}
+
+function CompareRow({
+  topic,
+  control,
+  os,
+  cloud,
+  rpa,
+}: {
+  topic: string;
+  control: string;
+  os: string;
+  cloud: string;
+  rpa: string;
+}) {
+  return (
+    <tr className="border-b border-white/[0.06] last:border-0 align-top">
+      <td className="px-4 py-4 font-medium text-neutral-300">{topic}</td>
+      <td className="px-4 py-4 text-neutral-200">{control}</td>
+      <td className="px-4 py-4">{os}</td>
+      <td className="px-4 py-4">{cloud}</td>
+      <td className="px-4 py-4">{rpa}</td>
+    </tr>
+  );
+}
+
+function LandingNav() {
+  const [open, setOpen] = useState(false);
+  return (
+    <header className="fixed top-0 inset-x-0 z-50 border-b border-white/[0.06] bg-[#050505]/80 backdrop-blur-xl">
+      <div className="max-w-6xl mx-auto px-5 sm:px-8 h-16 sm:h-[4.25rem] flex items-center justify-between">
+        <Link href="/" className="flex items-center gap-2.5 group">
+          <span className="flex h-9 w-9 items-center justify-center rounded-lg border border-white/20 text-white">
+            <Command className="w-4 h-4" strokeWidth={2} />
+          </span>
+          <span className="font-landing text-sm font-bold tracking-tight text-white">Control</span>
+        </Link>
+        <nav className="hidden md:flex items-center gap-10 text-[11px] font-semibold uppercase tracking-[0.2em] text-neutral-500">
+          <a href="#how" className="hover:text-white transition-colors">
+            How it works
+          </a>
+          <a href="#product" className="hover:text-white transition-colors">
+            Product
+          </a>
+          <a href="#capabilities" className="hover:text-white transition-colors">
+            Capabilities
+          </a>
+          <a href="#compare" className="hover:text-white transition-colors">
+            Compare
+          </a>
+          <Link href="/pricing" className="hover:text-white transition-colors">
+            Pricing
+          </Link>
+        </nav>
+        <div className="hidden md:flex items-center gap-3">
+          <Link
+            href="/download"
+            className="text-[11px] font-semibold uppercase tracking-[0.18em] text-neutral-400 hover:text-white transition-colors px-2"
+          >
+            Download
+          </Link>
+          <Link
+            href="/auth/login?next=/workspace"
+            className="text-[11px] font-semibold uppercase tracking-[0.18em] px-5 py-2.5 rounded-full bg-white text-black hover:bg-neutral-200 transition-colors"
+          >
+            Try web
+          </Link>
+        </div>
+        <button
+          type="button"
+          className="md:hidden p-2 text-white border border-white/15 rounded-lg"
+          onClick={() => setOpen((v) => !v)}
+          aria-label={open ? 'Close menu' : 'Open menu'}
+        >
+          {open ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+        </button>
+      </div>
+      {open && (
+        <div className="md:hidden border-t border-white/[0.06] bg-[#050505] px-5 py-6 flex flex-col gap-4">
+          {[
+            ['How it works', '#how'],
+            ['Product', '#product'],
+            ['Capabilities', '#capabilities'],
+            ['Compare', '#compare'],
+          ].map(([l, h]) => (
+            <a key={h} href={h} className="text-sm font-medium text-neutral-300 py-2 border-b border-white/[0.06]" onClick={() => setOpen(false)}>
+              {l}
+            </a>
+          ))}
+          <Link href="/pricing" className="text-sm font-medium text-neutral-300 py-2 border-b border-white/[0.06]" onClick={() => setOpen(false)}>
+            Pricing
+          </Link>
+          <Link href="/download" className="text-sm font-medium text-white py-2" onClick={() => setOpen(false)}>
+            Download
+          </Link>
+          <Link
+            href="/auth/login?next=/workspace"
+            className="mt-2 text-center py-3 rounded-full bg-white text-black text-xs font-semibold uppercase tracking-widest"
+            onClick={() => setOpen(false)}
+          >
+            Try Control Web
+          </Link>
+        </div>
+      )}
+    </header>
+  );
+}
+
+function SocialFooterIcons() {
+  const links = getSocialLinks();
+  const items: {
+    id: keyof ReturnType<typeof getSocialLinks>;
+    url: string;
+    label: string;
+    Icon: ComponentType<{ className?: string; strokeWidth?: number }>;
+  }[] = [
+    { id: 'twitter', url: links.twitter, label: 'X (Twitter)', Icon: Twitter },
+    { id: 'github', url: links.github, label: 'GitHub', Icon: Github },
+    { id: 'linkedin', url: links.linkedin, label: 'LinkedIn', Icon: Linkedin },
+    { id: 'discord', url: links.discord, label: 'Discord', Icon: MessagesSquare },
+  ];
+
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      {items.map(({ id, url, label, Icon }) =>
+        url ? (
+          <a
+            key={id}
+            href={url}
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label={label}
+            className="flex h-10 w-10 items-center justify-center rounded-lg border border-white/[0.12] text-neutral-400 hover:text-white hover:border-white/25 transition-colors"
+          >
+            <Icon className="w-[18px] h-[18px]" strokeWidth={1.75} />
+          </a>
+        ) : (
+          <span
+            key={id}
+            title={`Set NEXT_PUBLIC_SOCIAL_${String(id).toUpperCase()} in .env.local`}
+            className="flex h-10 w-10 items-center justify-center rounded-lg border border-dashed border-white/[0.08] text-neutral-600 cursor-default"
+            aria-label={`${label} (link not configured)`}
+          >
+            <Icon className="w-[18px] h-[18px] opacity-45" strokeWidth={1.75} />
+          </span>
+        )
+      )}
+    </div>
+  );
+}
+
+function LandingFooter() {
+  return (
+    <footer className="relative z-10 border-t border-white/[0.08] bg-[#030303]">
+      <div className="max-w-6xl mx-auto px-5 sm:px-8 py-16 sm:py-20">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-10 md:gap-8">
+          <div className="col-span-2 md:col-span-1">
+            <div className="flex items-center gap-2">
+              <span className="flex h-8 w-8 items-center justify-center rounded-md border border-white/20">
+                <Command className="w-3.5 h-3.5" strokeWidth={2} />
+              </span>
+              <span className="font-landing font-bold text-white">Control</span>
+            </div>
+            <p className="mt-4 text-sm text-neutral-500 leading-relaxed max-w-xs">
+              An action layer for the desktop: vision, reasoning, and input automation in one product.
+            </p>
+          </div>
+          <div>
+            <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-neutral-600 mb-4">Product</p>
+            <ul className="space-y-3 text-sm text-neutral-400">
+              <li>
+                <Link href="/auth/login?next=/workspace" className="hover:text-white transition-colors inline-flex items-center gap-1">
+                  Web workspace <ChevronRight className="w-3 h-3 opacity-50" />
+                </Link>
+              </li>
+              <li>
+                <Link href="/download" className="hover:text-white transition-colors">
+                  Desktop downloads
+                </Link>
+              </li>
+              <li>
+                <Link href="/pricing" className="hover:text-white transition-colors">
+                  Pricing
+                </Link>
+              </li>
+            </ul>
+          </div>
+          <div>
+            <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-neutral-600 mb-4">Legal</p>
+            <ul className="space-y-3 text-sm text-neutral-400">
+              <li>
+                <Link href="/legal/terms" className="hover:text-white transition-colors">
+                  Terms
+                </Link>
+              </li>
+              <li>
+                <Link href="/legal/privacy" className="hover:text-white transition-colors">
+                  Privacy
+                </Link>
+              </li>
+              <li>
+                <Link href="/legal/cookies" className="hover:text-white transition-colors">
+                  Cookies
+                </Link>
+              </li>
+            </ul>
+          </div>
+          <div>
+            <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-neutral-600 mb-4">Company</p>
+            <p className="text-sm text-neutral-500 leading-relaxed mb-5">
+              Control AI builds the desktop action layer. Connect your profiles below (configure URLs in{' '}
+              <code className="text-xs text-neutral-400 font-mono">.env.local</code>).
+            </p>
+            <SocialFooterIcons />
+          </div>
+        </div>
+        <div className="mt-14 pt-8 border-t border-white/[0.06] flex flex-col sm:flex-row justify-between gap-4 items-center text-[10px] font-semibold uppercase tracking-[0.2em] text-neutral-600">
+          <span>© {new Date().getFullYear()} Control AI</span>
+          <span className="flex items-center gap-2">
+            <Shield className="w-3.5 h-3.5" strokeWidth={2} />
+            Encrypted transport · Review security posture before production
+          </span>
+        </div>
+      </div>
+    </footer>
+  );
+}

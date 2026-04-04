@@ -24,7 +24,75 @@ class SettingsModal {
             }
         };
 
+        this.editingSkillOriginalName = null;
+
         this.init();
+    }
+
+    isInPageModalOpen() {
+        return ['skillEditModal', 'pinModal', 'hotkeyModal'].some((id) => {
+            const el = document.getElementById(id);
+            return el && el.style.display === 'flex';
+        });
+    }
+
+    setupSkillEditor() {
+        const modal = document.getElementById('skillEditModal');
+        document.getElementById('skillEditCancelBtn')?.addEventListener('click', () => this.closeSkillEditor());
+        document.getElementById('skillEditSaveBtn')?.addEventListener('click', () => this.saveSkillFromModal());
+        modal?.addEventListener('click', (e) => {
+            if (e.target === modal) this.closeSkillEditor();
+        });
+        modal?.querySelector('.modal-content')?.addEventListener('click', (e) => e.stopPropagation());
+    }
+
+    openSkillEditor(skill) {
+        this.editingSkillOriginalName = skill.name;
+        const nameEl = document.getElementById('skillNameInput');
+        const descEl = document.getElementById('skillDescInput');
+        const patEl = document.getElementById('skillPatternInput');
+        const modal = document.getElementById('skillEditModal');
+        if (!nameEl || !descEl || !patEl || !modal) return;
+        nameEl.value = skill.name || '';
+        descEl.value = skill.description || '';
+        patEl.value = skill.pattern || '';
+        modal.style.display = 'flex';
+        if (window.settingsAPI?.setModalActive) window.settingsAPI.setModalActive(true);
+        nameEl.focus();
+    }
+
+    closeSkillEditor() {
+        this.editingSkillOriginalName = null;
+        const modal = document.getElementById('skillEditModal');
+        if (modal) modal.style.display = 'none';
+        if (!this.isInPageModalOpen() && window.settingsAPI?.setModalActive) {
+            window.settingsAPI.setModalActive(false);
+        }
+    }
+
+    async saveSkillFromModal() {
+        const name = document.getElementById('skillNameInput')?.value.trim() || '';
+        const description = document.getElementById('skillDescInput')?.value.trim() || '';
+        const pattern = document.getElementById('skillPatternInput')?.value ?? '';
+        if (!this.editingSkillOriginalName) return;
+        if (!name) {
+            this.showToast('Skill name is required', 'error');
+            return;
+        }
+        if (!window.settingsAPI?.updateSkill) return;
+        const res = await window.settingsAPI.updateSkill({
+            originalName: this.editingSkillOriginalName,
+            name,
+            description,
+            pattern
+        });
+        if (res?.success) {
+            this.showToast('Skill saved', 'success');
+            this.closeSkillEditor();
+            await this.loadSkillsList();
+        } else {
+            this.showToast(res?.error || 'Could not save skill', 'error');
+        }
     }
 
     async init() {
@@ -32,6 +100,7 @@ class SettingsModal {
         this.setupProviderCards();
         this.setupLayoutCards();
         this.setupEventListeners();
+        this.setupSkillEditor();
         this.setupIPCListeners();
 
         await this.loadUserStatus();
@@ -380,8 +449,15 @@ class SettingsModal {
             }
         });
 
-        document.getElementById('quitButton')?.addEventListener('click', () => {
-            if (window.settingsAPI) window.settingsAPI.quitApp();
+        document.getElementById('quitButton')?.addEventListener('click', async () => {
+            const confirmed = await window.settingsAPI?.showConfirmModal({
+                title: 'Quit Control?',
+                message: 'The application will close. Any in-progress work in other windows may be interrupted.',
+                confirmText: 'Quit',
+                cancelText: 'Cancel',
+                type: 'question'
+            });
+            if (confirmed && window.settingsAPI) window.settingsAPI.quitApp();
         });
 
         document.getElementById('changePinButton')?.addEventListener('click', () => {
@@ -407,12 +483,12 @@ class SettingsModal {
         });
 
         window.addEventListener('mousedown', (e) => {
-
             if (e.target.closest('.modal-overlay')) return;
-            
+            if (this.isInPageModalOpen()) return;
+
             const win = document.querySelector('.settings-window');
             if (win && !win.contains(e.target)) {
-                 if (window.settingsAPI) window.settingsAPI.closeSettings();
+                if (window.settingsAPI) window.settingsAPI.closeSettings();
             }
         });
     }
@@ -701,6 +777,16 @@ class SettingsModal {
         }
     }
 
+    skillIconClass(name) {
+        const cmd = (name || '').toLowerCase();
+        if (cmd.includes('web')) return 'fas fa-globe';
+        if (cmd.includes('cmd') || cmd.includes('terminal')) return 'fas fa-terminal';
+        if (cmd.includes('file') || cmd.includes('read')) return 'fas fa-file-alt';
+        if (cmd.includes('code') || cmd.includes('edit')) return 'fas fa-code';
+        if (cmd.includes('media') || cmd.includes('audio')) return 'fas fa-volume-up';
+        return 'fas fa-bolt';
+    }
+
     async loadSkillsList() {
         const container = document.getElementById('skillsListContainer');
         if (!container || !window.settingsAPI || !window.settingsAPI.getSkills) return;
@@ -708,55 +794,85 @@ class SettingsModal {
         try {
             const data = await window.settingsAPI.getSkills();
             const behaviors = data.behaviors || [];
-            
+
             if (behaviors.length === 0) {
                 container.innerHTML = '<div class="setting-desc">No skills installed. Upload a file or folder above.</div>';
                 return;
             }
 
             container.innerHTML = '';
-            behaviors.forEach(skill => {
+            behaviors.forEach((skill) => {
                 const row = document.createElement('div');
-                row.className = 'setting-row';
-                row.style.background = 'var(--bg-tertiary)';
-                row.style.padding = '12px 16px';
-                row.style.borderRadius = '8px';
-                row.style.border = '1px solid var(--border-color)';
-                row.style.marginBottom = '12px';
+                row.className = 'skill-item-row';
 
-                let iconClass = 'fas fa-bolt';
-                const cmd = skill.name.toLowerCase();
-                if (cmd.includes('web')) iconClass = 'fas fa-globe';
-                else if (cmd.includes('cmd') || cmd.includes('terminal')) iconClass = 'fas fa-terminal';
-                else if (cmd.includes('file') || cmd.includes('read')) iconClass = 'fas fa-file-alt';
-                else if (cmd.includes('code') || cmd.includes('edit')) iconClass = 'fas fa-code';
-                else if (cmd.includes('media') || cmd.includes('audio')) iconClass = 'fas fa-volume-up';
+                const meta = document.createElement('div');
+                meta.className = 'skill-item-meta';
 
-                row.innerHTML = `
-                    <div class="setting-info">
-                        <div class="setting-name"><i class="${iconClass}" style="width: 14px; margin-right: 6px;"></i> ${skill.name}</div>
-                        <div class="setting-desc" style="max-height: 36px; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;">${skill.pattern || 'Custom interaction workflow'}</div>
-                    </div>
-                    <div style="display:flex; gap:8px;">
-                        <button class="btn btn-secondary delete-skill-btn" data-name="${skill.name}" style="padding: 6px 12px; color: var(--danger);"><i class="fas fa-trash-alt"></i></button>
-                    </div>
-                `;
+                const titleRow = document.createElement('div');
+                titleRow.className = 'skill-item-name';
+                const ic = document.createElement('i');
+                ic.className = this.skillIconClass(skill.name);
+                ic.setAttribute('style', 'width:14px;margin-right:8px;opacity:0.85;');
+                titleRow.appendChild(ic);
+                titleRow.appendChild(document.createTextNode(skill.name || 'Unnamed'));
+
+                meta.appendChild(titleRow);
+
+                if (skill.description) {
+                    const desc = document.createElement('div');
+                    desc.className = 'skill-item-desc';
+                    desc.textContent = skill.description;
+                    meta.appendChild(desc);
+                }
+
+                const preview = document.createElement('div');
+                preview.className = 'skill-item-preview';
+                preview.textContent = skill.pattern || '—';
+
+                meta.appendChild(preview);
+
+                const actions = document.createElement('div');
+                actions.className = 'skill-item-actions';
+
+                const editBtn = document.createElement('button');
+                editBtn.type = 'button';
+                editBtn.className = 'btn btn-secondary edit-skill-btn';
+                editBtn.setAttribute('data-name', skill.name);
+                editBtn.innerHTML = '<i class="fas fa-pen"></i> Edit';
+                editBtn.addEventListener('click', () => this.openSkillEditor(skill));
+
+                const delBtn = document.createElement('button');
+                delBtn.type = 'button';
+                delBtn.className = 'btn btn-secondary delete-skill-btn';
+                delBtn.setAttribute('data-name', skill.name);
+                delBtn.setAttribute('style', 'color: var(--danger);');
+                delBtn.innerHTML = '<i class="fas fa-trash-alt"></i>';
+
+                actions.appendChild(editBtn);
+                actions.appendChild(delBtn);
+
+                row.appendChild(meta);
+                row.appendChild(actions);
                 container.appendChild(row);
             });
 
-            container.querySelectorAll('.delete-skill-btn').forEach(btn => {
+            container.querySelectorAll('.delete-skill-btn').forEach((btn) => {
                 btn.addEventListener('click', async (e) => {
                     const name = e.currentTarget.getAttribute('data-name');
-                    if (confirm(`Are you sure you want to delete the skill "${name}"?`)) {
-                        if (window.settingsAPI.deleteSkill) {
-                            const res = await window.settingsAPI.deleteSkill(name);
-                            if (res.success) {
-                                this.showToast('Skill deleted', 'success');
-                                this.loadSkillsList();
-                            } else {
-                                this.showToast('Failed to delete', 'error');
-                            }
-                        }
+                    const confirmed = await window.settingsAPI?.showConfirmModal({
+                        title: 'Delete skill?',
+                        message: `Remove "${name}" from your installed skills? This cannot be undone.`,
+                        confirmText: 'Delete',
+                        cancelText: 'Cancel',
+                        type: 'warning'
+                    });
+                    if (!confirmed || !window.settingsAPI.deleteSkill) return;
+                    const res = await window.settingsAPI.deleteSkill(name);
+                    if (res.success) {
+                        this.showToast('Skill deleted', 'success');
+                        this.loadSkillsList();
+                    } else {
+                        this.showToast('Failed to delete', 'error');
                     }
                 });
             });

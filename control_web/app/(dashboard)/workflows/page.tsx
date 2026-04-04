@@ -4,8 +4,8 @@ import { useState, useEffect } from 'react';
 import { workflowApi } from '@/lib/api';
 import WorkflowDesigner from '@/components/WorkflowDesigner';
 import {
-  Plus, Zap, Trash2, Edit2, Play, Search,
-  Loader2, MoreVertical, Check, X, Clock, Bot
+  Plus, GitBranch, Trash2, Edit2, Play,
+  Loader2, MoreVertical, Check, X, Clock, Hash, AppWindow,
 } from 'lucide-react';
 import { useModal } from '@/lib/useModal';
 
@@ -105,7 +105,7 @@ export default function WorkflowsPage() {
         ) : workflows.length === 0 ? (
           <div className="text-center py-32 bg-card border border-dashed border-border rounded-[3rem] shadow-sm">
             <div className="w-20 h-20 bg-secondary rounded-3xl flex items-center justify-center mx-auto mb-6">
-              <Zap size={40} className="text-text-muted opacity-20" />
+              <GitBranch size={40} className="text-text-muted opacity-20" />
             </div>
             <h3 className="text-xl font-black mb-2 uppercase tracking-tight">No Workflows Found</h3>
             <p className="text-sm text-text-muted max-w-sm mx-auto font-medium mb-8">
@@ -130,7 +130,7 @@ export default function WorkflowsPage() {
                     "w-12 h-12 rounded-2xl flex items-center justify-center transition-transform group-hover:scale-110 duration-500",
                     wf.enabled ? "bg-accent-primary text-accent-foreground shadow-lg" : "bg-secondary text-text-muted border border-border"
                   )}>
-                    <Zap size={24} />
+                    <GitBranch size={24} />
                   </div>
                   <div className="flex items-center gap-1">
                     <button
@@ -202,8 +202,8 @@ function NodeIconMini({ type }: { type: string }) {
   const size = 12;
   switch (type) {
     case 'start_time': return <Clock size={size} />;
-    case 'start_keyword': return <Zap size={size} />;
-    case 'app': return <X size={size} />; // Just a placeholder, would be icon based
+    case 'start_keyword': return <Hash size={size} />;
+    case 'app': return <AppWindow size={size} />;
     case 'nl_task': return <BrainMini size={size} />;
     default: return <Plus size={size} />;
   }

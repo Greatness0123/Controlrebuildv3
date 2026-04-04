@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { getSupabaseClient, getAccessToken } from '@/lib/supabase';
-import { Monitor, Loader2, Maximize2, Zap, Wifi, WifiOff } from 'lucide-react';
+import { Monitor, Loader2, Maximize2, GitBranch, Wifi, WifiOff } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
@@ -419,7 +419,7 @@ export default function RemoteDesktopViewer({ deviceId, className }: RemoteDeskt
                 className="w-7 h-7 bg-black/80 backdrop-blur border border-white/10 rounded-lg flex items-center justify-center text-white/50 hover:text-white transition-colors overlay-element"
                 title="Workflows"
               >
-                <Zap size={12} />
+                <GitBranch size={12} />
               </button>
               {showWorkflows && workflows.length > 0 && (
                 <div className="absolute right-0 mt-1 w-40 bg-zinc-950 border border-border rounded-xl shadow-2xl p-1 overflow-hidden z-[100] overlay-element">

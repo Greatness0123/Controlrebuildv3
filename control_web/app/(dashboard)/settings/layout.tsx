@@ -4,8 +4,8 @@ import { ReactNode } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAuthStore } from '@/lib/store';
 import {
-  User, Shield, Zap, Key, Database, Globe, Bell, Palette, FileDown,
-  Save, Loader2, Sparkles, Command, Terminal, ChevronRight, ChevronLeft,
+  User, Shield, Key, Database, Globe, Bell, Palette, FileDown,
+  Save, Loader2, Command, Terminal, ChevronRight, ChevronLeft, BrainCircuit,
   MessageCircle, Info, Sun, Moon, Lock, CreditCard, LogOut
 } from 'lucide-react';
 import Link from 'next/link';
@@ -30,7 +30,7 @@ const MENU_SECTIONS = [
     items: [
       { id: 'appearance', icon: <Palette size={16} />, label: 'Appearance', desc: 'Customize app' },
       { id: 'apikeys', icon: <Key size={16} />, label: 'API Keys', desc: 'Manage keys' },
-      { id: 'provider', icon: <Sparkles size={16} />, label: 'AI Provider', desc: 'AI model provider' },
+      { id: 'provider', icon: <BrainCircuit size={16} />, label: 'AI Provider', desc: 'AI model provider' },
       { id: 'terminal', icon: <Terminal size={16} />, label: 'Terminal', desc: 'Permissions' },
       { id: 'data', icon: <FileDown size={16} />, label: 'Data & Export', desc: 'Manage data' },
     ],

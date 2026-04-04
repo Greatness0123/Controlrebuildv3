@@ -2,7 +2,7 @@
 
 import { useAuthStore } from '@/lib/store';
 import { useEffect, useState } from 'react';
-import { Check, Zap, Shield, Crown, ArrowRight, X, ArrowLeft } from 'lucide-react';
+import { Check, Shield, Crown, ArrowRight, X, ArrowLeft } from 'lucide-react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import UpgradeButton from '@/components/UpgradeButton';
 import Modal from '@/components/Modal';

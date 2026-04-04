@@ -139,6 +139,20 @@ export default function SignupPage() {
             Sign in
           </Link>
         </p>
+
+        <p className="text-center text-zinc-700 text-[11px] mt-8">
+          <Link href="/legal/terms" className="hover:text-zinc-400 transition-colors">
+            Terms of Service
+          </Link>
+          <span className="mx-2 text-zinc-800">·</span>
+          <Link href="/legal/privacy" className="hover:text-zinc-400 transition-colors">
+            Privacy Policy
+          </Link>
+          <span className="mx-2 text-zinc-800">·</span>
+          <Link href="/legal/cookies" className="hover:text-zinc-400 transition-colors">
+            Cookies
+          </Link>
+        </p>
       </div>
     </div>
   );

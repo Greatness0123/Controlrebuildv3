@@ -799,13 +799,12 @@ class ChatWindow {
 
         // Use unified turn container for confirmation requests
         const container = this.getOrCreateAIResponseContainer();
-        const thinkingSection = this.getSectionContent(container, 'thinking');
-        const actionsSection = this.getSectionContent(container, 'actions');
+        const trace = this.getSectionContent(container, 'thinking');
 
         const thoughtDiv = document.createElement('div');
         thoughtDiv.className = 'thought-block';
         thoughtDiv.textContent = 'User confirmation required for high-risk action.';
-        thinkingSection.appendChild(thoughtDiv);
+        trace.appendChild(thoughtDiv);
 
         const confirmationCard = document.createElement('div');
         confirmationCard.className = 'action-card confirmation-request';
@@ -814,15 +813,13 @@ class ChatWindow {
                 <div class="action-icon"><i class="fas fa-exclamation-triangle" style="color: #f59e0b"></i></div>
                 <div class="action-title">${data.description}</div>
             </div>
-            <div style="margin-top: 12px; display: flex; gap: 8px;">
+            <div style="margin-top: 8px; display: flex; gap: 8px;">
                 <button class="button button-primary confirm-yes" style="background: #10b981; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer;">Proceed</button>
                 <button class="button button-secondary confirm-no" style="background: #ef4444; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer;">Cancel Task</button>
             </div>
         `;
 
-        thinkingSection.style.display = 'block';
-        actionsSection.style.display = 'block';
-        actionsSection.appendChild(confirmationCard);
+        trace.appendChild(confirmationCard);
 
         confirmationCard.querySelector('.confirm-yes').onclick = () => {
             window.chatAPI.confirmAction(true);
@@ -1708,8 +1705,7 @@ class ChatWindow {
 
         if (!this.currentAIStreamingElement) {
             const div = document.createElement('div');
-            div.className = 'text-block';
-            div.style.cssText = 'background: var(--bg-secondary); border: 1px solid var(--border); padding: 16px; border-radius: 16px; margin-top: 8px;';
+            div.className = 'text-block text-block--stream';
             container.appendChild(div);
             this.currentAIStreamingElement = div;
         }
@@ -1719,24 +1715,15 @@ class ChatWindow {
     }
 
     getSectionContent(container, type) {
-        if (type === 'thinking') {
-            let thinking = container.querySelector('.thinking-section');
-            if (!thinking) {
-                thinking = document.createElement('div');
-                thinking.className = 'thinking-section';
-                thinking.style.opacity = '0.6';
-                container.appendChild(thinking);
+        // Single compact column for thoughts + actions (fewer nested wrappers vs separate sections).
+        if (type === 'thinking' || type === 'actions') {
+            let trace = container.querySelector('.agent-trace');
+            if (!trace) {
+                trace = document.createElement('div');
+                trace.className = 'agent-trace';
+                container.appendChild(trace);
             }
-            return thinking;
-        }
-        if (type === 'actions') {
-            let actions = container.querySelector('.actions-section');
-            if (!actions) {
-                actions = document.createElement('div');
-                actions.className = 'actions-section';
-                container.appendChild(actions);
-            }
-            return actions;
+            return trace;
         }
         return container;
     }
@@ -1784,7 +1771,6 @@ class ChatWindow {
                 const section = this.getSectionContent(container, 'thinking');
                 const div = document.createElement('div');
                 div.className = 'thought-block';
-                div.style.cssText = 'background: transparent; border-left: 2px solid var(--border); border-radius: 0; padding: 4px 12px; margin: 8px 0; font-style: italic; font-size: 12px;';
                 div.innerHTML = this.parseMarkdown(safeText);
                 section.appendChild(div);
                 this.scrollToBottom();
@@ -1793,7 +1779,6 @@ class ChatWindow {
 
             const div = document.createElement('div');
             div.className = 'text-block';
-            div.style.cssText = 'background: var(--bg-secondary); border: 1px solid var(--border); padding: 16px; border-radius: 16px; margin-top: 8px;';
             div.innerHTML = this.parseMarkdown(safeText);
             container.appendChild(div);
 
@@ -1855,11 +1840,9 @@ class ChatWindow {
         const sectionContent = this.getSectionContent(container, 'actions');
 
         const actionCard = document.createElement('div');
-        actionCard.className = `action-card fade-in ${status || ''}`;
-        actionCard.style.cssText = 'border-left: none; margin-left: 0; padding-left: 0; gap: 12px; margin-bottom: 12px;';
+        actionCard.className = `action-card action-card--compact fade-in ${status || ''}`;
         actionCard.dataset.actionId = actionId;
 
-        // Map common task words to icons
         let icon = 'fa-cog';
         const t = text.toLowerCase();
         if (t.includes('search') || t.includes('find')) icon = 'fa-search';
@@ -1867,21 +1850,18 @@ class ChatWindow {
         if (t.includes('type') || t.includes('keyboard')) icon = 'fa-keyboard';
         if (t.includes('scroll')) icon = 'fa-arrows-alt-v';
         if (t.includes('screenshot')) icon = 'fa-camera';
-        if (t.includes('thinking')) icon = '';
+        if (t.includes('thinking')) icon = 'fa-brain';
         if (t.includes('responding')) icon = 'fa-comment-dots';
         if (t.includes('waiting')) icon = 'fa-clock';
 
+        const safeTitle = this.escapeHtml(text);
         actionCard.innerHTML = `
-            <div class="action-icon" style="margin-left: 0; background: var(--bg-secondary); width: 32px; height: 32px; border-radius: 8px; border: 1px solid var(--border); display: flex; align-items: center; justify-content: center;">
-                <i class="fas ${icon}" ${!icon ? 'style="display:none"' : ''}></i>
+            <span class="action-icon-inline" aria-hidden="true"><i class="fas ${icon}"></i></span>
+            <div class="action-main">
+                <span class="action-title">${safeTitle}</span>
+                <span class="action-status-dot" title=""></span>
             </div>
-            <div style="flex:1; background: var(--bg-secondary); border: 1px solid var(--border); padding: 8px 12px; border-radius: 12px;">
-                <div style="display: flex; justify-content: space-between; align-items: center;">
-                    <div class="action-title" style="font-size: 11px; text-transform: uppercase; letter-spacing: 1px;">${text}</div>
-                    <div class="action-status-dot" style="width: 6px; height: 6px; border-radius: 50%; background: #10b981; box-shadow: 0 0 8px #10b981;"></div>
-                </div>
-                <div class="action-details" style="display:none; font-size: 11px; margin-top: 4px; opacity: 0.7;"></div>
-            </div>
+            <div class="action-details" style="display:none"></div>
         `;
 
         sectionContent.appendChild(actionCard);
@@ -1924,11 +1904,10 @@ class ChatWindow {
         const isFinalizing = success !== undefined;
 
         entries.forEach(entry => {
-            const actionIcon = entry.querySelector('.action-icon');
+            const actionIcon = entry.querySelector('.action-icon-inline');
             const actionDetailsEl = entry.querySelector('.action-details');
 
             if (actionIcon) {
-                // Do not replace original icon with tick or cross, keep timeline neat
                 if (success === false) {
                     actionIcon.style.color = 'var(--error-color, #ef4444)';
                 }

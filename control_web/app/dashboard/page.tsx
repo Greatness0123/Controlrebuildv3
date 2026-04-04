@@ -7,7 +7,7 @@ import { toast } from 'sonner';
 import {
   Monitor, Play, Square, Trash2, MoreVertical, Clock, AlertCircle,
   CheckCircle, Loader2, Globe, Terminal, MousePointer2, ScanLine,
-  Cpu, MoreHorizontal, Zap, ShieldCheck, Download, RefreshCw, Plus, ArrowLeft, ArrowRight,
+  Cpu, MoreHorizontal, Layers, ShieldCheck, Download, RefreshCw, Plus, ArrowLeft, ArrowRight,
   Server, Link as LinkIcon, Command, Layout
 } from 'lucide-react';
 import { vmApi, pairApi } from '@/lib/api';
@@ -392,7 +392,7 @@ export default function Dashboard() {
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 w-full max-w-4xl mb-12">
                 {[
                   { icon: MousePointer2, title: "Full desktop control", desc: "AI moves the mouse, types, clicks, and navigates like a real user." },
-                  { icon: Zap, title: "Any task automated", desc: "Browser, terminal, and UI — all agents work together in one VM." },
+                  { icon: Layers, title: "Any task automated", desc: "Browser, terminal, and UI — all agents work together in one VM." },
                   { icon: ShieldCheck, title: "Isolated & safe", desc: "Each machine runs in its own container — your local system stays untouched." },
                 ].map(({ icon: Icon, title, desc }, i) => (
                   <motion.div key={title} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 + i * 0.08 }} className="rounded-2xl border border-white/10 bg-white/[0.03] backdrop-blur-sm p-6 text-left hover:bg-white/[0.05] hover:border-white/20 transition-all">

@@ -143,6 +143,39 @@ class StorageManager {
         return this.writeBehaviors(data);
     }
 
+    /**
+     * Update an existing behavior by original name. Supports renaming (avoids duplicate names).
+     */
+    updateBehavior(originalName, updates) {
+        const data = this.readBehaviors();
+        const orig = (originalName || '').toLowerCase().trim();
+        const idx = data.behaviors.findIndex(b => b.name.toLowerCase().trim() === orig);
+        if (idx === -1) return false;
+
+        const prev = data.behaviors[idx];
+        const newName = (updates.name != null ? String(updates.name) : prev.name).trim();
+        const description = updates.description != null ? String(updates.description) : (prev.description || '');
+        const pattern = updates.pattern != null ? String(updates.pattern) : (prev.pattern || '');
+
+        if (newName.toLowerCase() !== prev.name.toLowerCase().trim()) {
+            const clash = data.behaviors.some(
+                (b, i) => i !== idx && b.name.toLowerCase().trim() === newName.toLowerCase()
+            );
+            if (clash) return false;
+        }
+
+        const next = {
+            ...prev,
+            name: newName,
+            description,
+            pattern,
+            timestamp: new Date().toISOString()
+        };
+
+        data.behaviors[idx] = next;
+        return this.writeBehaviors(data);
+    }
+
     addLibrary(type, name, version = 'latest') {
         const libs = this.readLibraries();
         if (!libs[type]) libs[type] = [];

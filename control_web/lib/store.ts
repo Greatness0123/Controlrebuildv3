@@ -35,6 +35,8 @@ interface ChatMessage {
   screenshot_url?: string;
   action_type?: string;
   action_data?: any;
+  /** Set for streamed automation steps (web agent). */
+  action_status?: 'running' | 'done';
   is_thought?: boolean;
   is_final?: boolean;
   created_at: string;
