@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import Image from 'next/image';
-import { motion, useScroll, useTransform } from 'framer-motion';
+import { motion, useScroll, useTransform, type Transition, type Variants } from 'framer-motion';
 import {
   ArrowRight,
   ArrowUpRight,
@@ -27,14 +27,18 @@ import {
   Linkedin,
   MessagesSquare,
 } from 'lucide-react';
-import { useRef, useState, type ComponentType } from 'react';
+import type { LucideIcon } from 'lucide-react';
+import { useRef, useState } from 'react';
 import { getSocialLinks } from '@/lib/social-links';
+
+const fadeEase = [0.22, 1, 0.36, 1] as const;
+const fadeTransition: Transition = { duration: 0.55, ease: fadeEase };
 
 const fadeUp = {
   initial: { opacity: 0, y: 24 },
   whileInView: { opacity: 1, y: 0 },
   viewport: { once: true, margin: '-40px' },
-  transition: { duration: 0.55, ease: [0.22, 1, 0.36, 1] as const },
+  transition: fadeTransition,
 };
 
 export default function LandingMarketing() {
@@ -414,6 +418,13 @@ export default function LandingMarketing() {
   );
 }
 
+const bentoVariants: Variants = {
+  hidden: { opacity: 0, y: 16 },
+  visible: { opacity: 1, y: 0 },
+};
+
+const bentoTransition: Transition = { duration: 0.45 };
+
 function Bento({
   className,
   icon: Icon,
@@ -421,16 +432,17 @@ function Bento({
   desc,
 }: {
   className?: string;
-  icon: React.ComponentType<{ className?: string; strokeWidth?: number }>;
+  icon: LucideIcon;
   title: string;
   desc: string;
 }) {
   return (
     <motion.div
-      initial={{ opacity: 0, y: 16 }}
-      whileInView={{ opacity: 1, y: 0 }}
+      variants={bentoVariants}
+      initial="hidden"
+      whileInView="visible"
       viewport={{ once: true }}
-      transition={{ duration: 0.45 }}
+      transition={bentoTransition}
       className={`rounded-xl border border-white/[0.08] bg-white/[0.02] p-6 sm:p-7 hover:border-white/[0.14] transition-colors ${className || ''}`}
     >
       <Icon className="w-5 h-5 text-neutral-400 mb-4" strokeWidth={1.5} />
@@ -552,7 +564,7 @@ function SocialFooterIcons() {
     id: keyof ReturnType<typeof getSocialLinks>;
     url: string;
     label: string;
-    Icon: ComponentType<{ className?: string; strokeWidth?: number }>;
+    Icon: LucideIcon;
   }[] = [
     { id: 'twitter', url: links.twitter, label: 'X (Twitter)', Icon: Twitter },
     { id: 'github', url: links.github, label: 'GitHub', Icon: Github },
