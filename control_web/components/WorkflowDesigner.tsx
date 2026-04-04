@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
+import { useState, useRef, useEffect, useCallback, useMemo, type ChangeEvent, type ReactNode } from 'react';
 import {
   Plus, Play, Save, Download, Upload, Trash2, X, Send,
-  Paperclip, Loader2, MessageSquare, ChevronRight, ChevronLeft,
+  Paperclip, Loader2, MessageSquare, ChevronRight, ChevronLeft, ChevronDown,
   Settings, StopCircle, GitBranch, Clock, MousePointer2, FileText,
   Globe, Search, Brain, Maximize2, Minimize2, GripVertical,
   MoreVertical, Edit3, Trash, Check, AlertCircle, File, Sparkles,
@@ -20,6 +20,40 @@ import { twMerge } from 'tailwind-merge';
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
+}
+
+const themedSelectClass =
+  'w-full min-w-0 rounded-lg border border-border bg-background text-foreground text-[10px] sm:text-[11px] font-bold uppercase tracking-wide px-3 py-2 pr-9 shadow-sm focus:outline-none focus:ring-2 focus:ring-accent-primary/25 focus:border-accent-primary/50 cursor-pointer appearance-none transition-colors';
+
+function ThemedSelect({
+  value,
+  onChange,
+  children,
+  className,
+  'aria-label': ariaLabel,
+}: {
+  value: string;
+  onChange: (e: ChangeEvent<HTMLSelectElement>) => void;
+  children: ReactNode;
+  className?: string;
+  'aria-label'?: string;
+}) {
+  return (
+    <div className={cn('relative min-w-0', className)}>
+      <select
+        aria-label={ariaLabel}
+        value={value}
+        onChange={onChange}
+        className={themedSelectClass}
+      >
+        {children}
+      </select>
+      <ChevronDown
+        className="pointer-events-none absolute right-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-text-muted"
+        aria-hidden
+      />
+    </div>
+  );
 }
 
 interface Node {
@@ -566,20 +600,29 @@ Example:
             <Save size={14} />
             <span className="hidden xs:inline">Save</span>
           </button>
-          <div className="flex items-center bg-secondary border border-border rounded-xl px-2 sm:px-3 py-1.5 h-10 shrink-0">
-            <Monitor size={14} className="text-text-muted mr-1.5 sm:mr-2" />
-            <select
-              className="bg-transparent border-none focus:outline-none text-[9px] sm:text-[10px] font-black uppercase tracking-widest cursor-pointer max-w-[80px] sm:max-w-none"
+          <div className="flex items-center gap-2 bg-card border border-border rounded-xl px-2 sm:px-3 py-1.5 min-h-10 shrink-0 max-w-[min(100%,220px)] sm:max-w-[280px]">
+            <Monitor size={14} className="text-text-muted shrink-0" />
+            <ThemedSelect
+              aria-label="Automation target"
+              className="flex-1 min-w-0"
               value={targetMachine ? `${targetMachine.type}:${targetMachine.id}` : ''}
               onChange={(e) => {
                 const [type, id] = e.target.value.split(':');
                 setTargetMachine(id ? { id, type: type as 'vm' | 'device' } : null);
               }}
             >
-              <option value="">Target</option>
-              {vms.filter(v => v.status === 'running').map(v => (<option key={v.id} value={`vm:${v.id}`}>{v.name}</option>))}
-              {devices.filter(d => d.status === 'paired').map(d => (<option key={d.id} value={`device:${d.id}`}>{d.name}</option>))}
-            </select>
+              <option value="">Select target…</option>
+              {vms.filter((v) => v.status === 'running').map((v) => (
+                <option key={v.id} value={`vm:${v.id}`}>
+                  VM: {v.name}
+                </option>
+              ))}
+              {devices.filter((d) => d.status === 'paired').map((d) => (
+                <option key={d.id} value={`device:${d.id}`}>
+                  Device: {d.name}
+                </option>
+              ))}
+            </ThemedSelect>
           </div>
           <button onClick={handleRun} className="flex items-center gap-2 px-3 sm:px-4 py-2 bg-card border border-border text-foreground rounded-xl text-[9px] sm:text-[10px] font-black uppercase tracking-widest hover:bg-card-hover transition-all shrink-0">
             <Play size={14} />
@@ -812,16 +855,18 @@ function NodeElement({ node, onMouseDown, onPortMouseDown, onPortMouseUp, onDele
         ) : node.type === 'app' ? (
           <div className="space-y-1">
             {apps.length > 0 && (
-              <select
-                value={apps.includes(node.data.value) ? node.data.value : ""}
-                onChange={e => onUpdate({ value: e.target.value })}
-                className="w-full bg-secondary border border-border rounded-lg p-2 text-[11px] focus:outline-none appearance-none cursor-pointer"
+              <ThemedSelect
+                aria-label="Pick discovered app"
+                value={apps.includes(node.data.value) ? node.data.value : ''}
+                onChange={(e) => onUpdate({ value: e.target.value })}
               >
-                <option value="">Discovered Apps...</option>
-                {apps.map(app => (
-                  <option key={app} value={app}>{app}</option>
+                <option value="">Discovered apps…</option>
+                {apps.map((app) => (
+                  <option key={app} value={app}>
+                    {app}
+                  </option>
                 ))}
-              </select>
+              </ThemedSelect>
             )}
             <input
               value={node.data.value}

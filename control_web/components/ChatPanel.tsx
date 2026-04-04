@@ -326,7 +326,7 @@ export default function ChatPanel({ sessionId }: ChatPanelProps) {
               id: Math.random().toString(),
               session_id: sessionId,
               role: 'assistant',
-              content: `🔐 Human assistance needed: ${event.params?.reason || 'Please perform the requested action on the screen.'}`,
+              content: `Human assistance needed: ${event.params?.reason || 'Please perform the requested action on the screen.'}`,
               created_at: new Date().toISOString()
             } as any);
           }
@@ -336,7 +336,7 @@ export default function ChatPanel({ sessionId }: ChatPanelProps) {
             id: Math.random().toString(),
             session_id: sessionId,
             role: 'assistant',
-            content: `🔐 Your input is needed: ${event.content}`,
+            content: `Your input is needed: ${event.content}`,
             created_at: new Date().toISOString()
           } as any);
         } else if (event.type === 'terminal_permission') {

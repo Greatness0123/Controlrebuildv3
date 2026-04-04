@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo, useEffect } from 'react';
+import { useTheme } from 'next-themes';
 import { useAuthStore } from '@/lib/store';
 import { getSupabaseClient } from '@/lib/supabase';
 import { chatApi } from '@/lib/api';
@@ -37,6 +38,113 @@ import {
 
 function cn(...classes: (string | undefined | null | false)[]) {
   return classes.filter(Boolean).join(' ');
+}
+
+type DailyUsageRow = { date: string; short: string; ask: number; act: number };
+
+function usageRowsFromProfile(daily: Record<string, { ask?: number; act?: number }> | undefined): DailyUsageRow[] {
+  if (!daily || typeof daily !== 'object') return [];
+  return Object.keys(daily)
+    .sort()
+    .map((date) => ({
+      date,
+      short: new Date(date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+      ask: daily[date].ask || 0,
+      act: daily[date].act || 0,
+    }));
+}
+
+function aggregateUsageFromMessages(
+  rows: { created_at: string; role: string; action_type: string | null }[]
+): DailyUsageRow[] {
+  const dayMap = new Map<string, { ask: number; act: number }>();
+  for (const m of rows) {
+    const day = (m.created_at || '').slice(0, 10);
+    if (!day || day.length < 10) continue;
+    if (!dayMap.has(day)) dayMap.set(day, { ask: 0, act: 0 });
+    const b = dayMap.get(day)!;
+    const isAct = m.role === 'action' || Boolean(m.action_type);
+    if (isAct) b.act += 1;
+    else if (m.role === 'user') b.ask += 1;
+  }
+  return Array.from(dayMap.entries())
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([date, v]) => ({
+      date,
+      short: new Date(date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+      ask: v.ask,
+      act: v.act,
+    }));
+}
+
+function bucketUsageByRange(rows: DailyUsageRow[], range: 'daily' | 'weekly' | 'monthly') {
+  if (range === 'daily') {
+    return rows.map((r) => ({ date: r.short, ask: r.ask, act: r.act }));
+  }
+  const map = new Map<string, { ask: number; act: number }>();
+  for (const r of rows) {
+    let key: string;
+    if (range === 'weekly') {
+      const d = new Date(r.date + 'T12:00:00');
+      const x = new Date(d);
+      const day = x.getDay();
+      const diff = day === 0 ? -6 : 1 - day;
+      x.setDate(x.getDate() + diff);
+      key = x.toISOString().slice(0, 10);
+    } else {
+      key = r.date.slice(0, 7);
+    }
+    const prev = map.get(key) || { ask: 0, act: 0 };
+    prev.ask += r.ask;
+    prev.act += r.act;
+    map.set(key, prev);
+  }
+  return Array.from(map.entries())
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([key, v]) => ({
+      date:
+        range === 'monthly'
+          ? new Date(key + '-01T12:00:00').toLocaleDateString('en-US', { month: 'short', year: '2-digit' })
+          : new Date(key + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+      ask: v.ask,
+      act: v.act,
+    }));
+}
+
+function bucketTokensByRange(
+  daily: { date: string; total: number }[],
+  range: 'daily' | 'weekly' | 'monthly'
+): { label: string; total: number }[] {
+  if (range === 'daily') {
+    return daily.map((r) => ({
+      label: new Date(r.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+      total: r.total,
+    }));
+  }
+  const map = new Map<string, number>();
+  for (const r of daily) {
+    let key: string;
+    if (range === 'weekly') {
+      const d = new Date(r.date + 'T12:00:00');
+      const x = new Date(d);
+      const day = x.getDay();
+      const diff = day === 0 ? -6 : 1 - day;
+      x.setDate(x.getDate() + diff);
+      key = x.toISOString().slice(0, 10);
+    } else {
+      key = r.date.slice(0, 7);
+    }
+    map.set(key, (map.get(key) || 0) + r.total);
+  }
+  return Array.from(map.entries())
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([key, total]) => ({
+      label:
+        range === 'monthly'
+          ? new Date(key + '-01T12:00:00').toLocaleDateString('en-US', { month: 'short', year: '2-digit' })
+          : new Date(key + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+      total,
+    }));
 }
 
 const PLANS = [
@@ -81,11 +189,18 @@ type PlanType = 'free' | 'pro' | 'master';
 
 export default function BillingPage() {
   const { user } = useAuthStore();
+  const { resolvedTheme } = useTheme();
+  const [mounted, setMounted] = useState(false);
   const [selectedPlanId, setSelectedPlanId] = useState<'lite' | 'starter' | 'plus' | 'pro'>('plus');
-  const [tokenChartRange, setTokenChartRange] = useState<'daily' | 'weekly' | 'monthly'>('daily');
+  const [chartRange, setChartRange] = useState<'daily' | 'weekly' | 'monthly'>('daily');
   const [userData, setUserData] = useState<any>(null);
   const [recentActions, setRecentActions] = useState<any[]>([]);
+  const [messageUsageDaily, setMessageUsageDaily] = useState<DailyUsageRow[]>([]);
   const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     async function fetchData() {
@@ -93,11 +208,25 @@ export default function BillingPage() {
       const supabase = getSupabaseClient();
       const [userRes, actionsRes] = await Promise.all([
         supabase.from('users').select('*').eq('auth_id', user.id).single(),
-        chatApi.recentActions(15)
+        chatApi.recentActions(15),
       ]);
 
       if (userRes.data) {
         setUserData(userRes.data);
+        const internalId = userRes.data.id as string;
+        const since = new Date();
+        since.setDate(since.getDate() - 120);
+        const { data: msgs, error: msgErr } = await supabase
+          .from('chat_messages')
+          .select('created_at, role, action_type, chat_sessions!inner(user_id)')
+          .eq('chat_sessions.user_id', internalId)
+          .gte('created_at', since.toISOString())
+          .order('created_at', { ascending: true });
+        if (!msgErr && msgs) {
+          setMessageUsageDaily(aggregateUsageFromMessages(msgs as any));
+        } else {
+          setMessageUsageDaily([]);
+        }
       }
       if (actionsRes.actions) {
         setRecentActions(actionsRes.actions);
@@ -107,33 +236,34 @@ export default function BillingPage() {
     fetchData();
   }, [user]);
 
-  // Combined Ask and Act usage data
-  const usageData = useMemo(() => {
-    if (!userData?.daily_token_usage || Object.keys(userData.daily_token_usage).length === 0) {
-        return [];
-    }
-    const usage = userData.daily_token_usage;
-    const dates = Object.keys(usage).sort();
-    return dates.map(date => ({
-        date: new Date(date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-        ask: usage[date].ask || 0,
-        act: usage[date].act || 0
-    }));
+  const profileUsageDaily = useMemo(
+    () => usageRowsFromProfile(userData?.daily_token_usage),
+    [userData]
+  );
+
+  const usageDailySource = useMemo(() => {
+    const profileSum = profileUsageDaily.reduce((s, r) => s + r.ask + r.act, 0);
+    if (profileUsageDaily.length > 0 && profileSum > 0) return profileUsageDaily;
+    return messageUsageDaily;
+  }, [profileUsageDaily, messageUsageDaily]);
+
+  const usageData = useMemo(
+    () => bucketUsageByRange(usageDailySource, chartRange),
+    [usageDailySource, chartRange]
+  );
+
+  const tokenDailyRaw = useMemo(() => {
+    if (!userData?.daily_token_usage || typeof userData.daily_token_usage !== 'object') return [];
+    const usage = userData.daily_token_usage as Record<string, { total?: number }>;
+    return Object.keys(usage)
+      .sort()
+      .map((date) => ({ date, total: usage[date]?.total || 0 }));
   }, [userData]);
 
-  // Token usage data transformation
-  const tokenData = useMemo(() => {
-    if (!userData?.daily_token_usage || Object.keys(userData.daily_token_usage).length === 0) return [];
-    const usage = userData.daily_token_usage;
-    const dates = Object.keys(usage).sort();
-
-    const raw = dates.map(date => ({
-        date: date,
-        total: usage[date].total || 0
-    }));
-
-    return raw.map(r => ({ ...r, label: new Date(r.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) }));
-  }, [userData]);
+  const tokenData = useMemo(
+    () => bucketTokensByRange(tokenDailyRaw, chartRange),
+    [tokenDailyRaw, chartRange]
+  );
 
   const selectedPlan = PLAN_DETAILS[selectedPlanId];
   const currentPlan = (userData?.plan || user?.user_metadata?.plan || 'Free') as string;
@@ -148,12 +278,15 @@ export default function BillingPage() {
   const isActLimitReached = (userData?.act_count || 0) >= currentLimits.act;
   const isAskLimitReached = (userData?.ask_count || 0) >= currentLimits.ask;
 
-  const isDark = typeof window !== 'undefined' && (document.documentElement.classList.contains('dark') || window.matchMedia('(prefers-color-scheme: dark)').matches);
-  const strokeColor = isDark ? "#ffffff" : "#000000";
-  const mutedStroke = isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.1)";
-  const textColor = isDark ? "#999999" : "#666666";
-  const tooltipBg = isDark ? "#111111" : "#ffffff";
-  const tooltipBorder = isDark ? "#333333" : "#dddddd";
+  const isDark = mounted && resolvedTheme === 'dark';
+  const strokeColor = isDark ? '#fafafa' : '#18181b';
+  const askStroke = isDark ? '#a3e635' : '#4d7c0f';
+  const actStroke = isDark ? '#f472b6' : '#be185d';
+  const mutedStroke = isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.08)';
+  const textColor = isDark ? '#a1a1aa' : '#71717a';
+  const tooltipBg = isDark ? '#18181b' : '#ffffff';
+  const tooltipBorder = isDark ? '#27272a' : '#e4e4e7';
+  const gradientId = `colorTokens-${isDark ? 'dark' : 'light'}`;
 
   return (
     <div className="p-4 md:p-8 max-w-5xl mx-auto space-y-8 bg-background">
@@ -206,28 +339,48 @@ export default function BillingPage() {
 
       {/* Graph Section: Usage */}
       <div className="bg-card border border-border rounded-3xl p-6 space-y-6 shadow-sm">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 rounded-lg bg-secondary flex items-center justify-center text-foreground border border-border">
               <Activity size={16} />
             </div>
-            <h3 className="text-sm font-black text-foreground uppercase tracking-tight">AI Usage Analytics</h3>
+            <div>
+              <h3 className="text-sm font-black text-foreground uppercase tracking-tight">AI usage</h3>
+              <p className="text-[10px] text-text-muted font-medium">
+                From your profile when available; otherwise estimated from chat activity.
+              </p>
+            </div>
+          </div>
+          <div className="flex bg-secondary p-1 rounded-lg border border-border self-start sm:self-auto">
+            {(['daily', 'weekly', 'monthly'] as const).map((range) => (
+              <button
+                key={range}
+                type="button"
+                onClick={() => setChartRange(range)}
+                className={cn(
+                  'px-2 py-1 rounded-md text-[10px] font-black uppercase transition-all',
+                  chartRange === range ? 'bg-background text-foreground shadow-sm' : 'text-text-muted hover:text-foreground'
+                )}
+              >
+                {range}
+              </button>
+            ))}
           </div>
         </div>
 
         <div className="h-[300px] w-full mt-4">
           <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={usageData.length > 0 ? usageData : [{date: '', ask: 0, act: 0}]}>
+            <LineChart data={usageData.length > 0 ? usageData : [{ date: 'No data', ask: 0, act: 0 }]}>
               <CartesianGrid vertical={false} strokeDasharray="3 3" stroke={mutedStroke} />
               <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{ fill: textColor, fontSize: 10 }} />
-              <YAxis axisLine={false} tickLine={false} tick={{ fill: textColor, fontSize: 10 }} />
+              <YAxis axisLine={false} tickLine={false} tick={{ fill: textColor, fontSize: 10 }} allowDecimals={false} />
               <Tooltip
                 contentStyle={{ backgroundColor: tooltipBg, border: `1px solid ${tooltipBorder}`, borderRadius: '8px', fontSize: '10px' }}
                 itemStyle={{ fontSize: '10px', fontWeight: 'bold' }}
               />
               <Legend wrapperStyle={{ fontSize: '9px', fontWeight: 'bold', paddingTop: '20px', textTransform: 'uppercase', letterSpacing: '1px' }} />
-              <Line type="monotone" dataKey="ask" stroke={strokeColor} strokeWidth={3} dot={false} name="Ask Mode" />
-              <Line type="monotone" dataKey="act" stroke={strokeColor} strokeWidth={3} strokeDasharray="5 5" dot={false} name="Act Mode" />
+              <Line type="monotone" dataKey="ask" stroke={askStroke} strokeWidth={2} dot={false} name="Ask (messages)" />
+              <Line type="monotone" dataKey="act" stroke={actStroke} strokeWidth={2} strokeDasharray="6 4" dot={false} name="Act (actions)" />
             </LineChart>
           </ResponsiveContainer>
         </div>
@@ -243,36 +396,23 @@ export default function BillingPage() {
             <h3 className="text-sm font-black text-foreground uppercase tracking-tight">Token Consumption</h3>
           </div>
 
-          <div className="flex bg-secondary p-1 rounded-lg border border-border">
-            {(['daily', 'weekly', 'monthly'] as const).map((range) => (
-              <button
-                key={range}
-                onClick={() => setTokenChartRange(range)}
-                className={cn(
-                  "px-2 py-1 rounded-md text-[10px] font-black uppercase transition-all",
-                  tokenChartRange === range ? "bg-background text-foreground shadow-sm" : "text-text-muted hover:text-foreground"
-                )}
-              >
-                {range}
-              </button>
-            ))}
-          </div>
+          <p className="text-[10px] text-text-muted font-medium uppercase tracking-wide hidden sm:block">Same range as usage</p>
         </div>
 
         <div className="h-[250px] w-full mt-4">
           <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={tokenData.length > 0 ? tokenData : [{label: '', date: '', total: 0}]}>
+            <AreaChart data={tokenData.length > 0 ? tokenData : [{ label: 'No data', total: 0 }]}>
               <defs>
-                <linearGradient id="colorTokens" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor={strokeColor} stopOpacity={0.2}/>
-                  <stop offset="95%" stopColor={strokeColor} stopOpacity={0}/>
+                <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor={strokeColor} stopOpacity={0.22} />
+                  <stop offset="95%" stopColor={strokeColor} stopOpacity={0} />
                 </linearGradient>
               </defs>
               <CartesianGrid vertical={false} strokeDasharray="3 3" stroke={mutedStroke} />
               <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fill: textColor, fontSize: 10 }} />
               <YAxis axisLine={false} tickLine={false} tick={{ fill: textColor, fontSize: 10 }} />
               <Tooltip contentStyle={{ backgroundColor: tooltipBg, border: `1px solid ${tooltipBorder}`, borderRadius: '8px', fontSize: '10px' }} />
-              <Area type="monotone" dataKey="total" stroke={strokeColor} strokeWidth={2} fillOpacity={1} fill="url(#colorTokens)" />
+              <Area type="monotone" dataKey="total" stroke={strokeColor} strokeWidth={2} fillOpacity={1} fill={`url(#${gradientId})`} />
             </AreaChart>
           </ResponsiveContainer>
         </div>
@@ -303,7 +443,7 @@ export default function BillingPage() {
               <TransactionItem
                 key={action.id || i}
                 title={action.role === 'action' ? `Action: ${action.action_type || 'Unknown'}` : action.role === 'user' ? 'User Message' : 'Assistant Response'}
-                subtitle={`${new Date(action.created_at).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })} · Session: ${action.session_id.substring(0, 8)}`}
+                subtitle={`${new Date(action.created_at).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}${action.session_id ? ` · Session: ${String(action.session_id).slice(0, 8)}` : ''}`}
                 amount={action.role === 'action' ? "-1 act" : action.role === 'user' ? "query" : "resp"}
                 balance=""
                 icon={action.role === 'action' ? <MousePointerClick className="w-4 h-4" /> : action.role === 'user' ? <User className="w-4 h-4" /> : <Activity className="w-4 h-4" />}

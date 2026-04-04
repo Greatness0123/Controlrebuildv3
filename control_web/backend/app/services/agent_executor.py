@@ -16,6 +16,7 @@ from typing import AsyncGenerator, Optional, Dict, Any, List, Union
 from supabase import Client
 from app.config import GEMINI_API_KEY
 from app.services.vm_control import vm_control_service, DOCKER_HOST_IP
+from app.services.vm_service import vm_service
 from app.routes.remote_relay import send_device_action, get_device_screenshot
 
 logger = logging.getLogger(__name__)
@@ -686,6 +687,9 @@ class AgentExecutor:
                 yield {"type": "done"}
                 return
 
+            if machine_id:
+                await vm_service.ensure_vm_agent_connected(db, machine_id)
+
             while step < max_steps:
                 step += 1
                 try:
@@ -762,7 +766,11 @@ class AgentExecutor:
                     if shot:
                         last_screenshot = shot
                         action_result = "Screenshot taken successfully."
-                    else: action_result = "Screenshot failed. Please ensure the target is connected."
+                    else: action_result = (
+                        "Screenshot failed: the automation agent inside the VM did not respond. "
+                        "The viewer uses VNC in the browser; actions use a separate agent connection from this server. "
+                        "Wait for the VM to finish booting, confirm it is running on the Machines page, then try again."
+                    )
                 elif action == "TERMINAL":
                     cmd = params.get("command", "")
                     if machine_id:

@@ -14,11 +14,16 @@ export default function SignupPage() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
   const router = useRouter();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    if (!acceptedTerms) {
+      setError('You must agree to the Terms of Service to create an account.');
+      return;
+    }
     setLoading(true);
     try {
       await signUp(email, password, firstName, lastName);
@@ -117,10 +122,35 @@ export default function SignupPage() {
             />
           </div>
 
+          <div className="flex items-start gap-3 rounded-xl border border-white/10 bg-white/[0.02] p-3.5">
+            <input
+              id="signup-accept-terms"
+              type="checkbox"
+              checked={acceptedTerms}
+              onChange={(e) => setAcceptedTerms(e.target.checked)}
+              className="mt-0.5 h-4 w-4 shrink-0 rounded border-white/20 bg-white/[0.05] text-black focus:ring-2 focus:ring-white/30 focus:ring-offset-0 cursor-pointer accent-white"
+            />
+            <label htmlFor="signup-accept-terms" className="text-left text-[13px] leading-snug text-zinc-400 cursor-pointer select-none">
+              I agree to the{' '}
+              <Link href="/legal/terms" className="text-white underline underline-offset-2 hover:text-zinc-200">
+                Terms of Service
+              </Link>
+              ,{' '}
+              <Link href="/legal/privacy" className="text-white underline underline-offset-2 hover:text-zinc-200">
+                Privacy Policy
+              </Link>
+              , and{' '}
+              <Link href="/legal/cookies" className="text-white underline underline-offset-2 hover:text-zinc-200">
+                Cookie Policy
+              </Link>
+              .
+            </label>
+          </div>
+
           <button
             type="submit"
-            disabled={loading}
-            className="w-full py-3.5 bg-white text-black rounded-xl font-bold text-sm hover:bg-zinc-200 transition-all disabled:opacity-30 flex items-center justify-center gap-2 active:scale-[0.98]"
+            disabled={loading || !acceptedTerms}
+            className="w-full py-3.5 bg-white text-black rounded-xl font-bold text-sm hover:bg-zinc-200 transition-all disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center gap-2 active:scale-[0.98]"
           >
             {loading ? (
               <div className="w-4 h-4 border-2 border-black/20 border-t-black rounded-full animate-spin" />

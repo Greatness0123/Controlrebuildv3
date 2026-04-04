@@ -84,6 +84,8 @@ class VMService:
                 "last_active_at": datetime.now(timezone.utc).isoformat(),
             }
             result = db.table("virtual_machines").insert(vm_data).execute()
+            created_vm = result.data[0]
+            asyncio.create_task(self.ensure_vm_agent_connected(db, created_vm["id"]))
 
             async def _disable_power_mgmt(cont):
                 await asyncio.sleep(10) # wait for X server
@@ -97,7 +99,7 @@ class VMService:
             
             asyncio.create_task(_disable_power_mgmt(container))
 
-            return result.data[0]
+            return created_vm
 
         except docker.errors.ImageNotFound:
             raise RuntimeError(
@@ -131,6 +133,8 @@ class VMService:
             
             actual_status = "running" if container.status == "running" else "starting"
             db.table("virtual_machines").update({"status": actual_status}).eq("id", vm_id).execute()
+            if actual_status == "running":
+                asyncio.create_task(self.ensure_vm_agent_connected(db, vm_id))
             return {**vm_data, "status": actual_status}
         except docker.errors.NotFound:
             db.table("virtual_machines").update({"status": "stopped"}).eq("id", vm_id).execute()
@@ -148,6 +152,9 @@ class VMService:
             raise RuntimeError("Docker not available")
 
         try:
+            from app.services.vm_control import vm_control_service
+
+            await vm_control_service.disconnect(str(vm_id))
             container = self.docker_client.containers.get(vm_data["container_id"])
             container.stop(timeout=10)
             db.table("virtual_machines").update({"status": "stopped"}).eq("id", vm_id).execute()
@@ -163,6 +170,9 @@ class VMService:
             raise ValueError("VM not found")
 
         vm_data = vm.data[0]
+        from app.services.vm_control import vm_control_service
+
+        await vm_control_service.disconnect(str(vm_id))
         if self.docker_client and vm_data.get("container_id"):
             try:
                 container = self.docker_client.containers.get(vm_data["container_id"])
@@ -316,6 +326,31 @@ class VMService:
                         logger.error(f"Failed to auto-stop VM {vm['id']}: {e}")
         except Exception as e:
             logger.error(f"Error during VM cleanup: {e}")
+
+    async def ensure_vm_agent_connected(self, db: Client, vm_id: str) -> bool:
+        """
+        Open (or reuse) the backend WebSocket to the VM automation agent.
+        noVNC only needs HTTP; actions need this agent on agent_port keyed by VM id.
+        """
+        from app.services.vm_control import vm_control_service
+
+        sid = str(vm_id)
+        if await vm_control_service.ensure_connection(sid):
+            return True
+        res = db.table("virtual_machines").select("agent_port, status").eq("id", vm_id).execute()
+        if not res.data:
+            return False
+        row = res.data[0]
+        if row.get("status") != "running":
+            return False
+        port = row.get("agent_port")
+        if port is None:
+            return False
+        try:
+            return await vm_control_service.connect(int(port), machine_id=sid)
+        except Exception as e:
+            logger.warning(f"ensure_vm_agent_connected failed for {vm_id}: {e}")
+            return False
 
     def get_vm_password_info(self):
 

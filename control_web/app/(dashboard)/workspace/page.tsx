@@ -13,8 +13,6 @@ import {
   Cpu,
   LinkIcon,
   ArrowRight,
-  Activity,
-  Command,
   Sparkles,
   Zap,
   Cloud,
@@ -25,15 +23,67 @@ import {
 import { WorkspaceNavHints } from '@/components/workspace/WorkspaceNavHints';
 import { motion } from 'framer-motion';
 
-const floaters = [
-  { Icon: Sparkles, className: 'left-[4%] top-[8%] text-amber-500/35', delay: 0, dur: 5 },
-  { Icon: Zap, className: 'right-[6%] top-[18%] text-yellow-400/30', delay: 0.4, dur: 4.5 },
-  { Icon: Cloud, className: 'left-[10%] bottom-[12%] text-sky-400/25', delay: 0.8, dur: 6 },
-  { Icon: Bot, className: 'right-[12%] bottom-[20%] text-violet-400/30', delay: 0.2, dur: 5.5 },
-  { Icon: Terminal, className: 'left-[18%] top-[42%] text-emerald-500/25', delay: 1.1, dur: 4.8 },
-  { Icon: Layers, className: 'right-[20%] top-[38%] text-rose-400/22', delay: 0.6, dur: 5.2 },
-  { Icon: Cpu, className: 'left-1/2 -translate-x-1/2 top-[2%] text-accent-primary/15 w-16 h-16', delay: 0, dur: 7 },
+type Floater = {
+  Icon: typeof Sparkles;
+  delay: number;
+  dur: number;
+};
+
+const FLOAT_LEFT: Floater[] = [
+  { Icon: Sparkles, delay: 0, dur: 5 },
+  { Icon: Terminal, delay: 0.5, dur: 4.8 },
+  { Icon: Cloud, delay: 0.9, dur: 6 },
 ];
+
+const FLOAT_RIGHT: Floater[] = [
+  { Icon: Zap, delay: 0.2, dur: 4.5 },
+  { Icon: Bot, delay: 0.6, dur: 5.5 },
+  { Icon: Layers, delay: 0.3, dur: 5.2 },
+];
+
+function FloaterStack({ items, align }: { items: Floater[]; align: 'left' | 'right' }) {
+  return (
+    <div
+      className={`hidden sm:flex flex-col justify-center gap-10 py-6 w-16 shrink-0 ${
+        align === 'left' ? 'items-end pr-2' : 'items-start pl-2'
+      }`}
+      aria-hidden
+    >
+      {items.map(({ Icon, delay, dur }, i) => (
+        <motion.div
+          key={`${align}-${i}`}
+          initial={{ opacity: 0, y: 6 }}
+          animate={{
+            opacity: 1,
+            y: [0, -8, 0],
+            rotate: [0, align === 'left' ? 5 : -5, 0],
+          }}
+          transition={{
+            opacity: { duration: 0.5, delay: delay * 0.4 },
+            y: { duration: dur, repeat: Infinity, ease: 'easeInOut', delay },
+            rotate: { duration: dur * 1.1, repeat: Infinity, ease: 'easeInOut', delay },
+          }}
+        >
+          <Icon
+            className={`w-9 h-9 sm:w-11 sm:h-11 stroke-[1.25] ${
+              align === 'left'
+                ? i === 0
+                  ? 'text-amber-500/45'
+                  : i === 1
+                    ? 'text-emerald-500/40'
+                    : 'text-sky-400/35'
+                : i === 0
+                  ? 'text-yellow-500/40'
+                  : i === 1
+                    ? 'text-violet-400/40'
+                    : 'text-rose-400/35'
+            }`}
+          />
+        </motion.div>
+      ))}
+    </div>
+  );
+}
 
 export default function WorkspaceHome() {
   const router = useRouter();
@@ -101,47 +151,32 @@ export default function WorkspaceHome() {
         <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-5 pointer-events-none" />
 
         <div className="max-w-lg mx-auto px-5 sm:px-8 py-10 sm:py-14 relative z-10">
-          <section className="relative text-center mb-12 sm:mb-14 min-h-[220px] sm:min-h-[260px] flex flex-col items-center justify-center">
-            <div className="pointer-events-none absolute inset-0 overflow-visible" aria-hidden>
-              {floaters.map(({ Icon, className, delay, dur }, i) => (
+          <section className="mb-12 sm:mb-14">
+            <div className="flex flex-row items-center justify-center gap-2 sm:gap-4 max-w-3xl mx-auto">
+              <FloaterStack items={FLOAT_LEFT} align="left" />
+
+              <div className="flex-1 min-w-0 text-center px-2 sm:px-4">
                 <motion.div
-                  key={i}
-                  className={`absolute ${className}`}
                   initial={{ opacity: 0, y: 8 }}
-                  animate={{
-                    opacity: 1,
-                    y: [0, -10, 0],
-                    rotate: [0, i % 2 === 0 ? 4 : -4, 0],
-                  }}
-                  transition={{
-                    opacity: { duration: 0.6, delay: delay * 0.5 },
-                    y: { duration: dur, repeat: Infinity, ease: 'easeInOut', delay },
-                    rotate: { duration: dur * 1.2, repeat: Infinity, ease: 'easeInOut', delay },
-                  }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="flex justify-center mb-5"
                 >
-                  <Icon className="w-10 h-10 sm:w-12 sm:h-12" strokeWidth={1.25} />
+                  <Cpu className="w-10 h-10 sm:w-12 sm:h-12 text-accent-primary/25" strokeWidth={1.25} />
                 </motion.div>
-              ))}
+                <h1 className="text-2xl sm:text-3xl md:text-4xl font-black tracking-tighter mb-3 leading-tight uppercase">
+                  {greeting()},
+                  <br />
+                  <span className="font-walter normal-case text-4xl sm:text-5xl md:text-6xl text-foreground block mt-2 tracking-normal">
+                    {displayName}.
+                  </span>
+                </h1>
+                <p className="text-text-secondary text-sm font-medium max-w-md mx-auto leading-relaxed">
+                  Your orchestration hub: sessions, machines, paired devices, and settings — in one place.
+                </p>
+              </div>
+
+              <FloaterStack items={FLOAT_RIGHT} align="right" />
             </div>
-
-            <motion.div
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="inline-flex items-center gap-2 px-3 py-1.5 bg-secondary border border-border rounded-full text-[10px] font-black text-text-muted uppercase tracking-[0.2em] mb-6 relative z-[1]"
-            >
-              <Activity size={10} className="text-accent-primary" /> Station: Secure Connection
-            </motion.div>
-
-            <h1 className="text-2xl sm:text-3xl md:text-4xl font-black tracking-tighter mb-3 leading-tight uppercase relative z-[1]">
-              {greeting()},
-              <br />
-              <span className="font-walter normal-case text-4xl sm:text-5xl md:text-6xl text-foreground block mt-2 tracking-normal">
-                {displayName}.
-              </span>
-            </h1>
-            <p className="text-text-secondary text-sm font-medium max-w-md mx-auto leading-relaxed relative z-[1]">
-              Your orchestration hub: sessions, machines, paired devices, and settings — in one place.
-            </p>
           </section>
 
           <nav className="flex flex-col gap-2 w-full max-w-md mx-auto" aria-label="Workspace actions">
@@ -203,14 +238,6 @@ export default function WorkspaceHome() {
               </Link>
             </motion.div>
           </nav>
-
-          <footer className="mt-16 pt-8 border-t border-border flex flex-col sm:flex-row items-center justify-between gap-3 opacity-50">
-            <div className="flex items-center gap-3">
-              <Command size={14} className="text-text-muted" />
-              <span className="text-[10px] font-black uppercase tracking-[0.4em] text-text-muted">OS Build: Control-X v2.4</span>
-            </div>
-            <p className="text-[10px] font-black uppercase tracking-[0.4em] text-text-muted">Station Active</p>
-          </footer>
         </div>
       </div>
     </>

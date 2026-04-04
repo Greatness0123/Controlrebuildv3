@@ -81,14 +81,20 @@ export const chatApi = {
   recentActions: async (limit: number = 10) => {
     try {
       const supabase = getSupabaseClient();
-      const { data: userData } = await supabase.auth.getUser();
-      if (!userData.user) return { actions: [] };
+      const { data: authData } = await supabase.auth.getUser();
+      if (!authData.user) return { actions: [] };
 
-      // We join with chat_sessions to ensure we only get messages for this user
+      const { data: profile } = await supabase
+        .from('users')
+        .select('id')
+        .eq('auth_id', authData.user.id)
+        .maybeSingle();
+      if (!profile?.id) return { actions: [] };
+
       const { data, error } = await supabase
         .from('chat_messages')
         .select('*, chat_sessions!inner(user_id)')
-        .eq('chat_sessions.user_id', userData.user.id)
+        .eq('chat_sessions.user_id', profile.id)
         .order('created_at', { ascending: false })
         .limit(limit);
 
