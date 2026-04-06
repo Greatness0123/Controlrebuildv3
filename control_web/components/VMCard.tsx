@@ -4,10 +4,11 @@ import { useState, useEffect } from 'react';
 import { vmApi, chatApi } from '@/lib/api';
 import { useVMStore, useChatStore } from '@/lib/store';
 import { useModal } from '@/lib/useModal';
-import { Cpu, Play, Square, Trash2, Globe, Loader2, Monitor, ExternalLink, Activity, HardDrive } from 'lucide-react';
+import { Cpu, Play, Square, Trash2, Globe, Loader2, Monitor, ExternalLink, Activity, HardDrive, Download, FolderOpen, File } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
+import { toast } from 'sonner';
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -24,6 +25,11 @@ export default function VMCard({ vm }: { vm: any }) {
   const [loading, setLoading] = useState(false);
   const [connecting, setConnecting] = useState(false);
   const [stats, setStats] = useState<any>(null);
+  const [showFileBrowser, setShowFileBrowser] = useState(false);
+  const [files, setFiles] = useState<any[]>([]);
+  const [currentPath, setCurrentPath] = useState('/home/controluser');
+  const [loadingFiles, setLoadingFiles] = useState(false);
+  const [downloading, setDownloading] = useState(false);
 
   useEffect(() => {
     if (vm.status !== 'running') {
@@ -112,6 +118,65 @@ export default function VMCard({ vm }: { vm: any }) {
       alert(err.message || 'Failed to destroy machine', { title: 'Destroy Failed', variant: 'error' });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleBrowseFiles = async () => {
+    if (vm.status !== 'running') {
+      toast.error('Machine must be running to browse files');
+      return;
+    }
+    setLoadingFiles(true);
+    setShowFileBrowser(true);
+    try {
+      const res = await vmApi.listFiles(vm.id, currentPath);
+      setFiles(res.entries || []);
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to list files');
+    } finally {
+      setLoadingFiles(false);
+    }
+  };
+
+  const handleDownloadFile = async (path: string, isZip: boolean = false) => {
+    if (vm.status !== 'running') {
+      toast.error('Machine must be running to download files');
+      return;
+    }
+    setDownloading(true);
+    try {
+      const res = await vmApi.downloadFile(vm.id, path, isZip ? 'zip' : 'single');
+      
+      if (isZip && res.zip_data) {
+        const link = document.createElement('a');
+        link.href = `data:application/zip;base64,${res.zip_data}`;
+        link.download = res.filename;
+        link.click();
+        toast.success(`Downloaded ${res.file_count} files`);
+      } else if (res.file_data) {
+        const link = document.createElement('a');
+        link.href = `data:application/octet-stream;base64,${res.file_data}`;
+        link.download = res.filename;
+        link.click();
+        toast.success(`Downloaded ${res.filename}`);
+      }
+    } catch (err: any) {
+      toast.error(err.message || 'Download failed');
+    } finally {
+      setDownloading(false);
+    }
+  };
+
+  const navigateToPath = async (path: string) => {
+    setCurrentPath(path);
+    setLoadingFiles(true);
+    try {
+      const res = await vmApi.listFiles(vm.id, path);
+      setFiles(res.entries || []);
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to navigate');
+    } finally {
+      setLoadingFiles(false);
     }
   };
 
@@ -265,14 +330,24 @@ export default function VMCard({ vm }: { vm: any }) {
                 
                 <div className="flex items-center pr-1">
                     {vm.status === 'running' && (
-                        <button
-                            onClick={handleStop}
-                            disabled={loading}
-                            className="w-8 h-8 flex items-center justify-center text-text-muted hover:text-foreground transition-all disabled:opacity-50"
-                            title="Shut Down"
-                        >
-                            <Square size={12} fill="currentColor" />
-                        </button>
+                        <>
+                            <button
+                                onClick={handleBrowseFiles}
+                                disabled={loading || loadingFiles}
+                                className="w-8 h-8 flex items-center justify-center text-text-muted hover:text-foreground transition-all disabled:opacity-50"
+                                title="Browse Files"
+                            >
+                                {loadingFiles ? <Loader2 size={12} className="animate-spin" /> : <FolderOpen size={12} />}
+                            </button>
+                            <button
+                                onClick={handleStop}
+                                disabled={loading}
+                                className="w-8 h-8 flex items-center justify-center text-text-muted hover:text-foreground transition-all disabled:opacity-50"
+                                title="Shut Down"
+                            >
+                                <Square size={12} fill="currentColor" />
+                            </button>
+                        </>
                     )}
                     <button
                         onClick={handleDelete}
@@ -285,6 +360,102 @@ export default function VMCard({ vm }: { vm: any }) {
                 </div>
             </div>
         </div>
+
+        {showFileBrowser && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+                <div className="w-full max-w-lg bg-card border border-border rounded-2xl shadow-2xl overflow-hidden max-h-[80vh] flex flex-col">
+                    <div className="flex items-center justify-between px-4 py-3 border-b border-border">
+                        <div className="flex items-center gap-2">
+                            <FolderOpen size={16} className="text-accent-primary" />
+                            <span className="text-xs font-black uppercase tracking-widest">Files on {vm.name}</span>
+                        </div>
+                        <button
+                            onClick={() => setShowFileBrowser(false)}
+                            className="text-text-muted hover:text-foreground"
+                        >
+                            ✕
+                        </button>
+                    </div>
+                    
+                    <div className="px-4 py-2 border-b border-border bg-secondary/30">
+                        <div className="flex items-center gap-2 text-[10px] font-mono text-text-muted truncate">
+                            <button
+                                onClick={() => navigateToPath('/home/controluser')}
+                                className="hover:text-foreground underline"
+                            >
+                                /
+                            </button>
+                            {currentPath.split('/').filter(Boolean).map((part, i, arr) => (
+                                <button
+                                    key={i}
+                                    onClick={() => navigateToPath('/' + arr.slice(0, i + 1).join('/'))}
+                                    className="hover:text-foreground"
+                                >
+                                    {i > 0 && '/'}{part}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+
+                    <div className="flex-1 overflow-y-auto p-2 space-y-1">
+                        {loadingFiles ? (
+                            <div className="flex items-center justify-center py-8">
+                                <Loader2 size={20} className="animate-spin text-text-muted" />
+                            </div>
+                        ) : files.length === 0 ? (
+                            <div className="text-center py-8 text-text-muted text-xs">No files found</div>
+                        ) : (
+                            files.map((file: any, i: number) => (
+                                <div
+                                    key={i}
+                                    className="flex items-center justify-between p-2 rounded-lg hover:bg-secondary/50 group"
+                                >
+                                    <button
+                                        onClick={() => file.is_dir && navigateToPath(`${currentPath}/${file.name}`)}
+                                        className="flex items-center gap-2 text-left flex-1"
+                                    >
+                                        {file.is_dir ? (
+                                            <FolderOpen size={14} className="text-yellow-500" />
+                                        ) : (
+                                            <File size={14} className="text-text-muted" />
+                                        )}
+                                        <span className="text-xs text-foreground truncate">{file.name}</span>
+                                    </button>
+                                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                        {!file.is_dir && (
+                                            <>
+                                                <button
+                                                    onClick={() => handleDownloadFile(`${currentPath}/${file.name}`, false)}
+                                                    disabled={downloading}
+                                                    className="p-1.5 text-text-muted hover:text-foreground"
+                                                    title="Download"
+                                                >
+                                                    <Download size={12} />
+                                                </button>
+                                            </>
+                                        )}
+                                    </div>
+                                </div>
+                            ))
+                        )}
+                    </div>
+
+                    <div className="p-3 border-t border-border bg-secondary/30 flex items-center justify-between">
+                        <span className="text-[10px] text-text-muted">
+                            {files.length} items
+                        </span>
+                        <button
+                            onClick={() => handleDownloadFile(currentPath, true)}
+                            disabled={downloading || files.length === 0}
+                            className="flex items-center gap-2 px-3 py-1.5 bg-accent-primary text-accent-foreground text-[10px] font-black uppercase rounded-lg hover:opacity-90 disabled:opacity-50"
+                        >
+                            {downloading ? <Loader2 size={12} className="animate-spin" /> : <Download size={12} />}
+                            Download All
+                        </button>
+                    </div>
+                </div>
+            </div>
+        )}
       </div>
     </>
   );

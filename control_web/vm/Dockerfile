@@ -8,12 +8,16 @@ ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && apt-get install -y --no-install-recommends \
     xfce4 \
     xfce4-terminal \
+    thunar \
     mousepad \
     dbus-x11 \
     xvfb \
     x11vnc \
     novnc \
     websockify \
+    wmctrl \
+    tesseract-ocr \
+    micro \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Install python and other essentials
@@ -36,7 +40,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && apt-get update && apt-get install -y --no-install-recommends firefox \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
-RUN pip3 install pyautogui websockets mss Pillow
+RUN pip3 install pyautogui websockets mss Pillow pytesseract
 
 # Create a non-root user
 RUN useradd -m -s /bin/bash controluser && echo "controluser:control" | chpasswd && adduser controluser sudo
@@ -45,7 +49,11 @@ RUN echo 'controluser ALL=(ALL) NOPASSWD:ALL' >> /etc/sudoers
 # Set up Firefox Desktop Icon and Disable Lock Screen
 RUN mkdir -p /home/controluser/Desktop && \
     echo '[Desktop Entry]\nVersion=1.0\nName=Firefox\nExec=firefox\nIcon=firefox\nType=Application\nCategories=Network;WebBrowser;' > /home/controluser/Desktop/firefox.desktop && \
-    chmod +x /home/controluser/Desktop/firefox.desktop && \
+    echo '[Desktop Entry]\nVersion=1.0\nName=Home Folder\nExec=thunar /home/controluser\nIcon=folder\nType=Application\nCategories=Utility;' > /home/controluser/Desktop/home.desktop && \
+    echo '[Desktop Entry]\nVersion=1.0\nName=Terminal\nExec=xfce4-terminal\nIcon=utilities-terminal\nType=Application\nCategories=Utility;' > /home/controluser/Desktop/terminal.desktop && \
+    echo '[Desktop Entry]\nVersion=1.0\nName=Code Editor\nExec=xfce4-terminal -e "micro"\nIcon=accessories-text-editor\nType=Application\nCategories=Development;TextEditor;' > /home/controluser/Desktop/code.desktop && \
+    echo '[Desktop Entry]\nVersion=1.0\nName=Trash\nExec=thunar trash://\nIcon=trash-empty\nType=Application\nCategories=Utility;' > /home/controluser/Desktop/trash.desktop && \
+    chmod +x /home/controluser/Desktop/*.desktop && \
     chown -R controluser:controluser /home/controluser/Desktop
 
 # Disable screensaver and power management prompts

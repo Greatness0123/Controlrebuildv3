@@ -10,7 +10,7 @@ import { useModal } from '@/lib/useModal';
 import { useTheme } from 'next-themes';
 import {
   Command, Monitor, MessageSquare, Cpu, Settings, LogOut, Plus, Sun, Moon, GitBranch,
-  Link as LinkIcon, ChevronLeft, ChevronRight, Loader2, Menu, X, Trash, Edit2, LayoutDashboard, Crown, Shield
+  Link as LinkIcon, ChevronLeft, ChevronRight, Loader2, Menu, X, Trash, Edit2, LayoutDashboard, Crown, Shield, FolderOpen
 } from 'lucide-react';
 import { WorkspaceTour } from '@/components/workspace/WorkspaceTour';
 
@@ -244,6 +244,7 @@ export default function WorkspaceLayout({ children }: { children: ReactNode }) {
         <NavLink href="/workspace" icon={<LayoutDashboard size={14} />} label="Workspace" active={pathname === '/workspace'} collapsed={isCollapsed && !isMobile} />
 
         <NavLink href="/machines" icon={<Cpu size={14} />} label="Machines" active={pathname === '/machines'} collapsed={isCollapsed && !isMobile} />
+        <NavLink href="/files" icon={<FolderOpen size={14} />} label="File Manager" active={pathname === '/files'} collapsed={isCollapsed && !isMobile} />
         <NavLink href="/workflows" icon={<GitBranch size={14} />} label="Workflows" active={pathname === '/workflows'} collapsed={isCollapsed && !isMobile} />
         <NavLink href="/pair" icon={<LinkIcon size={14} />} label="Pair Device" active={pathname === '/pair'} collapsed={isCollapsed && !isMobile} />
         <NavLink href="/vault" icon={<Shield size={14} />} label="Secure Vault" active={pathname === '/vault'} collapsed={isCollapsed && !isMobile} />

@@ -185,6 +185,7 @@ export default function ChatSessionPage() {
                         onClick={async () => {
                           const oldSessions = [...sessions];
                           setSessions(sessions.map(s => s.id === chatId ? { ...s, vm_id: vm.id, device_id: undefined } : s));
+                          localStorage.setItem('chat_target', JSON.stringify({ vmId: vm.id, deviceId: null }));
                           try {
                             await chatApi.update(chatId, { vm_id: vm.id, device_id: null });
                             setShowViewer(true);
@@ -219,6 +220,7 @@ export default function ChatSessionPage() {
                         onClick={async () => {
                           const oldSessions = [...sessions];
                           setSessions(sessions.map(s => s.id === chatId ? { ...s, device_id: device.id, vm_id: undefined } : s));
+                          localStorage.setItem('chat_target', JSON.stringify({ vmId: null, deviceId: device.id }));
                           try {
                             await chatApi.update(chatId, { device_id: device.id, vm_id: null });
                             setShowViewer(true);

@@ -1,41 +1,48 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { X, ChevronRight, ChevronLeft } from 'lucide-react';
 import {
   WORKSPACE_TOUR_SESSION_KEY,
   workspaceTourDoneKey,
 } from '@/lib/onboarding';
 
-const STEPS: { title: string; body: string; highlight: string }[] = [
+const STEPS: { title: string; body: string; highlight: string; navigateTo?: string }[] = [
   {
     title: 'Sidebar navigation',
     body: 'Use the rail on the left to move between areas. Collapse it on desktop to save space; on mobile, open it from the menu icon.',
     highlight: 'Workspace, Machines, Workflows, and Pair Device are the core tabs.',
+    navigateTo: '/workspace',
   },
   {
     title: 'Start a session',
     body: 'Click New Session to open a chat tied to a running cloud machine or a paired desktop. The agent sees the remote screen and can act or answer in Ask mode.',
     highlight: 'Tip: start a VM under Machines first, or pair your desktop from Pair Device.',
+    navigateTo: '/machines',
   },
   {
     title: 'Workspace home',
     body: 'The home grid is your launch pad: new session, machines, pairing, and settings. Use it when you are not inside a chat.',
     highlight: 'Initiate Protocol starts a fresh AI session.',
+    navigateTo: '/workspace',
   },
   {
     title: 'Machines',
     body: 'Create and start cloud desktops here. When a machine is online, stats update every few seconds while it runs.',
     highlight: 'Connect jumps into a chat already linked to that VM.',
+    navigateTo: '/machines',
   },
   {
     title: 'Act vs Ask',
     body: 'In the chat composer, toggle Act to drive the UI, or Ask for explanations only. Act runs real clicks and keys—verify important steps.',
     highlight: 'Look for the pointer icon (Act) and question bubble (Ask).',
+    navigateTo: undefined,
   },
 ];
 
 export function WorkspaceTour({ userId }: { userId: string }) {
+  const router = useRouter();
   const [open, setOpen] = useState(false);
   const [step, setStep] = useState(0);
 
@@ -60,6 +67,16 @@ export function WorkspaceTour({ userId }: { userId: string }) {
       /* ignore */
     }
   }, [userId]);
+
+  const handleNext = () => {
+    const nextStep = step + 1;
+    if (nextStep < STEPS.length) {
+      if (step === STEPS.length - 2 && STEPS[step + 1].navigateTo) {
+        router.push(STEPS[step + 1].navigateTo!);
+      }
+      setStep(nextStep);
+    }
+  };
 
   const skip = () => close();
 
@@ -136,7 +153,7 @@ export function WorkspaceTour({ userId }: { userId: string }) {
           ) : (
             <button
               type="button"
-              onClick={() => setStep((i) => i + 1)}
+              onClick={handleNext}
               className="flex items-center gap-1 px-4 py-2 rounded-lg bg-foreground text-background text-[10px] font-black uppercase tracking-widest"
             >
               Next

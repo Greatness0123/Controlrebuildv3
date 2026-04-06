@@ -2,12 +2,15 @@ import docker
 import random
 import logging
 import asyncio
+import os
 from datetime import datetime, timezone
 from typing import Optional
 from supabase import Client
 from app.config import VM_IMAGE_NAME, VM_BASE_NOVNC_PORT, PLAN_LIMITS, PUBLIC_IP
 
 logger = logging.getLogger(__name__)
+
+DOCKER_HOST_IP = os.getenv("DOCKER_HOST_IP", "172.17.0.1")
 
 class VMService:
     def __init__(self):
@@ -80,6 +83,7 @@ class VMService:
                 "vnc_port": vnc_port,
                 "novnc_port": novnc_port,
                 "agent_port": agent_port,
+                "agent_host": DOCKER_HOST_IP,
                 "instance_url": f"http://{PUBLIC_IP}:{novnc_port}",
                 "last_active_at": datetime.now(timezone.utc).isoformat(),
             }
@@ -337,17 +341,18 @@ class VMService:
         sid = str(vm_id)
         if await vm_control_service.ensure_connection(sid):
             return True
-        res = db.table("virtual_machines").select("agent_port, status").eq("id", vm_id).execute()
+        res = db.table("virtual_machines").select("agent_port, agent_host, status").eq("id", vm_id).execute()
         if not res.data:
             return False
         row = res.data[0]
         if row.get("status") != "running":
             return False
         port = row.get("agent_port")
+        host = row.get("agent_host") or DOCKER_HOST_IP
         if port is None:
             return False
         try:
-            return await vm_control_service.connect(int(port), machine_id=sid)
+            return await vm_control_service.connect(int(port), machine_id=sid, host=host)
         except Exception as e:
             logger.warning(f"ensure_vm_agent_connected failed for {vm_id}: {e}")
             return False

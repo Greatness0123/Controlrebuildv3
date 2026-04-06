@@ -33,6 +33,26 @@ export const vmApi = {
   destroy: (id: string) => apiFetch<{ success: boolean }>(`/api/vm/${id}`, { method: 'DELETE' }),
   stats: (id: string) => apiFetch<{ stats: any }>(`/api/vm/${id}/stats`),
   apps: (id: string) => apiFetch<{ apps: string[] }>(`/api/vm/${id}/apps`),
+  
+  listFiles: (id: string, path: string = '/home/controluser') => 
+    apiFetch<{ success: boolean; entries: any[] }>(`/api/vm/${id}/files/list?path=${encodeURIComponent(path)}`),
+  
+  downloadFile: async (id: string, path: string, mode: string = 'single') => {
+    const token = await getAccessToken();
+    const res = await fetch(`${BACKEND_URL}/api/vm/${id}/files/download`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify({ path, mode }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ detail: 'Download failed' }));
+      throw new Error(err.detail || 'Download failed');
+    }
+    return res.json();
+  },
 };
 
 export const chatApi = {

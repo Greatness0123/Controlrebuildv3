@@ -17,7 +17,8 @@ logger = logging.getLogger(__name__)
 
 # When running inside Docker, localhost is the container's own loopback.
 # VM container ports are mapped to the HOST machine.
-DOCKER_HOST_IP = os.getenv("DOCKER_HOST_IP", "172.17.0.1")
+# Use localhost for local dev, 172.17.0.1 for containerized backend, or the configured DOCKER_HOST_IP
+DOCKER_HOST_IP = os.getenv("DOCKER_HOST_IP", os.getenv("DOCKER_HOST_IP", "") or "172.17.0.1")
 
 
 class VMControlService:

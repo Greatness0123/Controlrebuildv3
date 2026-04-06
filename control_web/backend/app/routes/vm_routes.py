@@ -1,7 +1,9 @@
 import asyncio
+import base64
 import logging
 import os
 from fastapi import APIRouter, Depends, HTTPException, WebSocket, WebSocketDisconnect, Query
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from supabase import create_client
 from app.auth import get_current_user, get_service_client, get_supabase_client
@@ -192,3 +194,92 @@ async def vnc_ws_proxy(websocket: WebSocket, vm_id: str, token: str = Query(defa
         except Exception:
             pass
         logger.info(f"[VNC-WS] Connection closed for VM {vm_id}")
+
+
+# ─── File Download Endpoints ─────────────────────────────────────────────────
+
+class FileDownloadRequest(BaseModel):
+    path: str
+    mode: str = "single"  # "single" or "zip"
+
+
+@router.post("/{vm_id}/files/download")
+async def download_vm_file(vm_id: str, req: FileDownloadRequest, user: dict = Depends(get_current_user)):
+    """
+    Download files from a VM. Supports single file or zip archive.
+    """
+    db = get_service_client()
+    
+    # Get VM
+    vm = db.table("virtual_machines").select("*").eq("id", vm_id).eq("user_id", user["id"]).execute()
+    if not vm.data:
+        raise HTTPException(status_code=404, detail="VM not found")
+    
+    vm_data = vm.data[0]
+    if vm_data.get("status") != "running":
+        raise HTTPException(status_code=400, detail="VM is not running")
+    
+    # Ensure agent is connected
+    connected = await vm_service.ensure_vm_agent_connected(db, vm_id)
+    if not connected:
+        raise HTTPException(status_code=503, detail="Could not connect to VM agent")
+    
+    # Execute file download command
+    from app.services.vm_control import vm_control_service
+    
+    command = "file_zip" if req.mode == "zip" else "file_download"
+    result = await vm_control_service.execute_command(
+        str(vm_id),
+        command,
+        {"path": req.path}
+    )
+    
+    if not result.get("success"):
+        raise HTTPException(status_code=400, detail=result.get("error", "Download failed"))
+    
+    # Return the file data
+    if req.mode == "zip":
+        return {
+            "success": True,
+            "zip_data": result.get("zip_data"),
+            "filename": result.get("filename"),
+            "file_count": result.get("file_count")
+        }
+    else:
+        return {
+            "success": True,
+            "file_data": result.get("file_data"),
+            "filename": result.get("filename"),
+            "size": result.get("size")
+        }
+
+
+@router.get("/{vm_id}/files/list")
+async def list_vm_files(vm_id: str, path: str = "/home/controluser", user: dict = Depends(get_current_user)):
+    """List files in a VM directory."""
+    db = get_service_client()
+    
+    vm = db.table("virtual_machines").select("*").eq("id", vm_id).eq("user_id", user["id"]).execute()
+    if not vm.data:
+        raise HTTPException(status_code=404, detail="VM not found")
+    
+    vm_data = vm.data[0]
+    if vm_data.get("status") != "running":
+        raise HTTPException(status_code=400, detail="VM is not running")
+    
+    connected = await vm_service.ensure_vm_agent_connected(db, vm_id)
+    if not connected:
+        raise HTTPException(status_code=503, detail="Could not connect to VM agent")
+    
+    from app.services.vm_control import vm_control_service
+    
+    result = await vm_control_service.execute_command(
+        str(vm_id),
+        "directory_list",
+        {"path": path}
+    )
+    
+    if not result.get("success"):
+        raise HTTPException(status_code=400, detail=result.get("error", "List failed"))
+    
+    return {"success": True, "entries": result.get("entries", []), "path": path}

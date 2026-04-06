@@ -164,9 +164,7 @@ export default function WorkspaceHome() {
                   <Cpu className="w-10 h-10 sm:w-12 sm:h-12 text-accent-primary/25" strokeWidth={1.25} />
                 </motion.div>
                 <h1 className="text-2xl sm:text-3xl md:text-4xl font-black tracking-tighter mb-3 leading-tight uppercase">
-                  {greeting()},
-                  <br />
-                  <span className="font-walter normal-case text-4xl sm:text-5xl md:text-6xl text-foreground block mt-2 tracking-normal">
+                  {greeting()}, <span className="font-walter normal-case text-4xl sm:text-5xl md:text-6xl text-foreground tracking-normal">
                     {displayName}.
                   </span>
                 </h1>

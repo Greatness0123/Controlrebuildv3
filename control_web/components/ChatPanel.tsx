@@ -57,13 +57,41 @@ export default function ChatPanel({ sessionId }: ChatPanelProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const inputRef = useRef(input);
 
-  // Persistence for mode
+  // Persistence for mode and target
   useEffect(() => {
     const savedMode = localStorage.getItem('chat_mode');
     if (savedMode === 'ask' || savedMode === 'act') {
       setMode(savedMode);
     }
+    
+    const savedTarget = localStorage.getItem('chat_target');
+    if (savedTarget) {
+      try {
+        const target = JSON.parse(savedTarget);
+        if (target.vmId) {
+          const vm = vms.find(v => v.id === target.vmId && v.status === 'running');
+          if (vm) {
+            chatApi.update(sessionId, { vm_id: target.vmId, device_id: null });
+            setSessions(sessions.map(s => s.id === sessionId ? { ...s, vm_id: target.vmId, device_id: undefined } : s));
+          }
+        } else if (target.deviceId) {
+          const device = devices.find(d => d.id === target.deviceId && d.status === 'paired');
+          if (device) {
+            chatApi.update(sessionId, { device_id: target.deviceId, vm_id: null });
+            setSessions(sessions.map(s => s.id === sessionId ? { ...s, device_id: target.deviceId, vm_id: undefined } : s));
+          }
+        }
+      } catch {}
+    }
   }, []);
+
+  const saveTarget = (vmId?: string, deviceId?: string) => {
+    if (vmId) {
+      localStorage.setItem('chat_target', JSON.stringify({ vmId, deviceId: null }));
+    } else if (deviceId) {
+      localStorage.setItem('chat_target', JSON.stringify({ vmId: null, deviceId }));
+    }
+  };
 
   const changeMode = (newMode: 'ask' | 'act') => {
     setMode(newMode);

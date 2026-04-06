@@ -27,8 +27,17 @@ xfconf-query -c xfce4-power-manager -p /xfce4-power-manager/power-button-action 
 gsettings set org.gnome.desktop.screensaver lock-enabled false || true
 
 # Mark desktop files as trusted
-gio set /home/controluser/Desktop/firefox.desktop metadata::trusted true || true
-chmod +x /home/controluser/Desktop/firefox.desktop
+for desktop_file in /home/controluser/Desktop/*.desktop; do
+    [ -f "$desktop_file" ] || continue
+    gio set "$desktop_file" metadata::trusted true || true
+    chmod +x "$desktop_file" || true
+done
+
+# Enable desktop icons and configure them in XFCE
+xfconf-query -c xfce4-desktop -p /desktop-icons/style -n -t int -s 2 || true  # 2 = large icons
+xfconf-query -c xfce4-desktop -p /desktop-icons/show-trash -n -t bool -s true || true
+xfconf-query -c xfce4-desktop -p /desktop-icons/show-removable -n -t bool -s true || true
+xfconf-query -c xfce4-desktop -p /desktop-icons/show-home -n -t bool -s true || true
 
 # Set a random wallpaper dynamically across any active XFCE monitor
 WALLPAPERS=("/home/controluser/wallpaper1.png" "/home/controluser/wallpaper2.png" "/home/controluser/wallpaper3.png")

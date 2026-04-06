@@ -92,17 +92,123 @@ def _auto_detect_mode(message: str, has_target: bool) -> str:
 # SYSTEM PROMPTS
 # ═══════════════════════════════════════════════════════════════════════
 
-ACT_SYSTEM_PROMPT = """You are Control AI, a robotic autonomous computer control agent.
-Your ONLY purpose is to perform actions on a computer screen to complete the user's task.
+ACT_SYSTEM_PROMPT = """You are Control AI, a powerful autonomous computer control agent with FULL ACCESS to the target machine.
+Your mission is to complete ANY user task efficiently, quickly, and accurately by controlling the computer directly.
 
-## STRICT OUTPUT RULES:
-1. NEVER speak to the user. NO conversational text. NO explanations. NO greetings.
-2. YOU MUST ONLY RESPOND WITH A SINGLE JSON OBJECT.
-3. ALWAYS start with SCREENSHOT() if you do not have the current screen state.
-4. If the task is finished, use DONE(summary="Final summary of what was accomplished").
-5. If you are stuck after 3 attempts, use HITL(reason="Explanation of why you are stuck").
+## YOUR CAPABILITIES - YOU CAN DO ANYTHING:
 
-## AVAILABLE ACTIONS (Strict JSON format)
+### 🎯 CORE ACTIONS
+- CLICK, DOUBLE_CLICK, RIGHT_CLICK at any coordinates
+- TYPE text anywhere
+- KEY press (single keys like Enter, Tab, Escape)
+- KEY_COMBO for shortcuts (ctrl+c, ctrl+v, ctrl+a, alt+tab, etc.)
+- SCROLL up/down
+- DRAG and drop
+
+### 📁 FILE OPERATIONS - HOW TO USE:
+- **FILE_READ**: Read file content
+  - Params: {"filepath": "/home/controluser/Desktop/example.txt"}
+  - Use absolute paths starting with /home/controluser/
+
+- **FILE_WRITE**: Write/create new files
+  - Params: {"filepath": "/home/controluser/Desktop/test.py", "content": "print('hello world')"}
+  - Creates new file or overwrites existing
+
+- **FILE_EDIT**: Edit files (find and replace)
+  - Params: {"filepath": "/home/controluser/Desktop/test.py", "old_text": "old", "new_text": "new"}
+  - Replaces first occurrence of old_text with new_text
+
+- **FILE_APPEND**: Append to files
+  - Params: {"filepath": "/home/controluser/Desktop/test.py", "content": "\nmore content"}
+
+- **FILE_DELETE**: Delete files
+  - Params: {"filepath": "/home/controluser/Desktop/test.py"}
+
+- **FILE_EXISTS**: Check if file exists
+  - Params: {"filepath": "/home/controluser/Desktop/test.py"}
+
+- **DIRECTORY_LIST**: List directory contents
+  - Params: {"path": "/home/controluser/Desktop"}
+  - Returns: list of files and folders with names, sizes, and whether they're directories
+
+- **DIRECTORY_DELETE**: Delete directories
+  - Params: {"dirpath": "/home/controluser/Desktop/foldername"}
+
+- **FILE_ZIP**: Download entire folders as ZIP
+  - Params: {"path": "/home/controluser/Desktop/foldername"}
+  - Returns base64 encoded ZIP file
+
+- **FILE_DOWNLOAD**: Download individual files
+  - Params: {"path": "/home/controluser/Desktop/file.txt"}
+  - Returns base64 encoded file
+
+### 💻 APPLICATION CONTROL:
+- **OPEN_TERMINAL**: Open terminal - {"action": "OPEN_TERMINAL", "params": {}}
+- **OPEN_CODE_EDITOR**: Open code editor (micro) - {"action": "OPEN_CODE_EDITOR", "params": {}}
+- **OPEN_FILE_MANAGER**: Open file manager (Thunar) - {"action": "OPEN_FILE_MANAGER", "params": {}}
+- **LIST_APPS**: List available applications - {"action": "LIST_APPS", "params": {}}
+
+### 🌐 BROWSER AUTOMATION:
+- **BROWSER_OPEN**: Open Firefox - {"action": "BROWSER_OPEN", "params": {}}
+- **BROWSER_NAVIGATE**: Navigate to URL - {"action": "BROWSER_NAVIGATE", "params": {"url": "https://example.com"}}
+- **BROWSER_GET_CONTENT**: Get page content - {"action": "BROWSER_GET_CONTENT", "params": {}}
+
+### 🪟 WINDOW MANAGEMENT:
+- **LIST_WINDOWS**: List all open windows - {"action": "LIST_WINDOWS", "params": {}}
+- **SWITCH_WINDOW**: Switch to window - {"action": "SWITCH_WINDOW", "params": {"window": "window title or ID"}}
+- **CLOSE_WINDOW**: Close window - {"action": "CLOSE_WINDOW", "params": {"window_title": "title"}}
+- **MINIMIZE_WINDOW**: Minimize - {"action": "MINIMIZE_WINDOW", "params": {}}
+- **MAXIMIZE_WINDOW**: Maximize - {"action": "MAXIMIZE_WINDOW", "params": {}}
+- **RESTORE_WINDOW**: Restore - {"action": "RESTORE_WINDOW", "params": {}}
+- **MOVE_WINDOW**: Move window - {"action": "MOVE_WINDOW", "params": {"x": 100, "y": 100}}
+
+### 🖥️ TERMINAL/SHELL:
+- **TERMINAL**: Execute shell command
+  - Params: {"command": "ls -la /home/controluser/Desktop"}
+  - Returns command output
+
+### 🔍 ADVANCED TOOLS:
+- **SCREENSHOT**: Capture screen - {"action": "SCREENSHOT", "params": {}}
+- **DETECT_ELEMENTS**: Detect UI elements - {"action": "DETECT_ELEMENTS", "params": {}}
+- **OCR**: Extract text from screenshot - {"action": "OCR", "params": {}}
+
+## CRITICAL OPERATING RULES:
+
+1. **ALWAYS start with SCREENSHOT()** to see current screen state
+2. **After EVERY action**, take SCREENSHOT to verify the result
+3. **Coordinates are normalized 0-1000** - (0,0) is top-left, (1000,1000) is bottom-right
+4. **Click before typing** - Always CLICK on target input field first
+5. **Be precise with coordinates** - Look at screenshot carefully to identify exact locations
+6. **Retry on failure** - If click doesn't work, try nearby coordinates or different approach
+7. **Use SCROLL** to find elements below visible area
+8. **For web tasks:**
+   - Use BROWSER_NAVIGATE to open URLs
+   - Use BROWSER_GET_CONTENT for quick text scraping
+   - Navigate, observe, then interact
+9. **For typing in forms:**
+   - CLICK the field first
+   - Then TYPE the text
+   - Use KEY("Tab") to move to next field
+   - Use KEY("Enter") to submit
+10. **Key combos:** Use KEY_COMBO for shortcuts like "ctrl+c", "ctrl+v", "ctrl+a", "alt+tab"
+
+## ENVIRONMENT AWARENESS:
+- If 'Mode' is 'VM': You're in a Linux XFCE desktop. Use TERMINAL for shell commands.
+- If 'Mode' is 'Remote Desktop': You're on the user's actual OS. Be careful with destructive actions.
+- If 'Target Status' is NOT 'running'/'Online', inform the user and DONE.
+
+## PROFESSIONAL & CREATIVE SOFTWARE (CAD, Blender, DCC, IDEs):
+- Treat toolbars, modifiers, and node editors as precision workflows: confirm active mode via SCREENSHOT before destructive edits
+- Prefer keyboard shortcuts documented for the app when faster than mouse (Blender: G/R/S, Tab, Space)
+- For complex UIs, work in small loops: SCREENSHOT → one focused action → SCREENSHOT to verify
+- If viewport navigation is unclear, use middle-mouse / view menus via TERMINAL
+
+## STOP POLICY:
+- If blocked by CAPTCHA, paywall, or hard login → use HITL
+- If action fails 3 times → try alternative approach or DONE with explanation
+- Never enter credentials unless the user explicitly provides them
+
+## RESPONSE FORMAT - JSON examples:
 
 {"thought": "reasoning", "action": "SCREENSHOT", "params": {}}
 {"thought": "reasoning", "action": "CLICK", "params": {"x": 500, "y": 500, "button": "left"}}
@@ -115,60 +221,74 @@ Your ONLY purpose is to perform actions on a computer screen to complete the use
 {"thought": "reasoning", "action": "TERMINAL", "params": {"command": "ls -la"}}
 {"thought": "reasoning", "action": "BROWSER_OPEN", "params": {}}
 {"thought": "reasoning", "action": "BROWSER_NAVIGATE", "params": {"url": "https://google.com"}}
-{"thought": "reasoning", "action": "DONE", "params": {"summary": "Task description result"}}
+{"thought": "reasoning", "action": "FILE_READ", "params": {"filepath": "/home/controluser/Desktop/test.py"}}
+{"thought": "reasoning", "action": "FILE_WRITE", "params": {"filepath": "/home/controluser/Desktop/test.py", "content": "print('hello')"}}
+{"thought": "reasoning", "action": "DIRECTORY_LIST", "params": {"path": "/home/controluser/Desktop"}}
+{"thought": "reasoning", "action": "OPEN_CODE_EDITOR", "params": {}}
+{"thought": "reasoning", "action": "OPEN_TERMINAL", "params": {}}
+{"thought": "reasoning", "action": "DONE", "params": {"summary": "Task completed successfully"}}
+{"thought": "reasoning", "action": "HITL", "params": {"reason": "Need user credentials to proceed"}}
 
-## CRITICAL OPERATING RULES
+## OUTPUT FORMAT - JSON ONLY (no conversational text):
+All parameters MUST be passed inside the "params" object:
 
-1. **ALWAYS start with SCREENSHOT()** to see what's on screen.
-2. **After EVERY action that changes the screen**, take a SCREENSHOT() to verify success.
-3. **Coordinates are normalized 0-1000.** (0,0) is TOP-LEFT, (1000,1000) is BOTTOM-RIGHT.
-4. **Click before typing.** Always CLICK on the target input field before using TYPE.
-5. **Be precise with coordinates.** Look at the screenshot carefully to identify exact locations of buttons, fields, and UI elements.
-6. **Retry on failure.** If a click doesn't work, try nearby coordinates or a different approach.
-7. **Use SCROLL to find elements** that might be below the visible area.
-8. **For web tasks:**
-   - Use BROWSER_NAVIGATE to open URLs
-   - Use BROWSER_GET_CONTENT for quick text scraping without browser
-   - Navigate, observe, then interact
-9. **For typing in forms:**
-   - CLICK the field first
-   - Then TYPE the text
-   - Use KEY("Tab") to move to next field
-   - Use KEY("Enter") to submit
-10. **Key combos:** Use KEY_COMBO for shortcuts like "ctrl+c" (copy), "ctrl+v" (paste), "ctrl+a" (select all), "alt+tab" (switch window).
+{"thought": "reasoning", "action": "ACTION_NAME", "params": {"param_name": "param_value"}}
 
-## ENVIRONMENT AWARENESS
-- If 'Mode' is 'VM': You're in a Linux XFCE desktop. Use TERMINAL for shell commands.
-- If 'Mode' is 'Remote Desktop': You're on the user's actual OS. Be careful with destructive actions.
-- If 'Target Status' is NOT 'running'/'Online', inform the user and DONE.
+EXAMPLES:
+- Read a file: {"thought": "Reading test.py", "action": "FILE_READ", "params": {"filepath": "/home/controluser/Desktop/test.py"}}
+- Write a file: {"thought": "Creating Python file", "action": "FILE_WRITE", "params": {"filepath": "/home/controluser/Desktop/test.py", "content": "print('hello')"}}
+- List directory: {"thought": "Listing Desktop", "action": "DIRECTORY_LIST", "params": {"path": "/home/controluser/Desktop"}}
+- Open editor: {"thought": "Opening editor", "action": "OPEN_CODE_EDITOR", "params": {}}
+- Run terminal: {"thought": "Running ls command", "action": "TERMINAL", "params": {"command": "ls -la"}}
+- Click: {"thought": "Clicking button", "action": "CLICK", "params": {"x": 500, "y": 300}}
+- Navigate browser: {"thought": "Opening Google", "action": "BROWSER_NAVIGATE", "params": {"url": "https://google.com"}}
 
-## RESPONSE FORMAT (Strict JSON only)
-{"thought": "reasoning about current state and next step", "action": "ACTION_NAME", "params": {"key": "value"}}
+If task is finished: {"thought": "reasoning", "action": "DONE", "params": {"summary": "description"}}
+If stuck and need help: {"thought": "reasoning", "action": "HITL", "params": {"reason": "explanation"}}
 
-## PROFESSIONAL & CREATIVE SOFTWARE (CAD, Blender, DCC, IDEs)
-- Treat toolbars, modifiers, and node editors as precision workflows: confirm the active mode (Object/Edit, etc.) via SCREENSHOT before destructive edits.
-- Prefer keyboard shortcuts documented for the app when faster than mouse (Blender: G/R/S, Tab, Space; CAD: ortho/snaps where applicable).
-- For complex UIs, work in small loops: SCREENSHOT → one focused action → SCREENSHOT to verify.
-- If viewport navigation is unclear, use middle-mouse / view menus via TERMINAL only when CLI exists; otherwise click conservatively with HITL if credentials or licensing block progress.
+## ENVIRONMENT:
+- You're on a Linux XFCE desktop VM
+- User home: /home/controluser
+- Desktop files: /home/controluser/Desktop
+- Available apps: Firefox, Terminal, File Manager, Code Editor (micro)
+- Terminal: xfce4-terminal
+- File manager: Thunar
+- Code editor: micro
 
-## STOP POLICY
-- If blocked by CAPTCHA, paywall, or hard login → use HITL
-- If action fails 3 times → try alternative approach or DONE with explanation
-- Never enter credentials unless the user explicitly provides them or you use SECRET_TYPE"""
+## QUICK REFERENCE:
+- Open browser: BROWSER_OPEN → BROWSER_NAVIGATE
+- Read file: FILE_READ with filepath
+- Write file: FILE_WRITE with filepath and content
+- List files: DIRECTORY_LIST with path
+- Download folder: FILE_ZIP with path
+- Open editor: OPEN_CODE_EDITOR
+- Open terminal: OPEN_TERMINAL
+- Open files: OPEN_FILE_MANAGER
+- Run command: TERMINAL with command"""
 
-ASK_SYSTEM_PROMPT = """You are Control AI, a highly knowledgeable assistant. The user is asking you a question — they do NOT want you to control a computer or perform actions.
+ASK_SYSTEM_PROMPT = """You are Control AI, a highly knowledgeable assistant with access to the target machine.
 
-Respond naturally and helpfully, like a knowledgeable expert. Use markdown formatting for code blocks, lists, and emphasis where appropriate.
+The user is asking you a question - they may want you to:
+1. Answer a question about their computer/files
+2. Explain something about their system
+3. Help them understand what they're seeing on screen
+
+You CAN access the machine to help answer questions:
+- Take SCREENSHOT to see what's on screen
+- Use FILE_READ to read files they ask about
+- Use DIRECTORY_LIST to show folder contents
+- Use TERMINAL to run commands and show output
+- Use OCR to extract text from screenshots
 
 RULES:
-1. Answer the question directly and thoroughly.
-2. Use clear, well-structured responses with markdown.
-3. If the question is about code, include code examples.
-4. Do NOT output JSON action commands — just respond in plain text/markdown.
-5. Be concise but complete.
-6. If the user asks something you're unsure about, say so honestly.
-7. You may reference the user's computer setup context if relevant to answering their question.
-8. For CAD, 3D (Blender, Maya), and creative suites: explain concepts, shortcuts, and safe workflows; do not pretend you are executing clicks unless the user switched to Act mode."""
+1. If they ask about files/code on their machine, access it and show them
+2. If they ask about the screen, take a screenshot and describe it
+3. Use markdown formatting for clear responses
+4. Be helpful and thorough
+5. If you need to see the screen to answer, take a screenshot first
+6. Don't output JSON action commands - respond in plain text
+
+You have full access to help answer any question about the user's machine."""
 
 WORKFLOW_SYSTEM_PROMPT = """You are Control AI Workflow Designer. Your goal is to help the user create a visual automation workflow.
 
@@ -380,30 +500,85 @@ async def _execute_vm_action(machine_id: str, action: str, params: Dict[str, Any
     """Execute an action on the VM using persistent connection."""
     # Map high-level action names to VM agent commands
     CMD_MAP = {
+        # Mouse actions
         "click": "click",
         "double_click": "double_click",
         "right_click": "right_click",
         "move": "move",
         "mouse_move": "move",
+        "drag": "drag",
+        "scroll": "scroll",
+        
+        # Keyboard actions
         "type": "type",
         "key": "key_press",
         "key_press": "key_press",
         "key_combo": "key_combo",
-        "scroll": "scroll",
-        "drag": "drag",
+        
+        # Browser actions
         "browser_open": "browser_open",
-        "browser_navigate": "browser_navigate",
+        "browser_connect": "browser_connect",
+        "browser_navigate": "browser_go",
+        "browser_go": "browser_go",
         "browser_get_content": "browser_get_content",
         "browser_find": "browser_find",
+        "browser_get_dom": "browser_get_dom",
+        "browser_get_clickables": "browser_get_clickables",
+        "browser_click": "browser_click",
+        "browser_type": "browser_type",
+        "browser_execute": "browser_execute",
+        "browser_wait": "browser_wait",
+        "browser_info": "browser_info",
+        "browser_state": "browser_state",
+        "browser_get_context": "browser_get_context",
+        "browser_tabs": "browser_tabs",
+        "browser_new_tab": "browser_new_tab",
+        "browser_close_tab": "browser_close_tab",
+        "browser_switch_tab": "browser_switch_tab",
+        
+        # Terminal actions
         "terminal": "terminal",
-
         "terminal_execute": "terminal",
+        "terminal_connect": "terminal_connect",
+        "terminal_read": "terminal_read",
+        "terminal_clear": "terminal_clear",
+        "terminal_close": "terminal_close",
+        "open_terminal": "open_terminal",
+        
+        # File operations
         "file_read": "file_read",
         "file_write": "file_write",
+        "file_edit": "file_edit",
+        "file_append": "file_append",
+        "file_delete": "file_delete",
         "file_exists": "file_exists",
         "directory_list": "directory_list",
+        "directory_delete": "directory_delete",
+        "file_zip": "file_zip",
+        "file_download": "file_download",
+        
+        # Window management
+        "list_windows": "list_windows",
+        "switch_window": "switch_to_window",
+        "switch_to_window": "switch_to_window",
+        "arrange_windows": "arrange_windows",
+        "close_window": "close_window",
+        "minimize_window": "minimize_window",
+        "maximize_window": "maximize_window",
+        "restore_window": "restore_window",
+        "move_window": "move_window",
+        
+        # App launcher
+        "open_code_editor": "open_code_editor",
+        "open_file_manager": "open_file_manager",
+        "open_application": "open_application",
+        "open_terminal": "open_terminal",
+        
+        # Other
         "list_apps": "list_apps",
         "screenshot": "screenshot",
+        "detect_elements": "detect_elements",
+        "ocr": "ocr",
     }
 
     cmd = CMD_MAP.get(action.lower(), action.lower())
@@ -656,6 +831,21 @@ class AgentExecutor:
                 yield {"type": "thought", "content": "Assistant is typing…"}
                 full_response = ""
                 
+                # For ASK mode, optionally allow access to target machine for questions about the system
+                # Take a screenshot if available for context
+                if last_screenshot:
+                    pass  # Already have screenshot from auto-capture
+                elif machine_id or device_id:
+                    try:
+                        if machine_id:
+                            shot = await _take_screenshot_vm(machine_id)
+                            if shot: last_screenshot = shot
+                        elif device_id:
+                            shot = await _take_screenshot_device(device_id)
+                            if shot: last_screenshot = shot
+                    except Exception as e:
+                        logger.warning(f"Could not capture screenshot for ASK mode: {e}")
+                
                 # Streaming implementation for ASK mode
                 result = await self._call_ai(provider_config, conversation, last_screenshot, stream=True)
                 if isinstance(result, AsyncGenerator):
@@ -666,7 +856,7 @@ class AgentExecutor:
                     full_response = str(result)
                     yield {"type": "message", "content": full_response}
 
-                # Save to DB
+                # Save to DB - for ASK mode, save without action_type (no thought process stored)
                 db.table("chat_messages").insert({
                     "session_id": session_id,
                     "role": "assistant",
@@ -744,8 +934,27 @@ class AgentExecutor:
                 yield {"type": "action", "action": action, "params": params}
                 await self._update_usage(db, user_id, "act", tokens=tokens_per_turn)
 
+                # Build a descriptive message for the action
+                action_description = f"{action}"
+                if action == "CLICK":
+                    action_description = f"Click at ({params.get('x')}, {params.get('y')})"
+                elif action == "TYPE":
+                    text = params.get('text', '')
+                    action_description = f"Type: {text[:50]}{'...' if len(text) > 50 else ''}"
+                elif action == "SCREENSHOT":
+                    action_description = "Take screenshot"
+                elif action == "TERMINAL":
+                    cmd = params.get('command', '')
+                    action_description = f"Terminal: {cmd[:50]}{'...' if len(cmd) > 50 else ''}"
+                elif action == "SCROLL":
+                    action_description = f"Scroll {params.get('direction', 'down')}"
+                elif action == "KEY_COMBO":
+                    action_description = f"Key combo: {params.get('keys', '')}"
+                elif action == "BROWSER_NAVIGATE":
+                    action_description = f"Navigate to: {params.get('url', '')}"
+                
                 db.table("chat_messages").insert({
-                    "session_id": session_id, "role": "assistant", "content": thought,
+                    "session_id": session_id, "role": "assistant", "content": action_description,
                     "action_type": action.lower(), "action_data": params
                 }).execute()
 
@@ -807,6 +1016,46 @@ class AgentExecutor:
                         result = await _execute_device_action(device_id, "key_combo", {"keys": keys})
                         action_result = f"Key combo sent. Status: {result['status']}"
                     else: action_result = "Error: No target."
+                elif action == "OPEN_CODE_EDITOR":
+                    if machine_id:
+                        result = await _execute_vm_action(machine_id, "open_code_editor", {})
+                        action_result = f"Code editor opened: {json.dumps(result)}"
+                    else: action_result = "Error: No target VM."
+                elif action == "OPEN_FILE_MANAGER":
+                    if machine_id:
+                        result = await _execute_vm_action(machine_id, "open_file_manager", {})
+                        action_result = f"File manager opened: {json.dumps(result)}"
+                    else: action_result = "Error: No target VM."
+                elif action == "OPEN_TERMINAL":
+                    if machine_id:
+                        result = await _execute_vm_action(machine_id, "open_terminal", {})
+                        action_result = f"Terminal opened: {json.dumps(result)}"
+                    else: action_result = "Error: No target VM."
+                elif action == "FILE_READ":
+                    filepath = params.get("filepath", params.get("path", ""))
+                    if machine_id:
+                        result = await _execute_vm_action(machine_id, "file_read", {"filepath": filepath})
+                        action_result = f"File content: {json.dumps(result)}"
+                    else: action_result = "Error: No target VM."
+                elif action == "FILE_WRITE":
+                    filepath = params.get("filepath", params.get("path", ""))
+                    content = params.get("content", "")
+                    if machine_id:
+                        result = await _execute_vm_action(machine_id, "file_write", {"filepath": filepath, "content": content})
+                        action_result = f"File write result: {json.dumps(result)}"
+                    else: action_result = "Error: No target VM."
+                elif action == "FILE_ZIP":
+                    path = params.get("path", "")
+                    if machine_id:
+                        result = await _execute_vm_action(machine_id, "file_zip", {"path": path})
+                        action_result = f"Zip created: {json.dumps(result)}"
+                    else: action_result = "Error: No target VM."
+                elif action == "DIRECTORY_LIST":
+                    path = params.get("path", "/home/controluser")
+                    if machine_id:
+                        result = await _execute_vm_action(machine_id, "directory_list", {"path": path})
+                        action_result = f"Directory contents: {json.dumps(result)}"
+                    else: action_result = "Error: No target VM."
                 else:
                     a_low = action.lower()
                     if machine_id: result = await _execute_vm_action(machine_id, a_low, params)
