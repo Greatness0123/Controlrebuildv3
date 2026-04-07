@@ -202,7 +202,7 @@ export default function BillingPage() {
     setMounted(true);
   }, []);
 
-  useEffect(() => {
+useEffect(() => {
     async function fetchData() {
       if (!user) return;
       const supabase = getSupabaseClient();
@@ -216,16 +216,49 @@ export default function BillingPage() {
         const internalId = userRes.data.id as string;
         const since = new Date();
         since.setDate(since.getDate() - 120);
-        const { data: msgs, error: msgErr } = await supabase
-          .from('chat_messages')
-          .select('created_at, role, action_type, chat_sessions!inner(user_id)')
-          .eq('chat_sessions.user_id', internalId)
+
+        // First try to fetch from billing_metrics table (more reliable)
+        const { data: billingRows, error: billingErr } = await supabase
+          .from('billing_metrics')
+          .select('created_at, mode, tokens')
+          .eq('user_id', internalId)
           .gte('created_at', since.toISOString())
           .order('created_at', { ascending: true });
-        if (!msgErr && msgs) {
-          setMessageUsageDaily(aggregateUsageFromMessages(msgs as any));
+
+        if (!billingErr && billingRows && billingRows.length > 0) {
+          // Aggregate from billing_metrics
+          const dayMap = new Map<string, { ask: number; act: number; tokens: number }>();
+          for (const row of billingRows) {
+            const day = (row.created_at || '').slice(0, 10);
+            if (!day || day.length < 10) continue;
+            if (!dayMap.has(day)) dayMap.set(day, { ask: 0, act: 0, tokens: 0 });
+            const b = dayMap.get(day)!;
+            if (row.mode === 'act') b.act += 1;
+            else b.ask += 1;
+            b.tokens += row.tokens || 0;
+          }
+          const billingDerived = Array.from(dayMap.entries())
+            .sort(([a], [b]) => a.localeCompare(b))
+            .map(([date, v]) => ({
+              date,
+              short: new Date(date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+              ask: v.ask,
+              act: v.act,
+            }));
+          setMessageUsageDaily(billingDerived);
         } else {
-          setMessageUsageDaily([]);
+          // Fallback: aggregate from chat_messages
+          const { data: msgs, error: msgErr } = await supabase
+            .from('chat_messages')
+            .select('created_at, role, action_type, chat_sessions!inner(user_id)')
+            .eq('chat_sessions.user_id', internalId)
+            .gte('created_at', since.toISOString())
+            .order('created_at', { ascending: true });
+          if (!msgErr && msgs) {
+            setMessageUsageDaily(aggregateUsageFromMessages(msgs as any));
+          } else {
+            setMessageUsageDaily([]);
+          }
         }
       }
       if (actionsRes.actions) {

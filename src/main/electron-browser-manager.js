@@ -116,6 +116,18 @@ class ElectronBrowserManager {
             console.error('Failed to inject banner:', e);
         }
     }
+
+    /**
+     * Close and cleanup the browser window
+     */
+    close() {
+        if (this.browserWindow && !this.browserWindow.isDestroyed()) {
+            console.log('[ElectronBrowserManager] Closing browser window');
+            this.browserWindow.close();
+            this.browserWindow = null;
+            this.isVisible = false;
+        }
+    }
 }
 
 module.exports = new ElectronBrowserManager();

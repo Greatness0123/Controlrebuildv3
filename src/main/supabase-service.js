@@ -392,29 +392,45 @@ module.exports = {
         }
     },
 
-    async incrementTaskCount(userId, mode) {
+async incrementTaskCount(userId, mode) {
         try {
             if (!supabase) return;
+            console.log(`[Supabase] incrementTaskCount: userId=${userId}, mode=${mode}`);
             const column = mode === 'act' ? 'act_count' : 'ask_count';
-            const { data: user } = await supabase.from('users').select(column).eq('id', userId).single();
+            const { data: user, error } = await supabase.from('users').select(column).eq('id', userId).single();
+            if (error) {
+                console.error('[Supabase] Error fetching user for count:', error);
+                return;
+            }
             if (user) {
                 const newVal = (user[column] || 0) + 1;
-                await supabase.from('users').update({ 
+                console.log(`[Supabase] Updating ${column}: ${user[column]} -> ${newVal}`);
+                const { error: updateError } = await supabase.from('users').update({ 
                     [column]: newVal,
                     last_task_date: new Date().toISOString()
                 }).eq('id', userId);
+                if (updateError) {
+                    console.error('[Supabase] Error updating count:', updateError);
+                } else {
+                    console.log(`[Supabase] Successfully incremented ${column}`);
+                }
             }
         } catch (e) {
             console.error('Error incrementing task count:', e);
         }
     },
 
-    async updateTokenUsage(userId, mode, usage) {
+async updateTokenUsage(userId, mode, usage) {
         try {
             if (!supabase || !usage) return;
+            console.log(`[Supabase] updateTokenUsage: userId=${userId}, mode=${mode}, usage=${JSON.stringify(usage)}`);
             const { promptTokenCount, candidatesTokenCount, totalTokenCount } = usage;
             
-            const { data: user } = await supabase.from('users').select('token_usage, daily_token_usage, total_token_usage').eq('id', userId).single();
+            const { data: user, error } = await supabase.from('users').select('token_usage, daily_token_usage, total_token_usage').eq('id', userId).single();
+            if (error) {
+                console.error('[Supabase] Error fetching user for token update:', error);
+                return;
+            }
             if (!user) return;
             
             const currentUsage = user.token_usage || {};
@@ -431,13 +447,19 @@ module.exports = {
             dailyUsage[today].total += (totalTokenCount || 0);
 
             const totalUsage = (user.total_token_usage || 0) + (totalTokenCount || 0);
+            console.log(`[Supabase] Updating tokens: total=${totalUsage}`);
 
-            await supabase.from('users').update({ 
+            const { error: updateError } = await supabase.from('users').update({ 
                 token_usage: currentUsage,
                 daily_token_usage: dailyUsage,
                 total_token_usage: totalUsage,
                 last_token_update: new Date().toISOString()
             }).eq('id', userId);
+            if (updateError) {
+                console.error('[Supabase] Error updating token usage:', updateError);
+            } else {
+                console.log('[Supabase] Successfully updated token usage');
+            }
         } catch (e) {
             console.error('Error updating token usage:', e);
         }

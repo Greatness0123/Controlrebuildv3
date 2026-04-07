@@ -161,9 +161,8 @@ class RemoteDesktopManager {
                 this.startSignalingListener(user.id);
                 this.connectRelay(user.id);
             } else {
-                this.stopSignalingListener();
-                this.disconnectRelay();
-                this.stopStreaming();
+                // Use the cleanup method for clean shutdown
+                this.cleanup();
             }
             return { success: true, enabled };
         } catch (error) {
@@ -623,6 +622,29 @@ class RemoteDesktopManager {
             this.channel = null;
         }
         console.log('[Remote] Stopped signaling listener');
+    }
+
+    /**
+     * Full cleanup - call this when quitting or disabling remote access
+     */
+    cleanup() {
+        console.log('[Remote] Performing full cleanup...');
+        
+        // Stop streaming
+        this.stopStreaming();
+        
+        // Disconnect relay WebSocket
+        this.disconnectRelay();
+        
+        // Stop signaling listener and heartbeat
+        this.stopSignalingListener();
+        
+        // Reset state
+        this.isStreaming = false;
+        this.isRelayConnected = false;
+        this.currentSession = null;
+        
+        console.log('[Remote] Full cleanup completed');
     }
 }
 

@@ -1834,6 +1834,17 @@ class ComputerUseAgent {
         this.hotkeyManager.unregisterAll();
         if (this.backendManager) this.backendManager.stopBackend();
         if (this.voskServerManager) this.voskServerManager.stop();
+        
+        // Clean up RemoteDesktopManager to prevent zombie processes
+        if (this.remoteDesktopManager) {
+            this.remoteDesktopManager.cleanup();
+        }
+        
+        // Clean up Electron Browser Manager
+        if (electronBrowserManager && typeof electronBrowserManager.close === 'function') {
+            electronBrowserManager.close();
+        }
+        
         this.windowManager.closeAllWindows();
     }
 

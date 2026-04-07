@@ -3,6 +3,11 @@ Agent Executor — orchestrates AI-driven computer automation.
 
 Uses persistent WebSocket connections via VMControlService and
 comprehensive system prompts inspired by open-computer-use.
+
+Enhanced with:
+- Response truncation to prevent context overflow
+- frontendScreenshot filtering from tool results
+- Enhanced error handling and connection recovery
 """
 
 import json
@@ -20,6 +25,21 @@ from app.services.vm_service import vm_service
 from app.routes.remote_relay import send_device_action, get_device_screenshot
 
 logger = logging.getLogger(__name__)
+
+MAX_TOOL_RESPONSE_LENGTH = 5000
+
+
+def truncate_tool_response(result: Any, max_length: int = MAX_TOOL_RESPONSE_LENGTH) -> str:
+    """Truncate tool response to prevent context overflow, preserving screenshot references"""
+    if isinstance(result, dict):
+        filtered = {k: v for k, v in result.items() if k != "frontendScreenshot"}
+        text = json.dumps(filtered, default=str)
+    else:
+        text = str(result)
+    
+    if len(text) > max_length:
+        return text[:max_length] + "\n... [response truncated]"
+    return text
 
 # ═══════════════════════════════════════════════════════════════════════
 # AUTO-DETECT MODE (ask vs act)
@@ -690,14 +710,17 @@ class AgentExecutor:
             key = GEMINI_API_KEY
             return await _call_gemini("gemini-2.5-flash", key, messages, image_b64, system_prompt=system_prompt, stream=stream)
 
-    async def _update_usage(self, db: Client, user_id: str, mode: str, tokens: int = 0):
+    async def _update_usage(self, db: Client, user_id: str, mode: str, tokens: int = 0, session_id: Optional[str] = None):
         """Update user usage statistics in the database."""
         try:
+            logger.info(f"[USAGE] Updating usage for user_id={user_id}, mode={mode}, tokens={tokens}, session_id={session_id}")
             res = db.table("users").select("act_count, ask_count, total_token_usage, daily_token_usage, token_usage").eq("id", user_id).execute()
             if not res.data:
+                logger.warning(f"[USAGE] User not found: {user_id}")
                 return
 
             user = res.data[0]
+            logger.info(f"[USAGE] Current user data: act_count={user.get('act_count')}, ask_count={user.get('ask_count')}")
             today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
             update_data: Dict[str, Any] = {}
 
@@ -746,10 +769,37 @@ class AgentExecutor:
                 daily_stats[today]["candidates"] = daily_stats[today].get("candidates", 0) + (tokens // 2)
 
             update_data["daily_token_usage"] = daily_stats
+            logger.info(f"[USAGE] Sending update to DB: {update_data}")
             db.table("users").update(update_data).eq("id", user_id).execute()
+            logger.info(f"[USAGE] Successfully updated usage for user {user_id}")
+
+# Log billing metrics to a dedicated table for reliable billing/monitoring
+            # This ensures token/ask/act counts are captured even if UI caching or dashboards differ.
+            if tokens:
+                try:
+                    await self._log_billing_metrics(db, user_id, mode, tokens, session_id=session_id)
+                    logger.info(f"[USAGE] Billing metrics logged successfully")
+                except Exception as log_err:
+                    logger.error(f"Failed to log billing metrics: {log_err}")
 
         except Exception as e:
-            logger.error(f"Failed to update user usage: {e}")
+            logger.error(f"Failed to update user usage: {e}", exc_info=True)
+
+    async def _log_billing_metrics(self, db: Client, user_id: str, mode: str, tokens: int, session_id: Optional[str] = None):
+        """Persist billing metrics to a dedicated table for analytics."""
+        try:
+            data = {
+                "user_id": user_id,
+                "mode": mode,
+                "tokens": int(tokens),
+                "created_at": datetime.now(timezone.utc).isoformat()
+            }
+            if session_id:
+                data["session_id"] = session_id
+            db.table("billing_metrics").insert(data).execute()
+        except Exception as e:
+            # Do not crash the main flow if logging fails
+            logger.error(f"Error writing billing_metrics: {e}")
 
 
     async def execute_task(
@@ -882,7 +932,8 @@ class AgentExecutor:
                     "role": "assistant",
                     "content": full_response
                 }).execute()
-                await self._update_usage(db, user_id, mode, tokens=tokens_per_turn)
+                logger.info(f"[EXEC] Calling _update_usage for ASK mode: user_id={user_id}, mode={mode}, tokens={tokens_per_turn}")
+                await self._update_usage(db, user_id, mode, tokens=tokens_per_turn, session_id=session_id)
                 yield {"type": "done"}
                 return
 
@@ -952,7 +1003,8 @@ class AgentExecutor:
 
                 if thought: yield {"type": "thought", "content": thought}
                 yield {"type": "action", "action": action, "params": params}
-                await self._update_usage(db, user_id, "act", tokens=tokens_per_turn)
+                logger.info(f"[EXEC] Calling _update_usage for ACT mode: user_id={user_id}, mode=act, tokens={tokens_per_turn}")
+                await self._update_usage(db, user_id, "act", tokens=tokens_per_turn, session_id=session_id)
 
                 # Build a descriptive message for the action
                 action_description = f"{action}"

@@ -283,3 +283,78 @@ async def list_vm_files(vm_id: str, path: str = "/home/controluser", user: dict 
         raise HTTPException(status_code=400, detail=result.get("error", "List failed"))
     
     return {"success": True, "entries": result.get("entries", []), "path": path}
+
+
+@router.get("/health")
+async def get_vm_health(user: dict = Depends(get_current_user)):
+    """Get connection health metrics for all VMs."""
+    from app.services.vm_control import vm_control_service
+    
+    all_connections = vm_control_service.get_all_connections()
+    
+    db = get_service_client()
+    vms = db.table("virtual_machines").select("id, name, status").eq("user_id", user["id"]).execute()
+    
+    vm_health = {}
+    for vm in vms.data:
+        vm_id = vm["id"]
+        health = all_connections.get(vm_id, {})
+        vm_health[vm_id] = {
+            "name": vm["name"],
+            "vm_status": vm["status"],
+            "connection": health,
+        }
+    
+    return {
+        "vms": vm_health,
+        "total_connections": len(vm_control_service.connections),
+        "circuit_breakers": {
+            mid: {
+                "state": cb.state,
+                "consecutive_failures": cb.consecutive_failures,
+                "consecutive_successes": cb.consecutive_successes,
+            }
+            for mid, cb in vm_control_service.circuit_breakers.items()
+        }
+    }
+
+
+@router.get("/health/{vm_id}")
+async def get_vm_health_detail(vm_id: str, user: dict = Depends(get_current_user)):
+    """Get detailed connection health for a specific VM."""
+    from app.services.vm_control import vm_control_service
+    
+    db = get_service_client()
+    vm = db.table("virtual_machines").select("*").eq("id", vm_id).eq("user_id", user["id"]).execute()
+    if not vm.data:
+        raise HTTPException(status_code=404, detail="VM not found")
+    
+    health = vm_control_service.get_connection_health(vm_id)
+    status = vm_control_service.get_connection_status(vm_id)
+    busy, owner = vm_control_service.is_machine_busy(vm_id)
+    
+    return {
+        "vm": vm.data[0],
+        "health": health,
+        "connection_status": status,
+        "is_busy": busy,
+        "owner_chat_id": owner,
+    }
+
+
+@router.post("/{vm_id}/cancel")
+async def cancel_vm_execution(vm_id: str, user: dict = Depends(get_current_user)):
+    """Cancel ongoing execution on a VM."""
+    from app.services.vm_control import vm_control_service
+    
+    db = get_service_client()
+    vm = db.table("virtual_machines").select("id").eq("id", vm_id).eq("user_id", user["id"]).execute()
+    if not vm.data:
+        raise HTTPException(status_code=404, detail="VM not found")
+    
+    was_busy, owner = vm_control_service.request_cancellation(vm_id)
+    
+    return {
+        "cancelled": was_busy,
+        "owner_chat_id": owner,
+    }
