@@ -201,9 +201,9 @@ export default function FileManagerPage() {
           </div>
         </header>
         
-        <div className="flex-1 overflow-hidden flex">
+        <div className="flex-1 overflow-hidden flex flex-col sm:flex-row">
           {/* Sidebar - VM List */}
-          <div className="w-64 border-r border-border bg-card/50 p-4 shrink-0 overflow-y-auto">
+          <div className="w-full sm:w-56 border-b sm:border-b-0 sm:border-r border-border bg-card/50 p-4 shrink-0 overflow-y-auto">
             <h3 className="text-[10px] font-black uppercase tracking-widest text-text-muted mb-3">Select Machine</h3>
             <div className="space-y-2">
               {runningVms.length === 0 ? (

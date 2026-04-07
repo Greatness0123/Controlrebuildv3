@@ -50,7 +50,9 @@ class VMService:
         agent_port = self._get_free_port(8080)
 
         try:
-            container = self.docker_client.containers.run(
+            # Use run with detach - but containers.run() still waits for some initialization
+            # Use create + start for truly async container creation
+            container = self.docker_client.containers.create(
                 VM_IMAGE_NAME,
                 detach=True,
                 name=f"control-vm-{user_id}-{random.randint(1000,9999)}",
@@ -67,14 +69,18 @@ class VMService:
                 },
                 mem_limit="2g",
                 cpu_period=100000,
-                cpu_quota=200000,  # 2 CPUs
+                cpu_quota=200000,
                 restart_policy={"Name": "unless-stopped"},
                 labels={
                     "control.user_id": user_id,
                     "control.type": "vm",
                 },
             )
-
+            
+            # Start container in background - return immediately
+            container.start()
+            
+            # Return VM immediately - don't wait for boot
             vm_data = {
                 "user_id": user_id,
                 "name": name,
@@ -89,19 +95,9 @@ class VMService:
             }
             result = db.table("virtual_machines").insert(vm_data).execute()
             created_vm = result.data[0]
-            asyncio.create_task(self.ensure_vm_agent_connected(db, created_vm["id"]))
-
-            async def _disable_power_mgmt(cont):
-                await asyncio.sleep(10) # wait for X server
-                try:
-
-                    cont.exec_run("xset s off", user="controluser", environment={"DISPLAY": ":1"})
-                    cont.exec_run("xset -dpms", user="controluser", environment={"DISPLAY": ":1"})
-                    cont.exec_run("pkill xscreensaver", user="controluser")
-                except Exception as e:
-                    logger.warning(f"Failed to disable power mgmt on VM: {e}")
             
-            asyncio.create_task(_disable_power_mgmt(container))
+            # Try to connect in background (non-blocking)
+            asyncio.create_task(self._delayed_connect(db, created_vm["id"]))
 
             return created_vm
 
@@ -113,6 +109,11 @@ class VMService:
         except Exception as e:
             logger.error(f"Failed to create VM: {e}")
             raise
+
+    async def _delayed_connect(self, db: Client, vm_id: str):
+        """Try to connect after a short delay to allow VM to boot"""
+        await asyncio.sleep(15)  # Wait for VM to boot
+        await self.ensure_vm_agent_connected(db, vm_id)
 
     async def start_vm(self, db: Client, vm_id: str, user_id: str) -> dict:
 
@@ -341,21 +342,58 @@ class VMService:
         sid = str(vm_id)
         if await vm_control_service.ensure_connection(sid):
             return True
+        
         res = db.table("virtual_machines").select("agent_port, agent_host, status").eq("id", vm_id).execute()
         if not res.data:
             return False
         row = res.data[0]
         if row.get("status") != "running":
             return False
+        
         port = row.get("agent_port")
-        host = row.get("agent_host") or DOCKER_HOST_IP
+        # Use host.docker.internal for containerized backend, or fallback to other methods
+        stored_host = row.get("agent_host")
+        
+        # Try multiple host options for Azure/containerized environments
+        hosts_to_try = []
+        if stored_host:
+            hosts_to_try.append(stored_host)
+        hosts_to_try.extend([
+            "host.docker.internal",
+            "172.17.0.1", 
+            "localhost",
+        ])
+        
         if port is None:
             return False
-        try:
-            return await vm_control_service.connect(int(port), machine_id=sid, host=host)
-        except Exception as e:
-            logger.warning(f"ensure_vm_agent_connected failed for {vm_id}: {e}")
-            return False
+        
+        # Try each host - but do it quickly (don't wait long on each)
+        last_error = None
+        for host in hosts_to_try:
+            try:
+                logger.info(f"Attempting to connect to VM agent at {host}:{port}")
+                # Use shorter timeout for faster connection
+                result = await asyncio.wait_for(
+                    vm_control_service.connect(int(port), machine_id=sid, host=host),
+                    timeout=3.0
+                )
+                if result:
+                    logger.info(f"Successfully connected to VM agent at {host}:{port}")
+                    # Update the database with the working host
+                    db.table("virtual_machines").update({"agent_host": host}).eq("id", vm_id).execute()
+                    return True
+            except asyncio.TimeoutError:
+                logger.warning(f"Timeout connecting to {host}:{port}")
+                last_error = "timeout"
+                continue
+            except Exception as e:
+                last_error = e
+                logger.warning(f"Failed to connect to {host}:{port}: {e}")
+                continue
+        
+        logger.warning(f"Could not connect to VM agent, but VM is running: {last_error}")
+        # VM is running even if we can't connect - don't block
+        return False
 
     def get_vm_password_info(self):
 

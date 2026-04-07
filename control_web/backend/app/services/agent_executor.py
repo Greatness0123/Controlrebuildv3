@@ -791,11 +791,32 @@ class AgentExecutor:
             # 2. Determine mode (ASK, ACT, or WORKFLOW)
             mode = forced_mode or _auto_detect_mode(user_message, bool(machine_id or device_id))
             
-            # Fetch existing history
+            # Fetch only recent context - DON'T include past user messages
+            # Each new request should be treated as a new request
+            # Only include action results from previous turns for context
             history_res = db.table("chat_messages").select("*").eq("session_id", session_id).order("created_at").execute()
+            
             conversation = []
+            
+            # Only include the LAST assistant message (action result) as context
+            # Do NOT include past user requests - they are independent
+            assistant_context = None
             for m in history_res.data:
-                conversation.append({"role": m["role"], "content": m["content"]})
+                if m["role"] == "assistant" and m.get("action_type"):
+                    # Store latest action result
+                    assistant_context = m
+            
+            # Add current user message
+            conversation.append({"role": "user", "content": user_message})
+            
+            # If there's a previous action result, include it as context
+            if assistant_context:
+                action_type = assistant_context.get("action_type", "")
+                content = assistant_context.get("content", "")
+                conversation.append({
+                    "role": "assistant", 
+                    "content": f"[Previous action: {action_type.upper()}] {content}"
+                })
             
             # Provider config
             provider_config = await self._get_provider_config(db, user_id)
@@ -828,7 +849,6 @@ class AgentExecutor:
             if mode in ["ask", "workflow"]:
                 provider_config["system_prompt"] = WORKFLOW_SYSTEM_PROMPT if mode == "workflow" else ASK_SYSTEM_PROMPT
                 
-                yield {"type": "thought", "content": "Assistant is typing…"}
                 full_response = ""
                 
                 # For ASK mode, optionally allow access to target machine for questions about the system

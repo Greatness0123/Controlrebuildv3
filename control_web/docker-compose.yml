@@ -41,7 +41,8 @@ services:
       - ./backend/.env
     environment:
       # Allows backend container to connect to ports on the Docker host (where VM containers are mapped)
-      - DOCKER_HOST_IP=172.17.0.1
+      # Use host.docker.internal which maps to the host's internal IP
+      - DOCKER_HOST_IP=host.docker.internal
     # On Linux, adds host.docker.internal -> host-gateway so the container can reach host ports
     extra_hosts:
       - "host.docker.internal:host-gateway"

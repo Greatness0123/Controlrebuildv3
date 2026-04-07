@@ -350,13 +350,7 @@ export default function ChatPanel({ sessionId }: ChatPanelProps) {
 
           if (event.action === 'HITL') {
             setHitlRequired(true);
-            addMessage({
-              id: Math.random().toString(),
-              session_id: sessionId,
-              role: 'assistant',
-              content: `Human assistance needed: ${event.params?.reason || 'Please perform the requested action on the screen.'}`,
-              created_at: new Date().toISOString()
-            } as any);
+            // Don't add duplicate message - just set the flag
           }
         } else if (event.type === 'hitl') {
           setHitlRequired(true);
