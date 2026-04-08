@@ -358,3 +358,76 @@ async def cancel_vm_execution(vm_id: str, user: dict = Depends(get_current_user)
         "cancelled": was_busy,
         "owner_chat_id": owner,
     }
+
+
+@router.get("/diagnose/{vm_id}")
+async def diagnose_vm_connection(vm_id: str, user: dict = Depends(get_current_user)):
+    """Diagnose why backend cannot connect to VM agent."""
+    import socket
+    from app.services.vm_control import vm_control_service
+    
+    db = get_service_client()
+    vm = db.table("virtual_machines").select("*").eq("id", vm_id).eq("user_id", user["id"]).execute()
+    if not vm.data:
+        raise HTTPException(status_code=404, detail="VM not found")
+    
+    row = vm.data[0]
+    agent_port = row.get("agent_port", 8080)
+    stored_host = row.get("agent_host") or "localhost"
+    
+    results = {
+        "vm_id": vm_id,
+        "vm_status": row.get("status"),
+        "agent_port": agent_port,
+        "stored_agent_host": stored_host,
+        "vnc_password_set": bool(row.get("vnc_password")),
+        "tests": []
+    }
+    
+    # Test each potential host
+    hosts_to_test = [
+        stored_host,
+        "host.docker.internal",
+        "172.17.0.1",
+        "localhost",
+        "127.0.0.1",
+    ]
+    hosts_to_test = list(set(h for h in hosts_to_test if h))
+    
+    for host in hosts_to_test:
+        test_result = {"host": host, "port": agent_port, "tcp_reachable": None, "error": None}
+        
+        # Test TCP connectivity
+        try:
+            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            sock.settimeout(3)
+            result = sock.connect_ex((host, agent_port))
+            sock.close()
+            test_result["tcp_reachable"] = result == 0
+            test_result["connect_code"] = result
+            if result != 0:
+                test_result["error"] = f"TCP connection failed with code {result}"
+                if result == 111:
+                    test_result["hint"] = "Connection refused - VM agent may not be running"
+                elif result == 113:
+                    test_result["hint"] = "No route to host - check network/firewall"
+        except Exception as e:
+            test_result["tcp_reachable"] = False
+            test_result["error"] = str(e)
+        
+        results["tests"].append(test_result)
+    
+    # Check connection state in vm_control_service
+    if vm_id in vm_control_service.connections:
+        ws = vm_control_service.connections[vm_id]
+        results["backend_connection"] = {
+            "exists": True,
+            "state": str(ws.state) if hasattr(ws, 'state') else "unknown"
+        }
+    else:
+        results["backend_connection"] = {
+            "exists": False,
+            "reason": "No WebSocket connection in vm_control_service"
+        }
+    
+    return results

@@ -276,14 +276,17 @@ export default function ChatPanel({ sessionId }: ChatPanelProps) {
     const fileName = attachedFile?.name;
     setAttachedFile(null);
 
+const userMsgId = Math.random().toString();
     const displayMsg = fileName ? `${userMsg}\n📎 ${fileName}` : userMsg;
-    addMessage({
-      id: Math.random().toString(),
+    const userMessage = {
+      id: userMsgId,
       session_id: sessionId,
       role: 'user',
       content: displayMsg,
       created_at: new Date().toISOString()
-    } as any);
+    };
+    addMessage(userMessage as any);
+    chatApi.saveMessage({ session_id: sessionId, role: 'user', content: displayMsg, is_final: true });
 
     try {
       const stream = chatApi.sendMessage(sessionId, userMsg, fileUrl, mode);
@@ -305,11 +308,11 @@ export default function ChatPanel({ sessionId }: ChatPanelProps) {
             currentAssistantMessageId = msgId;
           }
 
-          const existingMessages = useChatStore.getState().messages;
+const existingMessages = useChatStore.getState().messages;
           if (existingMessages.find(m => m.id === msgId)) {
             setMessages(existingMessages.map(m => m.id === msgId ? { ...m, content: event.content, is_final: event.type === 'message' } : m));
           } else {
-            addMessage({
+            const newMsg = {
               id: msgId,
               session_id: sessionId,
               role: 'assistant',
@@ -317,9 +320,18 @@ export default function ChatPanel({ sessionId }: ChatPanelProps) {
               is_thought: isThought,
               is_final: event.type === 'message',
               created_at: new Date().toISOString()
-            } as any);
+            };
+            addMessage(newMsg as any);
+            chatApi.saveMessage({ 
+              session_id: sessionId, 
+              role: 'assistant', 
+              content: event.content, 
+              is_thought: isThought, 
+              is_final: event.type === 'message',
+              description: event.description 
+            });
           }
-        } else if (event.type === 'thinking') {
+} else if (event.type === 'thinking') {
           const msgId: string = currentThoughtMessageId ?? Math.random().toString();
           currentThoughtMessageId = msgId;
           const existingMessages = useChatStore.getState().messages;
@@ -327,18 +339,22 @@ export default function ChatPanel({ sessionId }: ChatPanelProps) {
           if (existingMessages.find(m => m.id === msgId)) {
             setMessages(existingMessages.map(m => m.id === msgId ? { ...m, content: line, is_thought: true } : m));
           } else {
-            addMessage({
+            const newMsg = {
               id: msgId,
               session_id: sessionId,
               role: 'assistant',
               content: line,
               is_thought: true,
+              is_final: false,
               created_at: new Date().toISOString()
-            } as any);
+            };
+            addMessage(newMsg as any);
+            chatApi.saveMessage({ session_id: sessionId, role: 'assistant', content: line, is_thought: true, is_final: false });
           }
-        } else if (event.type === 'action') {
-          addMessage({
-            id: Math.random().toString(),
+} else if (event.type === 'action') {
+          const actionMsgId = Math.random().toString();
+          const actionMsg = {
+            id: actionMsgId,
             session_id: sessionId,
             role: 'action',
             content: `${formatActionLabel(event.action)}`,
@@ -346,30 +362,58 @@ export default function ChatPanel({ sessionId }: ChatPanelProps) {
             action_data: event.params,
             action_status: 'running',
             created_at: new Date().toISOString()
-          } as any);
+          };
+          addMessage(actionMsg as any);
+          chatApi.saveMessage({ 
+            session_id: sessionId, 
+            role: 'action', 
+            content: actionMsg.content, 
+            action_type: event.action,
+            action_data: event.params,
+            action_status: 'running',
+            hitl_required: event.action === 'HITL'
+          });
 
           if (event.action === 'HITL') {
             setHitlRequired(true);
-            // Don't add duplicate message - just set the flag
           }
         } else if (event.type === 'hitl') {
           setHitlRequired(true);
-          addMessage({
-            id: Math.random().toString(),
+          const hitlMsgId = Math.random().toString();
+          const hitlMsg = {
+            id: hitlMsgId,
             session_id: sessionId,
             role: 'assistant',
             content: `Your input is needed: ${event.content}`,
+            hitl_required: true,
             created_at: new Date().toISOString()
-          } as any);
-        } else if (event.type === 'terminal_permission') {
+          };
+          addMessage(hitlMsg as any);
+          chatApi.saveMessage({ 
+            session_id: sessionId, 
+            role: 'assistant', 
+            content: hitlMsg.content, 
+            hitl_required: true,
+            description: event.content,
+            is_final: true
+          });
+} else if (event.type === 'terminal_permission') {
           setTerminalRequest({ command: event.command });
-          addMessage({
-            id: Math.random().toString(),
+          const termMsgId = Math.random().toString();
+          const termMsg = {
+            id: termMsgId,
             session_id: sessionId,
             role: 'assistant',
             content: `🖥️ The AI wants to run a terminal command on your device. Please approve or deny.`,
             created_at: new Date().toISOString()
-          } as any);
+          };
+          addMessage(termMsg as any);
+          chatApi.saveMessage({ 
+            session_id: sessionId, 
+            role: 'assistant', 
+            content: termMsg.content, 
+            is_final: true
+          });
         } else if (event.type === 'stream') {
           // Continuous streaming for ASK mode
           const sMsgId: string = currentAssistantMessageId || Math.random().toString();
@@ -397,18 +441,30 @@ export default function ChatPanel({ sessionId }: ChatPanelProps) {
       }
     } catch (err: any) {
       setError(err.message || 'Failed to send message');
-    } finally {
+} finally {
       setStreaming(false);
       setAiState('idle');
       isSendingRef.current = false;
       const final = useChatStore.getState().messages;
-      setMessages(
-        final.map((m) =>
-          m.role === 'action' && (m as { action_status?: string }).action_status === 'running'
-            ? ({ ...m, action_status: 'done' } as typeof m)
-            : m
-        )
+      const updated = final.map((m) =>
+        m.role === 'action' && (m as { action_status?: string }).action_status === 'running'
+          ? ({ ...m, action_status: 'done' } as typeof m)
+          : m
       );
+      setMessages(updated);
+      
+      updated.forEach((m) => {
+        if (m.role === 'action' && (m as { action_status?: string }).action_status === 'done') {
+          chatApi.saveMessage({ 
+            session_id: sessionId, 
+            role: 'action', 
+            content: m.content, 
+            action_type: (m as { action_type?: string }).action_type,
+            action_data: (m as { action_data?: any }).action_data,
+            action_status: 'done'
+          });
+        }
+      });
     }
   };
 

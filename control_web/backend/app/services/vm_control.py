@@ -129,8 +129,22 @@ class VMControlService:
         agent_port: int,
         machine_id: Optional[str] = None,
         host: Optional[str] = None,
+        public_ip: Optional[str] = None,
+        vnc_password: Optional[str] = None,
+        session_id: Optional[str] = None,
+        user_id: Optional[str] = None,
     ) -> bool:
-        """Establish WebSocket connection to VM agent with auto-reconnect and heartbeat."""
+        """Establish WebSocket connection to VM agent with auto-reconnect and heartbeat.
+        
+        Args:
+            agent_port: The port the VM agent is listening on
+            machine_id: Unique identifier for the machine/VM
+            host: Override host (if not provided, uses DOCKER_HOST_IP)
+            public_ip: Public IP of the VM (used for dynamic port resolution)
+            vnc_password: VNC password for authentication
+            session_id: Session ID for auth
+            user_id: User ID for auth
+        """
         import websockets
         from websockets.protocol import State as WSState
 
@@ -139,6 +153,18 @@ class VMControlService:
 
         target_host = host or DOCKER_HOST_IP
 
+        # Dynamic port resolution: if localhost and default port 8080, use 8081
+        actual_port = agent_port
+        is_localhost = public_ip in ("localhost", "127.0.0.1", None) or (host and host in ("localhost", "127.0.0.1", "host.docker.internal"))
+        
+        if is_localhost and agent_port == 8080:
+            actual_port = 8081
+            logger.info(f"Using port 8081 for localhost connection instead of 8080")
+
+        logger.info(f"🔌 VM CONNECT: machine_id={machine_id}, target_host={target_host}, port={actual_port}")
+        logger.info(f"   original_port={agent_port}, public_ip={public_ip}, is_localhost={is_localhost}")
+        logger.info(f"   auth: session_id={session_id or 'auto'}, user_id={user_id or 'default'}, has_password={bool(vnc_password)}")
+        
         if machine_id not in self.connection_locks:
             self.connection_locks[machine_id] = asyncio.Lock()
         
@@ -150,8 +176,8 @@ class VMControlService:
                         logger.info(f"Reusing existing persistent connection for machine {machine_id}")
                         self.last_successful_command[machine_id] = time.time()
                         return True
-                except Exception:
-                    pass
+                except Exception as e:
+                    logger.debug(f"Connection check error: {e}")
                 logger.warning(f"Connection for {machine_id} is closed, cleaning up")
                 await self._cleanup_connection(machine_id)
             
@@ -159,11 +185,29 @@ class VMControlService:
             
             while self.reconnect_attempts[machine_id] < self.max_reconnect_attempts:
                 try:
-                    agent_url = f"ws://{target_host}:{agent_port}"
+                    agent_url = f"ws://{target_host}:{actual_port}"
                     logger.info(
-                        f"Connecting to {agent_url} "
-                        f"(attempt {self.reconnect_attempts[machine_id] + 1})"
+                        f"🔌 attempt {self.reconnect_attempts[machine_id] + 1}/{self.max_reconnect_attempts}: connecting to {agent_url}"
                     )
+
+                    # Test connectivity first with a quick socket test
+                    try:
+                        import socket
+                        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                        sock.settimeout(2)
+                        result = sock.connect_ex((target_host, actual_port))
+                        sock.close()
+                        if result == 0:
+                            logger.info(f"✅ TCP port {actual_port} is reachable on {target_host}")
+                        else:
+                            logger.warning(f"❌ TCP port {actual_port} NOT reachable on {target_host} (connect_ex code: {result})")
+                            # Code 111 = ECONNREFUSED, 113 = EHOSTUNREACH, 101 = ENETUNREACH
+                            if result == 111:
+                                logger.warning(f"   💡 Connection refused - VM agent may not be running on port {actual_port}")
+                            elif result == 113:
+                                logger.warning(f"   💡 No route to host - check firewall/network settings")
+                    except Exception as e:
+                        logger.debug(f"Port check failed (non-critical): {e}")
 
                     websocket = await asyncio.wait_for(
                         websockets.connect(
@@ -178,26 +222,41 @@ class VMControlService:
                     )
 
                     self.connections[machine_id] = websocket
+                    logger.info(f"✅ WebSocket CONNECTED to {agent_url}")
 
+                    # Enhanced auth message with all credentials
                     auth_msg = {
                         "type": "auth",
-                        "sessionId": f"backend_{int(time.time())}",
-                        "userId": "backend_agent",
-                        "password": "",
+                        "sessionId": session_id or f"backend_{int(time.time())}",
+                        "userId": user_id or "backend_agent",
+                        "password": vnc_password or "",
                     }
+                    logger.info(f"📤 Sending AUTH: {json.dumps(auth_msg)}")
                     await websocket.send(json.dumps(auth_msg))
 
                     try:
                         response = await asyncio.wait_for(websocket.recv(), timeout=5.0)
                         auth_result = json.loads(response)
                         if auth_result.get("type") == "auth_success":
-                            logger.info(f"Authenticated with VM agent {machine_id}")
+                            logger.info(f"✓ Authenticated with VM agent {machine_id}: {auth_result}")
                         else:
-                            logger.warning(f"Auth response: {auth_result}")
+                            logger.error(f"❌ Auth rejected by VM agent {machine_id}: {auth_result}")
+                            await websocket.close()
+                            del self.connections[machine_id]
+                            self.reconnect_attempts[machine_id] += 1
+                            continue
                     except asyncio.TimeoutError:
-                        logger.warning("Auth timeout - agent may not require auth")
+                        logger.error(f"⏱️ Auth timeout for {machine_id} - closing connection")
+                        await websocket.close()
+                        del self.connections[machine_id]
+                        self.reconnect_attempts[machine_id] += 1
+                        continue
                     except Exception as e:
-                        logger.warning(f"Auth handshake issue: {e}")
+                        logger.error(f"❌ Auth handshake error for {machine_id}: {e}")
+                        await websocket.close()
+                        del self.connections[machine_id]
+                        self.reconnect_attempts[machine_id] += 1
+                        continue
 
                     if machine_id not in self.execution_locks:
                         self.execution_locks[machine_id] = asyncio.Lock()
@@ -217,6 +276,10 @@ class VMControlService:
                     self.session_data[machine_id] = {
                         "host": target_host,
                         "agent_port": agent_port,
+                        "public_ip": public_ip,
+                        "vnc_password": vnc_password,
+                        "session_id": session_id,
+                        "user_id": user_id,
                         "connected_at": time.time(),
                     }
 
@@ -341,21 +404,32 @@ class VMControlService:
             ws = self.connections[machine_id]
             try:
                 if ws.state == WSState.OPEN:
+                    logger.debug(f"Connection for {machine_id} is OPEN, checking last used...")
                     last = self.last_successful_command.get(machine_id, 0)
                     if time.time() - last < 60:
+                        logger.debug(f"Reusing active connection for {machine_id} (last used {time.time() - last:.1f}s ago)")
                         return True
+                    # Do a quick ping test for idle connections
                     await asyncio.wait_for(ws.ping(), timeout=3.0)
+                    logger.debug(f"Connection for {machine_id} verified and reused")
                     return True
             except Exception as e:
                 logger.warning(f"Connection check failed for {machine_id}: {e}")
 
+        # Try to reconnect using stored session data
         if machine_id in self.session_data:
             session = self.session_data[machine_id]
+            logger.info(f"Attempting to reconnect to {machine_id} with stored session data")
             return await self.connect(
-                session["agent_port"],
+                session.get("agent_port", 8080),
                 machine_id,
                 session.get("host"),
+                session.get("public_ip"),
+                session.get("vnc_password"),
+                session.get("session_id"),
+                session.get("user_id"),
             )
+        logger.warning(f"No session data found for machine {machine_id}")
         return False
 
     def get_command_lock(self, machine_id: str) -> asyncio.Lock:
@@ -431,20 +505,28 @@ class VMControlService:
     ) -> Dict[str, Any]:
         """Inner command execution (called under lock)."""
         
+        logger.info(f"📝 Executing command '{command}' on machine {machine_id}")
+        logger.debug(f"   Parameters: {parameters}")
+        
         if machine_id in self.cancellation_events:
             if not self.cancellation_events[machine_id].is_set():
+                logger.warning(f"Execution cancelled for {machine_id} before command")
                 return {"success": False, "error": "Execution cancelled"}
         
         if machine_id in self.circuit_breakers:
             breaker = self.circuit_breakers[machine_id]
             if not breaker.can_execute():
+                logger.error(f"Circuit breaker open for {machine_id}, rejecting command")
                 return {"success": False, "error": "Circuit breaker open - service unavailable"}
         
+        logger.debug(f"Ensuring connection for {machine_id} before executing command")
         if not await self.ensure_connection(machine_id):
+            logger.error(f"❌ Failed to ensure connection for {machine_id}")
             if machine_id in self.circuit_breakers:
                 self.circuit_breakers[machine_id].record_failure()
             return {"success": False, "error": "Cannot connect to VM agent"}
-
+        
+        logger.debug(f"Connection ready for {machine_id}, sending command")
         ws = self.connections[machine_id]
         if timeout is None:
             timeout = self.command_timeout.get(command, self.command_timeout["default"])

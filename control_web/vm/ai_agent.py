@@ -44,27 +44,43 @@ class VMAgent:
         return actual_x, actual_y
 
     async def handle_client(self, websocket):
-        logger.info("New connection to VM Agent")
+        client_addr = websocket.remote_address
+        logger.info(f"🔌 New connection from {client_addr}")
         try:
             # Wait for first message - check if it's an auth message
+            logger.info("⏳ Waiting for auth/command message...")
             first_msg = await asyncio.wait_for(websocket.recv(), timeout=10.0)
+            logger.info(f"📥 Received first message: {first_msg[:200] if len(first_msg) > 200 else first_msg}")
+            
             data = json.loads(first_msg)
 
             if data.get('type') == 'auth':
+                session_id = data.get('sessionId', 'unknown')
+                user_id = data.get('userId', 'unknown')
+                password = data.get('password', '')
+                logger.info(f"🔐 Auth request: sessionId={session_id}, userId={user_id}, has_password={bool(password)}")
+                
                 # Send auth success response
                 await websocket.send(json.dumps({
                     "type": "auth_success",
                     "message": "Authenticated successfully"
                 }))
-                logger.info(f"Client authenticated: {data.get('userId', 'unknown')}")
+                logger.info(f"✅ Client authenticated: userId={user_id}, sessionId={session_id}")
             elif data.get('type') == 'command':
                 # No auth, process as command directly
                 result = await self._process_command(data)
                 await websocket.send(json.dumps(result))
             elif data.get('type') == 'ping':
+                logger.info("🏓 Ping received, sending pong")
                 await websocket.send(json.dumps({"type": "pong"}))
+            elif data.get('type') == 'command':
+                # No auth, process as command directly
+                logger.info("⚡ Processing command without auth")
+                result = await self._process_command(data)
+                await websocket.send(json.dumps(result))
 
             # Main message loop
+            logger.info("🔄 Entering message loop...")
             async for message in websocket:
                 try:
                     data = json.loads(message)
@@ -501,13 +517,12 @@ class VMAgent:
             return {"success": False, "error": "No URL provided"}
 
         try:
-            # Try to open in existing Firefox, or start new one
             subprocess.Popen(
-                ['firefox', '--new-tab', url],
+                ['firefox', '--no-sandbox', '--new-tab', url],
                 env={**os.environ, 'DISPLAY': ':1'},
                 stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
             )
-            await asyncio.sleep(2)  # Wait for browser to load
+            await asyncio.sleep(2)
             return {"success": True, "navigated_to": url}
         except Exception as e:
             return {"success": False, "error": f"Browser navigation failed: {e}"}
@@ -986,7 +1001,7 @@ class VMAgent:
     async def _browser_open(self, params: dict) -> dict:
         try:
             result = subprocess.run(
-                "firefox --new-window about:blank &",
+                "firefox --no-sandbox --new-window about:blank &",
                 shell=True, capture_output=True, timeout=10
             )
             await asyncio.sleep(3)
@@ -1038,7 +1053,7 @@ class VMAgent:
     async def _browser_new_tab(self, params: dict) -> dict:
         url = params.get('url', 'about:blank')
         try:
-            subprocess.run(f"firefox -new-tab {url} &", shell=True, timeout=5)
+            subprocess.run(f"firefox --no-sandbox -new-tab {url} &", shell=True, timeout=5)
             await asyncio.sleep(1)
             return {"success": True, "url": url}
         except Exception as e:
@@ -1141,15 +1156,32 @@ class VMAgent:
 
 async def main():
     agent = VMAgent()
-    logger.info("Starting VM Agent on port 8080...")
+    AGENT_PORT = int(os.environ.get("AGENT_PORT", "8080"))
+    logger.info(f"🚀 Starting VM Agent on ws://0.0.0.0:{AGENT_PORT}")
+    logger.info(f"   WebSocket will accept connections and handle: auth, command, ping, screenshot, browser, terminal, file ops")
+    
+    # Check what's listening before starting
+    logger.info(f"   Checking if port {AGENT_PORT} is available...")
+    import socket
+    test_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    test_sock.settimeout(1)
+    result = test_sock.connect_ex(("127.0.0.1", AGENT_PORT))
+    test_sock.close()
+    if result == 0:
+        logger.warning(f"   ⚠️ Port {AGENT_PORT} is already in use!")
+    else:
+        logger.info(f"   ✓ Port {AGENT_PORT} is available")
+    
     async with serve(
         agent.handle_client,
         "0.0.0.0",
-        8080,
+        AGENT_PORT,
         max_size=50 * 1024 * 1024,  # 50MB max message
         ping_interval=20,
         ping_timeout=10,
     ):
+        logger.info(f"✅ VM Agent listening on ws://0.0.0.0:{AGENT_PORT}")
+        logger.info(f"   Ready to accept WebSocket connections...")
         await asyncio.Future()  # run forever
 
 if __name__ == "__main__":

@@ -640,8 +640,8 @@ class SettingsModal {
             const planBadge = document.querySelector('.plan-badge');
             if (planBadge) planBadge.textContent = (this.currentUser.plan || 'Free Plan').toUpperCase();
 
-            const actUsed = this.currentUser.actUsed || 0;
-            const askUsed = this.currentUser.askUsed || 0;
+const actUsed = this.currentUser.actCount || 0;
+            const askUsed = this.currentUser.askCount || 0;
             const plan = (this.currentUser.plan || 'free').toLowerCase();
             let actLimitStr = plan === 'master' ? '∞' : (plan === 'pro' ? '200' : '10');
             let askLimitStr = plan === 'master' ? '∞' : (plan === 'pro' ? '500' : '200');

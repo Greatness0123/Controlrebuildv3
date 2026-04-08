@@ -949,7 +949,14 @@ class AgentExecutor:
                 return
 
             if machine_id:
-                await vm_service.ensure_vm_agent_connected(db, machine_id)
+                logger.info(f"🔗 Ensuring VM agent is connected for machine {machine_id}")
+                connected = await vm_service.ensure_vm_agent_connected(db, machine_id)
+                if not connected:
+                    logger.error(f"❌ Failed to connect to VM agent for machine {machine_id}")
+                    yield {"type": "error", "content": "Failed to connect to VM agent. Please check that the VM is running and try again."}
+                    yield {"type": "done"}
+                    return
+                logger.info(f"✅ VM agent connected successfully for machine {machine_id}")
 
             while step < max_steps:
                 step += 1

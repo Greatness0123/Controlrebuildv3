@@ -16,6 +16,12 @@ async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> 
     ...options,
     headers: { ...headers, ...(options.headers as Record<string, string> || {}) },
   });
+  if (res.status === 401 || res.status === 403) {
+    const { getSupabaseClient } = await import('./supabase');
+    await getSupabaseClient().auth.signOut();
+    window.location.href = '/login';
+    throw new Error('Session expired. Please log in again.');
+  }
   if (!res.ok) {
     const err = await res.json().catch(() => ({ detail: res.statusText }));
     throw new Error(err.detail || `API error: ${res.status}`);
@@ -95,8 +101,35 @@ export const chatApi = {
       method: 'PATCH',
       body: JSON.stringify(data),
     }),
-  delete: (sessionId: string) =>
+delete: (sessionId: string) =>
     apiFetch<{ success: boolean }>(`/api/chat/${sessionId}`, { method: 'DELETE' }),
+
+  saveMessage: async (message: {
+    session_id: string;
+    role: string;
+    content: string;
+    screenshot_url?: string;
+    action_type?: string;
+    action_data?: any;
+    is_thought?: boolean;
+    is_final?: boolean;
+    description?: string;
+    hitl_required?: boolean;
+    action_status?: string;
+  }) => {
+    try {
+      const supabase = getSupabaseClient();
+      const { data, error } = await supabase
+        .from('chat_messages')
+        .upsert(message, { onConflict: 'id' })
+        .select();
+      if (error) throw error;
+      return { success: true, message: data?.[0] };
+    } catch (err) {
+      console.warn('Failed to save message to Supabase:', err);
+      return { success: false };
+    }
+  },
 
   recentActions: async (limit: number = 10) => {
     try {

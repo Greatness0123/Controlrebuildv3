@@ -13,13 +13,27 @@ export function getSupabaseClient(): SupabaseClient {
 
 export async function getSession() {
   const client = getSupabaseClient();
-  const { data } = await client.auth.getSession();
-  return data.session;
+  try {
+    const { data, error } = await client.auth.getSession();
+    if (error) {
+      console.warn('Session error:', error.message);
+      return null;
+    }
+    return data.session;
+  } catch (e) {
+    console.warn('Session fetch failed:', e);
+    return null;
+  }
 }
 
 export async function getAccessToken(): Promise<string | null> {
-  const session = await getSession();
-  return session?.access_token ?? null;
+  try {
+    const session = await getSession();
+    return session?.access_token ?? null;
+  } catch (e) {
+    console.warn('getAccessToken failed:', e);
+    return null;
+  }
 }
 
 export async function signIn(email: string, password: string) {

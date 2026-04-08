@@ -3,6 +3,7 @@ import random
 import logging
 import asyncio
 import os
+import time
 from datetime import datetime, timezone
 from typing import Optional
 from supabase import Client
@@ -336,27 +337,47 @@ class VMService:
         """
         Open (or reuse) the backend WebSocket to the VM automation agent.
         noVNC only needs HTTP; actions need this agent on agent_port keyed by VM id.
+        
+        Follows open-computer-use's approach:
+        - Fetches full VM configuration from database
+        - Tries multiple connection endpoints
+        - Updates DB with working host
+        - Passes all credentials (password, session_id, user_id) to connection
         """
         from app.services.vm_control import vm_control_service
+        import uuid
 
         sid = str(vm_id)
+        
+        # First, check if we already have a valid connection
         if await vm_control_service.ensure_connection(sid):
+            logger.info(f"Reusing existing connection for VM {vm_id}")
             return True
         
-        res = db.table("virtual_machines").select("agent_port, agent_host, status").eq("id", vm_id).execute()
+        # Fetch full VM configuration from database
+        res = db.table("virtual_machines").select("*").eq("id", vm_id).execute()
         if not res.data:
+            logger.error(f"VM {vm_id} not found in database")
             return False
         row = res.data[0]
+        
         if row.get("status") != "running":
+            logger.warning(f"VM {vm_id} is not running (status: {row.get('status')})")
             return False
         
         port = row.get("agent_port")
-        # Use host.docker.internal for containerized backend, or fallback to other methods
         stored_host = row.get("agent_host")
+        vnc_password = row.get("vnc_password", "")
+        
+        # Get public_ip - could be stored or derive from agent_host
+        public_ip = stored_host if stored_host else "localhost"
+        
+        # Get user_id from the VM record (foreign key to users table)
+        user_id = row.get("user_id", "")
         
         # Try multiple host options for Azure/containerized environments
         hosts_to_try = []
-        if stored_host:
+        if stored_host and stored_host not in ["localhost", "127.0.0.1"]:
             hosts_to_try.append(stored_host)
         hosts_to_try.extend([
             "host.docker.internal",
@@ -365,33 +386,58 @@ class VMService:
         ])
         
         if port is None:
+            logger.error(f"❌ VM {vm_id} has NO agent_port configured in database!")
+            logger.error(f"   DB row: {row}")
             return False
         
-        # Try each host - but do it quickly (don't wait long on each)
+        logger.info(f"🔧 VM Connection Config:")
+        logger.info(f"   machine_id={vm_id}")
+        logger.info(f"   agent_port={port} (type: {type(port)})")
+        logger.info(f"   stored_agent_host={stored_host}")
+        logger.info(f"   public_ip={public_ip}")
+        logger.info(f"   hosts_to_try={hosts_to_try}")
+        
+        # Try each host - with detailed logging
         last_error = None
         for host in hosts_to_try:
             try:
-                logger.info(f"Attempting to connect to VM agent at {host}:{port}")
-                # Use shorter timeout for faster connection
+                logger.info(f"🔄 Attempting to connect to VM agent at {host}:{port}")
+                
+                # Generate a session ID for this connection
+                session_id = f"vm_{vm_id}_{int(time.time())}"
+                
                 result = await asyncio.wait_for(
-                    vm_control_service.connect(int(port), machine_id=sid, host=host),
-                    timeout=3.0
+                    vm_control_service.connect(
+                        int(port), 
+                        machine_id=sid, 
+                        host=host,
+                        public_ip=public_ip,
+                        vnc_password=vnc_password or "",  # Always pass string
+                        session_id=session_id,
+                        user_id=user_id,
+                    ),
+                    timeout=10.0
                 )
+                
                 if result:
-                    logger.info(f"Successfully connected to VM agent at {host}:{port}")
+                    logger.info(f"✅ SUCCESS: Connected to VM agent at {host}:{port}")
                     # Update the database with the working host
                     db.table("virtual_machines").update({"agent_host": host}).eq("id", vm_id).execute()
                     return True
+                else:
+                    logger.warning(f"❌ FAILED: connect() returned False for {host}:{port}")
+                    last_error = "connection_failed"
+                    
             except asyncio.TimeoutError:
-                logger.warning(f"Timeout connecting to {host}:{port}")
+                logger.warning(f"⏱️ Timeout connecting to {host}:{port}")
                 last_error = "timeout"
                 continue
             except Exception as e:
-                last_error = e
-                logger.warning(f"Failed to connect to {host}:{port}: {e}")
+                last_error = str(e)
+                logger.warning(f"❌ Failed to connect to {host}:{port}: {e}")
                 continue
         
-        logger.warning(f"Could not connect to VM agent, but VM is running: {last_error}")
+        logger.error(f"🚫 Could not connect to VM agent for {vm_id}, last_error: {last_error}")
         # VM is running even if we can't connect - don't block
         return False
 

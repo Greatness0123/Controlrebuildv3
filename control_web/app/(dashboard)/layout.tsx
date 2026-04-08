@@ -317,7 +317,7 @@ export default function WorkspaceLayout({ children }: { children: ReactNode }) {
         <SidebarContent />
       </aside>
 
-      <main className="flex-1 flex flex-col min-w-0 overflow-hidden relative">
+      <main className="flex-1 flex flex-col min-w-0 overflow-hidden relative z-10">
 
         <div className="md:hidden flex items-center h-12 px-2 border-b border-border bg-secondary shrink-0 gap-1.5">
           <button

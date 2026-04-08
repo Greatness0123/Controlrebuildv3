@@ -422,9 +422,20 @@ async incrementTaskCount(userId, mode) {
 
 async updateTokenUsage(userId, mode, usage) {
         try {
-            if (!supabase || !usage) return;
+            if (!supabase || !usage) {
+                console.log('[Supabase] updateTokenUsage: Skipping - no usage data');
+                return;
+            }
             console.log(`[Supabase] updateTokenUsage: userId=${userId}, mode=${mode}, usage=${JSON.stringify(usage)}`);
-            const { promptTokenCount, candidatesTokenCount, totalTokenCount } = usage;
+            
+            const promptTokenCount = usage.promptTokenCount ?? usage.promptTokens ?? usage.prompt_token_count ?? 0;
+            const candidatesTokenCount = usage.candidatesTokenCount ?? usage.candidatesTokens ?? usage.candidates_token_count ?? 0;
+            const totalTokenCount = usage.totalTokenCount ?? usage.totalTokens ?? usage.total_token_count ?? usage.totalTokenCount ?? 0;
+            
+            if (!promptTokenCount && !candidatesTokenCount && !totalTokenCount) {
+                console.log('[Supabase] updateTokenUsage: No token counts found in usage metadata');
+                return;
+            }
             
             const { data: user, error } = await supabase.from('users').select('token_usage, daily_token_usage, total_token_usage').eq('id', userId).single();
             if (error) {
