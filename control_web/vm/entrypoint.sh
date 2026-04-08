@@ -72,6 +72,14 @@ netstat -tlnp 2>/dev/null | grep -E "5900|6080" || ss -tlnp | grep -E "5900|6080
 
 echo "[entrypoint] Starting AI Agent WebSocket server..."
 
+# Add buffer for X server to be fully ready
+sleep 2
+export DISPLAY=:1
+
+# Create .Xauthority file to fix PyAutoGUI X11 auth error
+touch /home/controluser/.Xauthority
+xhost +local:root 2>/dev/null || xhost + 2>/dev/null || true
+
 # Start AI Agent - it listens on port 8080
 python3 /home/controluser/ai_agent.py &
 AGENT_PID=$!

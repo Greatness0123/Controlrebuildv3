@@ -1,9 +1,9 @@
 'use client';
 
-import { Suspense, useState } from 'react';
+import { Suspense, useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { signIn } from '@/lib/supabase';
+import { signIn, getSupabaseClient } from '@/lib/supabase';
 import { Command, ArrowRight, AlertCircle } from 'lucide-react';
 import { safeNextPath } from '@/lib/safe-next-path';
 
@@ -12,9 +12,33 @@ function LoginForm() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [initialized, setInitialized] = useState(false);
   const router = useRouter();
   const searchParams = useSearchParams();
   const nextPath = safeNextPath(searchParams.get('next'));
+
+  useEffect(() => {
+    async function checkExistingSession() {
+      const supabase = getSupabaseClient();
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) {
+        router.push(nextPath);
+        router.refresh();
+        return;
+      }
+      setInitialized(true);
+    }
+    checkExistingSession();
+  }, [router, nextPath]);
+
+  if (!initialized) {
+    return (
+      <div className="relative w-full max-w-md flex flex-col items-center justify-center py-16">
+        <div className="w-8 h-8 border-2 border-white/20 border-t-white rounded-full animate-spin" />
+        <p className="mt-4 text-sm text-zinc-500">Checking session...</p>
+      </div>
+    );
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

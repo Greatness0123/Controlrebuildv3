@@ -19,7 +19,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("VM-Agent")
 
 # Screen resolution (will be detected dynamically)
-SCREEN_WIDTH, SCREEN_HEIGHT = 1920, 1080
+SCREEN_WIDTH, SCREEN_HEIGHT = pyautogui.size()
 
 
 class VMAgent:
