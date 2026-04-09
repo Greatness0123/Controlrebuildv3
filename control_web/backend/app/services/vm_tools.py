@@ -107,6 +107,26 @@ def create_vm_tools(machine_id: str, connection_info: Optional[Dict] = None) -> 
         "execute": detect_elements
     }
     
+    async def browser_state() -> Dict:
+        """Get comprehensive browser state including focus, cursor, scroll, and interaction state"""
+        if not await ensure_connection():
+            return {"success": False, "error": "Cannot connect to VM agent"}
+        
+        result = await vm_control_service.execute_command(machine_id, "browser_state", {})
+        return filter_screenshot_for_model(result)
+    
+    tools["browser_state"] = {
+        "name": "browser_state",
+        "description": "Get comprehensive browser state including: active/focused element details (where cursor/focus is), mouse position, scroll position, forms on page, interactive elements count, loading indicators, and alerts. This provides complete situational awareness of the browser's current state.",
+        "parameters": {
+            "type": "object",
+            "properties": {},
+            "required": [],
+            "additionalProperties": False
+        },
+        "execute": browser_state
+    }
+    
     async def ocr() -> Dict:
         """Extract text from screen using OCR"""
         if not await ensure_connection():

@@ -38,11 +38,13 @@ function Code({ size }: { size?: number }) {
 function Brain({ size }: { size?: number }) {
   const s = size || 24;
   return (
-    <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ minWidth: s, minHeight: s }}>
-      <path d="M12 4a4 4 0 0 1 2 7.5c0 2-1 3.5-2 4.5s-2 2-2 2 1 1.5 2 2.5 2 1 2 1" />
-      <path d="M12 4a4 4 0 0 0-2 7.5c0 2 1 3.5 2 4.5s2 2 2 2-1 1.5-2 2.5-2 1-2 1" />
-      <path d="M12 4a4 4 0 0 1 2-1.5c1.5 0 2.5 1 2.5 2.5s-1 3-2 4-2 2.5-2 2.5 1 1.5 2 2.5 2 1 2 1" />
-      <circle cx="12" cy="12" r="2" />
+    <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M9.5 2A2.5 2.5 0 0 1 12 4.5a2.5 2.5 0 0 1 2.5 2.5A2.5 2.5 0 0 1 12 9a2.5 2.5 0 0 1-2.5 2.5A2.5 2.5 0 0 1 7 9a2.5 2.5 0 0 1 2.5-2.5" />
+      <path d="M9.5 2A2.5 2.5 0 0 0 7 4.5a2.5 2.5 0 0 0 2.5 2.5A2.5 2.5 0 0 0 12 9a2.5 2.5 0 0 0 2.5-2.5A2.5 2.5 0 0 0 12 4.5a2.5 2.5 0 0 0-2.5-2.5" />
+      <path d="M17 5a2.5 2.5 0 0 1 2.5 2.5A2.5 2.5 0 0 1 17 10a2.5 2.5 0 0 1-2.5 2.5A2.5 2.5 0 0 1 12 10a2.5 2.5 0 0 1 2.5-2.5" />
+      <path d="M12 12a2 2 0 0 1 2 2 2 2 0 0 1-2 2 2 2 0 0 1-2-2 2 2 0 0 1 2-2" />
+      <path d="M12 12v4" />
+      <path d="M12 16v2" />
     </svg>
   );
 }

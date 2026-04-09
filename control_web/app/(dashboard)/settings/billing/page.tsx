@@ -156,28 +156,28 @@ const PLANS = [
 
 const PLAN_DETAILS = {
   lite: {
-    name: 'Coasty Lite',
+    name: 'Control Lite',
     description: 'Perfect for light personal tasks',
     credits: 100,
     vms: 1,
     features: ['1 always-on VM', '2 agents in parallel', 'Standard search']
   },
   starter: {
-    name: 'Coasty Starter',
+    name: 'Control Starter',
     description: 'Great for small projects and hobbyists',
     credits: 250,
     vms: 1,
     features: ['1 always-on VM', '4 agents in parallel', 'Standard search']
   },
   plus: {
-    name: 'Coasty Plus',
+    name: 'Control Plus',
     description: 'Scale complex workflows',
     credits: 600,
     vms: 2,
     features: ['2 always-on VMs', '6 agents in parallel', 'Advanced search & extraction', 'Priority support, 24hr response']
   },
   pro: {
-    name: 'Coasty Pro',
+    name: 'Control Pro',
     description: 'For power users and businesses',
     credits: 1500,
     vms: 5,

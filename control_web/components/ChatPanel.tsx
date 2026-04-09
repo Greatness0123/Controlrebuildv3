@@ -519,6 +519,25 @@ const existingMessages = useChatStore.getState().messages;
         </div>
       )}
 
+      {error && (
+        <div className="mx-4 mt-3 p-4 bg-destructive/10 border border-destructive/20 rounded-2xl animate-in fade-in">
+          <div className="flex items-start gap-3">
+            <AlertCircle size={18} className="text-destructive shrink-0 mt-0.5" />
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-bold text-destructive mb-1">Agent Error</p>
+              <p className="text-xs text-text-muted">{error}</p>
+            </div>
+            <button
+              onClick={() => { setError(''); handleSend(undefined, "Retry the last action."); }}
+              className="p-2 text-destructive hover:bg-destructive/20 rounded-lg transition-colors shrink-0"
+              title="Retry"
+            >
+              <Loader2 size={14} className="rotate-180" />
+            </button>
+          </div>
+        </div>
+      )}
+
       <div
         ref={scrollRef}
         className={cn(

@@ -26,10 +26,13 @@ import {
   Github,
   Linkedin,
   MessagesSquare,
+  Zap,
+  Bot,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { useRef, useState } from 'react';
 import { getSocialLinks } from '@/lib/social-links';
+import { SoftwareLogos } from './SoftwareLogos';
 
 const fadeEase = [0.22, 1, 0.36, 1] as const;
 const fadeTransition: Transition = { duration: 0.55, ease: fadeEase };
@@ -80,7 +83,7 @@ export default function LandingMarketing() {
               transition={{ duration: 0.5 }}
               className="text-[10px] sm:text-[11px] font-semibold uppercase tracking-[0.28em] text-neutral-500 mb-6"
             >
-              Desktop agent + cloud workspace
+              AI for Professional Software
             </motion.p>
             <motion.h1
               initial={{ opacity: 0, y: 16 }}
@@ -88,9 +91,9 @@ export default function LandingMarketing() {
               transition={{ duration: 0.55, delay: 0.05 }}
               className="font-landing text-[2.35rem] sm:text-5xl md:text-6xl lg:text-[3.5rem] font-bold leading-[1.05] tracking-tight text-white"
             >
-              Your computer,
+              Use expert software
               <br />
-              <span className="text-neutral-500">driven by intent.</span>
+              <span className="text-neutral-500">without becoming an expert.</span>
             </motion.h1>
             <motion.p
               initial={{ opacity: 0, y: 16 }}
@@ -98,14 +101,21 @@ export default function LandingMarketing() {
               transition={{ duration: 0.55, delay: 0.12 }}
               className="mt-6 text-base sm:text-lg text-neutral-400 max-w-xl leading-relaxed"
             >
-              Control watches the same screen you do, understands the interface, and moves the mouse and keyboard to
-              finish work across the apps you already use. Run it on your machine, or automate a cloud desktop from the
-              browser.
+              Control uses AI to operate Blender, AutoCAD, Adobe Premiere, Photoshop, Maya, and more — exactly as if you knew every shortcut. No plugins. No APIs. Just describe what you want.
             </motion.p>
             <motion.div
               initial={{ opacity: 0, y: 16 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.55, delay: 0.18 }}
+              className="mt-8"
+            >
+              <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-neutral-600 mb-4">Works with</p>
+              <SoftwareLogos />
+            </motion.div>
+            <motion.div
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.55, delay: 0.24 }}
               className="mt-10 flex flex-col sm:flex-row gap-3 sm:gap-4"
             >
               <Link
@@ -128,7 +138,7 @@ export default function LandingMarketing() {
           <motion.div
             initial={{ opacity: 0, y: 40 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.7, delay: 0.25, ease: [0.22, 1, 0.36, 1] }}
+            transition={{ duration: 0.7, delay: 0.3, ease: [0.22, 1, 0.36, 1] }}
             className="mt-16 sm:mt-20 relative rounded-2xl border border-white/[0.08] bg-white/[0.02] overflow-hidden aspect-[16/10] sm:aspect-[2/1] max-w-5xl"
           >
             <div className="absolute inset-0 bg-gradient-to-t from-[#050505] via-transparent to-transparent z-10 pointer-events-none" />
@@ -158,12 +168,12 @@ export default function LandingMarketing() {
           <div className="max-w-6xl mx-auto grid lg:grid-cols-2 gap-12 lg:gap-20 items-center">
             <motion.div {...fadeUp}>
               <h2 className="font-landing text-2xl sm:text-3xl md:text-4xl font-bold text-white tracking-tight leading-tight">
-                Powerful software should not require a certification in its own interface.
+                Professional software shouldn't require professional certification.
               </h2>
               <p className="mt-6 text-neutral-400 leading-relaxed">
-                Most knowledge work still means hunting through menus, dialogs, and file trees. Traditional automation
-                is either brittle—built for one app—or heavy enough that only specialists deploy it. Control is built for
-                the gap: open-ended tasks on real desktop software, described in plain language.
+                Blender, AutoCAD, Maya, Premiere — these tools are incredibly powerful, but the learning curve is brutal. 
+                Control removes that barrier. Our AI understands professional interfaces the same way an expert does, 
+                so beginners can produce expert-level work immediately.
               </p>
             </motion.div>
             <motion.div
@@ -172,9 +182,9 @@ export default function LandingMarketing() {
               className="space-y-4"
             >
               {[
-                { t: 'Intent in, actions out', d: 'You describe the outcome; the system plans clicks, keys, and shell steps.' },
-                { t: 'Any visible UI', d: 'Professional tools, internal line-of-business apps, and browsers—if it paints pixels, it can be steered.' },
-                { t: 'Local execution option', d: 'Sensitive work can stay on hardware you control, with approvals for risky operations.' },
+                { t: 'Intent in, expert work out', d: 'Describe the outcome you want; the AI figures out the clicks, shortcuts, and workflows.' },
+                { t: 'Works with real professional tools', d: 'Blender, Photoshop, AutoCAD, Maya, Premiere, After Effects, Unity, Unreal, Figma — if it has a UI, Control can drive it.' },
+                { t: 'No plugins or APIs needed', d: 'Control works with the software as-is. No developer integrations, no configuration — just install and use.' },
               ].map((item) => (
                 <div
                   key={item.t}
@@ -188,8 +198,56 @@ export default function LandingMarketing() {
           </div>
         </section>
 
+        {/* Why we built it */}
+        <section className="px-5 sm:px-8 py-16 sm:py-24 bg-white/[0.02] border-y border-white/[0.06]">
+          <div className="max-w-6xl mx-auto">
+            <motion.div {...fadeUp} className="max-w-2xl mb-8">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.28em] text-neutral-500 mb-3">Why we built it</p>
+              <h2 className="font-landing text-2xl sm:text-3xl font-bold text-white tracking-tight">We wanted to make a 3D logo. It took 6 hours.</h2>
+            </motion.div>
+            <div className="grid lg:grid-cols-2 gap-8 lg:gap-16 items-start">
+              <motion.div {...fadeUp} transition={{ ...fadeUp.transition, delay: 0.05 }}>
+                <p className="text-neutral-400 leading-relaxed text-base">
+                  I (the founder) had used Blender casually for years. But when I needed to create a proper 3D logo for a project, 
+                  I realized I didn't actually know how to do anything beyond the basics. Every task — beveling edges, applying materials, 
+                  setting up proper UVs — required hunting through menus I'd never opened.
+                </p>
+                <p className="mt-4 text-neutral-400 leading-relaxed text-base">
+                  I thought: "There has to be a better way." I spent weeks researching automation tools, but everything required 
+                  either writing Python scripts, buying expensive plugins, or learning the API. That's when the idea hit: 
+                  what if an AI could just... use Blender the way I would, if I knew what I was doing?
+                </p>
+                <p className="mt-4 text-neutral-400 leading-relaxed text-base">
+                  Control is the answer. I built it so that anyone can use professional software — from Blender to AutoCAD to 
+                  Premiere — without years of practice. No APIs, no plugins, no code. Just tell the AI what you want.
+                </p>
+              </motion.div>
+              <motion.div {...fadeUp} transition={{ ...fadeUp.transition, delay: 0.1 }} className="relative">
+                <div className="rounded-2xl border border-white/[0.08] bg-white/[0.02] p-6 sm:p-8">
+                  <div className="flex items-center gap-3 mb-4">
+                    <Bot className="w-5 h-5 text-neutral-400" strokeWidth={1.5} />
+                    <span className="text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500">Example</span>
+                  </div>
+                  <div className="space-y-4">
+                    <div className="p-3 rounded-lg bg-white/[0.04] border border-white/[0.06]">
+                      <p className="text-sm text-neutral-300">"Create a beveled cube with a metallic blue material and render it with studio lighting"</p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <ArrowRight className="w-4 h-4 text-neutral-600" strokeWidth={2} />
+                      <span className="text-xs text-neutral-500">Control creates scene, applies material, sets up lights, renders</span>
+                    </div>
+                    <div className="p-3 rounded-lg bg-green-900/20 border border-green-500/20">
+                      <p className="text-sm text-green-400">✓ Render completed in 47 seconds</p>
+                    </div>
+                  </div>
+                </div>
+              </motion.div>
+            </div>
+          </div>
+        </section>
+
         {/* How */}
-        <section id="how" className="px-5 sm:px-8 py-16 sm:py-24 bg-white/[0.02] border-y border-white/[0.06]">
+        <section id="how" className="px-5 sm:px-8 py-16 sm:py-24">
           <div className="max-w-6xl mx-auto">
             <motion.div {...fadeUp} className="max-w-2xl mb-14 sm:mb-16">
               <p className="text-[10px] font-semibold uppercase tracking-[0.28em] text-neutral-500 mb-3">How it works</p>
@@ -227,42 +285,71 @@ export default function LandingMarketing() {
 
         {/* Product split */}
         <section id="product" className="px-5 sm:px-8 py-16 sm:py-24">
-          <div className="max-w-6xl mx-auto grid md:grid-cols-2 gap-6">
-            <motion.article
-              {...fadeUp}
-              className="group relative rounded-2xl border border-white/[0.08] bg-gradient-to-b from-white/[0.05] to-transparent p-8 sm:p-10 overflow-hidden"
-            >
-              <Monitor className="w-8 h-8 text-neutral-400 mb-6" strokeWidth={1.25} />
-              <h3 className="font-landing text-xl font-bold text-white">Desktop application</h3>
-              <p className="mt-4 text-neutral-400 text-sm leading-relaxed">
-                Runs on Windows, macOS, and Linux. Optional wake-word activation, push-to-talk, and a chat surface for Ask
-                (explanations) versus Act (hands-on automation). Your screen drives decisions; actions happen on your
-                hardware with guardrails for terminal and destructive work.
-              </p>
-              <ul className="mt-6 space-y-2 text-sm text-neutral-500">
-                <li className="flex gap-2"><Check className="w-4 h-4 shrink-0 text-neutral-400 mt-0.5" strokeWidth={2} />Workflows with time or keyword triggers</li>
-                <li className="flex gap-2"><Check className="w-4 h-4 shrink-0 text-neutral-400 mt-0.5" strokeWidth={2} />Browser automation alongside native windows</li>
-                <li className="flex gap-2"><Check className="w-4 h-4 shrink-0 text-neutral-400 mt-0.5" strokeWidth={2} />Pairing for remote viewing from the web</li>
-              </ul>
-            </motion.article>
-            <motion.article
-              {...fadeUp}
-              transition={{ ...fadeUp.transition, delay: 0.06 }}
-              className="group relative rounded-2xl border border-white/[0.08] p-8 sm:p-10 overflow-hidden"
-            >
-              <Globe className="w-8 h-8 text-neutral-400 mb-6" strokeWidth={1.25} />
-              <h3 className="font-landing text-xl font-bold text-white">Control Web</h3>
-              <p className="mt-4 text-neutral-400 text-sm leading-relaxed">
-                Sign in, attach a running cloud machine or a paired desktop, and chat with an agent that sees the remote
-                display. Built-in streaming shows the desktop while automation runs—useful for demos, support, and
-                offload-heavy jobs away from your laptop.
-              </p>
-              <ul className="mt-6 space-y-2 text-sm text-neutral-500">
-                <li className="flex gap-2"><Check className="w-4 h-4 shrink-0 text-neutral-400 mt-0.5" strokeWidth={2} />Session-based AI with action trace</li>
-                <li className="flex gap-2"><Check className="w-4 h-4 shrink-0 text-neutral-400 mt-0.5" strokeWidth={2} />VM lifecycle from the dashboard</li>
-                <li className="flex gap-2"><Check className="w-4 h-4 shrink-0 text-neutral-400 mt-0.5" strokeWidth={2} />Low-latency relay option for desktop preview</li>
-              </ul>
-            </motion.article>
+          <div className="max-w-6xl mx-auto">
+            <motion.div {...fadeUp} className="mb-10">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.28em] text-neutral-500 mb-3">Two ways to use Control</p>
+              <h2 className="font-landing text-2xl sm:text-3xl font-bold text-white tracking-tight">Hybrid product: desktop + cloud</h2>
+            </motion.div>
+            <div className="grid md:grid-cols-2 gap-6">
+              <motion.article
+                {...fadeUp}
+                className="group relative rounded-2xl border border-white/[0.08] bg-gradient-to-b from-white/[0.05] to-transparent p-8 sm:p-10 overflow-hidden"
+              >
+                <div className="flex items-center justify-between mb-6">
+                  <Monitor className="w-8 h-8 text-neutral-400" strokeWidth={1.25} />
+                  <span className="text-[10px] font-semibold uppercase tracking-[0.2em] text-neutral-600 px-2 py-1 rounded border border-white/[0.08]">Local</span>
+                </div>
+                <h3 className="font-landing text-xl font-bold text-white">Desktop Application</h3>
+                <p className="mt-4 text-neutral-400 text-sm leading-relaxed">
+                  Direct local control on your machine. Run automation directly on your Windows, macOS, or Linux computer 
+                  with optional voice-first experience using "Hey Control" wake word. Your screen drives decisions; 
+                  actions happen on your hardware with guardrails for terminal and destructive work.
+                </p>
+                <ul className="mt-6 space-y-2 text-sm text-neutral-500">
+                  <li className="flex gap-2"><Check className="w-4 h-4 shrink-0 text-neutral-400 mt-0.5" strokeWidth={2} />Direct control on your machine</li>
+                  <li className="flex gap-2"><Check className="w-4 h-4 shrink-0 text-neutral-400 mt-0.5" strokeWidth={2} />Voice-first with "Hey Control" wake word</li>
+                  <li className="flex gap-2"><Check className="w-4 h-4 shrink-0 text-neutral-400 mt-0.5" strokeWidth={2} />Push-to-talk for hands-busy scenarios</li>
+                  <li className="flex gap-2"><Check className="w-4 h-4 shrink-0 text-neutral-400 mt-0.5" strokeWidth={2} />Remote desktop connection for viewing</li>
+                  <li className="flex gap-2"><Check className="w-4 h-4 shrink-0 text-neutral-400 mt-0.5" strokeWidth={2} />Safety guardrails for sensitive operations</li>
+                </ul>
+              </motion.article>
+              <motion.article
+                {...fadeUp}
+                transition={{ ...fadeUp.transition, delay: 0.06 }}
+                className="group relative rounded-2xl border border-white/[0.08] p-8 sm:p-10 overflow-hidden"
+              >
+                <div className="flex items-center justify-between mb-6">
+                  <Globe className="w-8 h-8 text-neutral-400" strokeWidth={1.25} />
+                  <span className="text-[10px] font-semibold uppercase tracking-[0.2em] text-neutral-600 px-2 py-1 rounded border border-white/[0.08]">Cloud</span>
+                </div>
+                <h3 className="font-landing text-xl font-bold text-white">Control Web</h3>
+                <p className="mt-4 text-neutral-400 text-sm leading-relaxed">
+                  Spin up cloud VMs from anywhere in the world, let the AI control software, and monitor its work live. 
+                  Built-in streaming shows the desktop while automation runs — perfect for demos, support, and 
+                  offloading heavy jobs away from your laptop.
+                </p>
+                <ul className="mt-6 space-y-2 text-sm text-neutral-500">
+                  <li className="flex gap-2"><Check className="w-4 h-4 shrink-0 text-neutral-400 mt-0.5" strokeWidth={2} />Cloud VM management from dashboard</li>
+                  <li className="flex gap-2"><Check className="w-4 h-4 shrink-0 text-neutral-400 mt-0.5" strokeWidth={2} />Live desktop streaming while AI works</li>
+                  <li className="flex gap-2"><Check className="w-4 h-4 shrink-0 text-neutral-400 mt-0.5" strokeWidth={2} />Session-based AI with action trace</li>
+                  <li className="flex gap-2"><Check className="w-4 h-4 shrink-0 text-neutral-400 mt-0.5" strokeWidth={2} />Pair with desktop for remote viewing</li>
+                  <li className="flex gap-2"><Check className="w-4 h-4 shrink-0 text-neutral-400 mt-0.5" strokeWidth={2} />Low-latency relay option</li>
+                </ul>
+              </motion.article>
+            </div>
+            
+            <motion.div {...fadeUp} className="mt-10 p-6 rounded-2xl border border-white/[0.08] bg-white/[0.02] flex flex-col sm:flex-row items-center gap-6">
+              <div className="flex-1">
+                <div className="flex items-center gap-2 mb-2">
+                  <Zap className="w-5 h-5 text-yellow-400" strokeWidth={1.5} />
+                  <span className="text-sm font-semibold text-white">80% UI Accuracy</span>
+                </div>
+                <p className="text-sm text-neutral-400">Control achieves reliable 80% UI accuracy across professional software. The AI understands complex interfaces and completes multi-step tasks consistently.</p>
+              </div>
+              <div className="w-full sm:w-32 h-2 bg-neutral-800 rounded-full overflow-hidden">
+                <div className="h-full bg-gradient-to-r from-yellow-400 to-yellow-500 rounded-full" style={{ width: '80%' }} />
+              </div>
+            </motion.div>
           </div>
         </section>
 
@@ -287,30 +374,40 @@ export default function LandingMarketing() {
         {/* Use cases */}
         <section className="px-5 sm:px-8 py-16 sm:py-24 bg-white/[0.02] border-y border-white/[0.06]">
           <div className="max-w-6xl mx-auto">
-            <motion.h2 {...fadeUp} className="font-landing text-2xl sm:text-3xl font-bold text-white tracking-tight mb-10 sm:mb-12">
+            <motion.h2 {...fadeUp} className="font-landing text-2xl sm:text-3xl font-bold text-white tracking-tight mb-6 sm:mb-8">
               Where teams feel it first
             </motion.h2>
             <div className="grid sm:grid-cols-3 gap-6">
               {[
                 {
                   title: 'Creative production',
-                  copy: 'Export presets, batch renames, and multi-step toolchains in DCC and editing software without memorizing every panel.',
+                  copy: 'Export presets, batch renames, and multi-step toolchains in Blender, Premiere, Photoshop without memorizing every panel.',
                   img: 'https://images.pexels.com/photos/6476589/pexels-photo-6476589.jpeg?auto=compress&cs=tinysrgb&w=800',
+                  logos: ['Blender', 'Premiere Pro', 'Photoshop', 'After Effects'],
                 },
                 {
                   title: 'Engineering and BIM',
-                  copy: 'Navigate dense CAD and model-review UIs for repetitive documentation, checks, and exports.',
+                  copy: 'Navigate dense CAD and model-review UIs in AutoCAD, Maya, and Revit for repetitive documentation, checks, and exports.',
                   img: 'https://images.pexels.com/photos/3862130/pexels-photo-3862130.jpeg?auto=compress&cs=tinysrgb&w=800',
+                  logos: ['AutoCAD', 'Maya', 'Unity', 'Unreal Engine'],
                 },
                 {
                   title: 'Operations and knowledge work',
-                  copy: 'Cross applications for reporting, internal portals, and file hygiene—areas where copy-paste and manual clicking still dominate.',
+                  copy: 'Cross applications for reporting, internal portals, and file hygiene in Figma, Excel, and browser-based tools.',
                   img: 'https://images.pexels.com/photos/1181677/pexels-photo-1181677.jpeg?auto=compress&cs=tinysrgb&w=800',
+                  logos: ['Figma', 'DaVinci Resolve'],
                 },
-              ].map((u) => (
-                <motion.div key={u.title} {...fadeUp} className="rounded-xl border border-white/[0.08] overflow-hidden bg-white/[0.02]">
+              ].map((u, i) => (
+                <motion.div key={u.title} {...fadeUp} transition={{ ...fadeUp.transition, delay: i * 0.05 }} className="rounded-xl border border-white/[0.08] overflow-hidden bg-white/[0.02]">
                   <div className="relative aspect-[4/3]">
                     <Image src={u.img} alt="" fill className="object-cover grayscale opacity-40" sizes="(max-width:640px) 100vw, 33vw" />
+                    <div className="absolute bottom-3 left-3 right-3 flex flex-wrap gap-1.5">
+                      {u.logos.map((logo) => (
+                        <span key={logo} className="px-2 py-0.5 rounded bg-black/50 backdrop-blur-sm text-[9px] font-medium text-neutral-300">
+                          {logo}
+                        </span>
+                      ))}
+                    </div>
                   </div>
                   <div className="p-5">
                     <h3 className="font-landing text-base font-semibold text-white">{u.title}</h3>

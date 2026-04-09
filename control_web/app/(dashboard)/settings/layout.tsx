@@ -39,7 +39,7 @@ const MENU_SECTIONS = [
     title: 'SUPPORT',
     items: [
       { id: 'feedback', icon: <MessageCircle size={16} />, label: 'Feedback', desc: 'Send feedback' },
-      { id: 'about', icon: <Info size={16} />, label: 'About', desc: 'About Coasty' },
+      { id: 'about', icon: <Info size={16} />, label: 'About', desc: 'About Control' },
     ],
   },
 ];

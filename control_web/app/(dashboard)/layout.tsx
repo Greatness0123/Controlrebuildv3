@@ -186,150 +186,6 @@ export default function WorkspaceLayout({ children }: { children: ReactNode }) {
         </button>
       </div>
 
-      {(sidebarOpen || isMobile) && (
-        <div className="flex-1 overflow-hidden flex flex-col min-h-0">
-          <div className="flex items-center justify-between px-2 py-2 border-b border-border">
-            <button
-              onClick={() => setShowRecentChats(!showRecentChats)}
-              className={cn(
-                "text-[9px] font-bold uppercase tracking-widest px-2 py-1.5 rounded-lg transition-all flex items-center gap-1",
-                showRecentChats 
-                  ? "bg-accent-primary text-accent-foreground" 
-                  : "text-text-muted hover:text-foreground hover:bg-card-hover"
-              )}
-            >
-              <MessageSquare size={10} />
-              Recent Chats
-            </button>
-            <button
-              onClick={() => setShowRecentChats(false)}
-              className={cn(
-                "text-[9px] font-bold uppercase tracking-widest px-2 py-1.5 rounded-lg transition-all flex items-center gap-1",
-                !showRecentChats 
-                  ? "bg-accent-primary text-accent-foreground" 
-                  : "text-text-muted hover:text-foreground hover:bg-card-hover"
-              )}
-            >
-              <LayoutDashboard size={10} />
-              Tabs
-            </button>
-          </div>
-          
-          {showRecentChats ? (
-            <div className="flex-1 overflow-y-auto px-2 space-y-0.25 min-h-0 py-2">
-              {sessions.length === 0 ? (
-                <div className="text-center py-8 text-text-muted text-xs">No recent chats</div>
-              ) : (
-                sessions.map((session) => (
-                  <div key={session.id} className="relative group/session">
-                    {editingSessionId === session.id ? (
-                      <div className="flex items-center gap-1 px-2 py-1">
-                        <input
-                          autoFocus
-                          value={editTitle}
-                          onChange={(e) => setEditTitle(e.target.value)}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter') handleRename(session.id);
-                            if (e.key === 'Escape') setEditingSessionId(null);
-                          }}
-                          onBlur={() => handleRename(session.id)}
-                          className="flex-1 bg-card border border-border rounded px-2 py-1 text-xs text-foreground focus:outline-none"
-                        />
-                      </div>
-                    ) : (
-                      <>
-                        <Link
-                          href={`/c/${session.id}`}
-                          className={cn(
-                            "flex items-center gap-2 px-3 py-2 rounded-lg text-xs transition-all pr-8",
-                            pathname === `/c/${session.id}`
-                              ? 'bg-card text-foreground font-medium'
-                              : 'text-text-secondary hover:bg-card-hover hover:text-foreground'
-                          )}
-                        >
-                          <MessageSquare size={11} className="shrink-0 opacity-60" />
-                          <span className="truncate">{session.title}</span>
-                        </Link>
-                        <div className="absolute right-1.5 top-1/2 -translate-y-1/2 hidden group-hover/session:flex items-center gap-0.5 bg-secondary p-0.5 rounded-md border border-border z-10">
-                          <button
-                            onClick={() => { setEditingSessionId(session.id); setEditTitle(session.title); }}
-                            className="p-1 hover:bg-card rounded text-text-muted hover:text-foreground transition-all"
-                            title="Rename"
-                          >
-                            <Edit2 size={10} />
-                          </button>
-                          <button
-                            onClick={() => handleDeleteSession(session.id, session.title)}
-                            className="p-1 hover:bg-red-500/20 rounded text-text-muted hover:text-red-400 transition-all"
-                            title="Delete"
-                          >
-                            <Trash size={10} />
-                          </button>
-                        </div>
-                      </>
-                    )}
-                  </div>
-                ))
-              )}
-            </div>
-          ) : (
-            <div className="flex-1 overflow-y-auto px-2 space-y-0.25 min-h-0">
-              <div className="text-[9px] font-bold text-text-muted uppercase tracking-widest px-2 py-3">Tabs</div>
-              {sessions.map((session) => (
-                <div key={session.id} className="relative group/session">
-                  {editingSessionId === session.id ? (
-                    <div className="flex items-center gap-1 px-2 py-1">
-                      <input
-                        autoFocus
-                        value={editTitle}
-                        onChange={(e) => setEditTitle(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') handleRename(session.id);
-                          if (e.key === 'Escape') setEditingSessionId(null);
-                        }}
-                        onBlur={() => handleRename(session.id)}
-                        className="flex-1 bg-card border border-border rounded px-2 py-1 text-xs text-foreground focus:outline-none"
-                      />
-                    </div>
-                  ) : (
-                    <>
-                      <Link
-                        href={`/c/${session.id}`}
-                        className={cn(
-                          "flex items-center gap-2 px-3 py-2 rounded-lg text-xs transition-all pr-8",
-                          pathname === `/c/${session.id}`
-                            ? 'bg-card text-foreground font-medium'
-                            : 'text-text-secondary hover:bg-card-hover hover:text-foreground'
-                        )}
-                      >
-                        <MessageSquare size={11} className="shrink-0 opacity-60" />
-                        <span className="truncate">{session.title}</span>
-                      </Link>
-                      <div className="absolute right-1.5 top-1/2 -translate-y-1/2 hidden group-hover/session:flex items-center gap-0.5 bg-secondary p-0.5 rounded-md border border-border z-10">
-                        <button
-                          onClick={() => { setEditingSessionId(session.id); setEditTitle(session.title); }}
-                          className="p-1 hover:bg-card rounded text-text-muted hover:text-foreground transition-all"
-                          title="Rename"
-                        >
-                          <Edit2 size={10} />
-                        </button>
-                        <button
-                          onClick={() => handleDeleteSession(session.id, session.title)}
-                          className="p-1 hover:bg-red-500/20 rounded text-text-muted hover:text-red-400 transition-all"
-                          title="Delete"
-                        >
-                          <Trash size={10} />
-                        </button>
-                      </div>
-                    </>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
-
       {!sidebarOpen && !isMobile && <div className="flex-1" />}
 
       <div className="p-2 pt-4 space-y-0.25 border-t border-border shrink-0">
@@ -343,6 +199,47 @@ export default function WorkspaceLayout({ children }: { children: ReactNode }) {
         <NavLink href="/vault" icon={<Shield size={14} />} label="Secure Vault" active={pathname === '/vault'} collapsed={isCollapsed && !isMobile} />
         <NavLink href="/pricing" icon={<Crown size={14} className="text-yellow-500/50" />} label="Pricing Plans" active={pathname === '/pricing'} collapsed={isCollapsed && !isMobile} />
         <NavLink href="/settings" icon={<Settings size={14} />} label="Settings" active={pathname === '/settings'} collapsed={isCollapsed && !isMobile} />
+
+        {(sidebarOpen || isMobile) && (
+          <div className="mt-2 pt-2 border-t border-border">
+            <button
+              onClick={() => setShowRecentChats(!showRecentChats)}
+              className={cn(
+                "w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold uppercase tracking-widest transition-all",
+                showRecentChats 
+                  ? "bg-accent-primary text-accent-foreground" 
+                  : "text-text-muted hover:text-foreground hover:bg-card-hover"
+              )}
+            >
+              <MessageSquare size={12} />
+              {showRecentChats ? 'Hide History' : 'Chat History'}
+            </button>
+            
+            {showRecentChats && (
+              <div className="mt-2 max-h-64 overflow-y-auto space-y-0.5 px-1">
+                {sessions.length === 0 ? (
+                  <div className="text-center py-4 text-text-muted text-[10px]">No chats yet</div>
+                ) : (
+                  sessions.slice(0, 10).map((session) => (
+                    <Link
+                      key={session.id}
+                      href={`/c/${session.id}`}
+                      className={cn(
+                        "flex items-center gap-2 px-2 py-1.5 rounded-lg text-xs transition-all",
+                        pathname === `/c/${session.id}`
+                          ? 'bg-card text-foreground font-medium'
+                          : 'text-text-secondary hover:bg-card-hover hover:text-foreground'
+                      )}
+                    >
+                      <MessageSquare size={10} className="shrink-0 opacity-60" />
+                      <span className="truncate">{session.title}</span>
+                    </Link>
+                  ))
+                )}
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       <div className="p-2 border-t border-border space-y-0.5 shrink-0">

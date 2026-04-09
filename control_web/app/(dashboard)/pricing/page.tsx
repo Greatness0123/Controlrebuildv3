@@ -30,42 +30,54 @@ export default function PricingPage() {
     {
       name: "Free",
       price: "$0",
-      description: "Ideal for individual exploration and basic app automation.",
+      description: "Ideal for individual exploration and basic automation.",
       features: [
         "1 Cloud VM Instance",
         "100 Task Sessions / Mo",
-        "Community Support",
+        "10 ACT Mode Tasks / Mo",
+        "200 ASK Mode Tasks / Mo",
         "Standard Agent Speed",
-        "Basic Remote Access"
+        "Basic Remote Access",
+        "Wake Word Voice Activation",
+        "Browser & Terminal Automation",
+        "File Operations & OCR"
       ],
       color: "zinc"
     },
     {
       name: "Pro",
-      price: "$29",
+      price: "$17",
       description: "Enhanced power for regular users and bigger projects.",
       features: [
         "5 Cloud VM Instances",
         "500 Task Sessions / Mo",
-        "Priority Support",
+        "200 ACT Mode Tasks / Mo",
+        "500 ASK Mode Tasks / Mo",
         "High-Speed Agent Loops",
+        "Priority Support",
         "Advanced System Access",
-        "Custom Agent Tooling"
+        "Custom Agent Tooling",
+        "Workflow Scheduling",
+        "Marketplace Publishing"
       ],
       popular: true,
       color: "blue"
     },
     {
       name: "Master",
-      price: "$59",
+      price: "$25",
       description: "Full-scale orchestration for power users who want it all.",
       features: [
         "10 Cloud VM Instances",
         "2000 Task Sessions / Mo",
+        "Unlimited ACT Mode",
+        "Unlimited ASK Mode",
         "Dedicated Tech Support",
         "Real-time Data Export",
         "Unlimited Remote Links",
-        "Early Beta Access"
+        "Early Beta Access",
+        "Custom Agent Tooling",
+        "Scheduled & Keyword Triggers"
       ],
       color: "purple"
     },
@@ -74,12 +86,15 @@ export default function PricingPage() {
       price: "Custom",
       description: "Dedicated infrastructure and personalized setups.",
       features: [
+        "Unlimited Task Sessions",
         "Custom VM Instance Pools",
         "Dedicated Hardware Setup",
         "99.9% Uptime SLA",
         "Enterprise SSO Support",
         "Personal Onboarding",
-        "24/7 Priority Concierge"
+        "24/7 Priority Concierge",
+        "Custom API Integration",
+        "White-label Options"
       ],
       color: "emerald"
     }

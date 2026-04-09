@@ -28,6 +28,34 @@ logger = logging.getLogger(__name__)
 
 MAX_TOOL_RESPONSE_LENGTH = 5000
 
+ERROR_MESSAGES = {
+    "quota": "AI service temporarily unavailable. Please try again.",
+    "rate_limit": "AI service is busy. Please wait a moment and retry.",
+    "connection": "Failed to connect to AI service. Please check your connection.",
+    "authentication": "AI service authentication failed. Please check your API key.",
+    "timeout": "AI request timed out. Please try again.",
+    "default": "Agent encountered an error. Please try again.",
+}
+
+def sanitize_error(error: str) -> str:
+    """Sanitize error messages to hide sensitive API details from users."""
+    error_lower = error.lower()
+    
+    if any(x in error_lower for x in ["429", "quota", "rate limit", "exceeded", "limit:"]):
+        logger.warning(f"Rate limit/quota error sanitized: {error[:100]}...")
+        return ERROR_MESSAGES["quota"]
+    
+    if any(x in error_lower for x in ["timeout", "timed out"]):
+        return ERROR_MESSAGES["timeout"]
+    
+    if any(x in error_lower for x in ["auth", "unauthorized", "api key", "invalid"]):
+        return ERROR_MESSAGES["authentication"]
+    
+    if any(x in error_lower for x in ["connection", "connect", "network", "dns"]):
+        return ERROR_MESSAGES["connection"]
+    
+    return ERROR_MESSAGES["default"]
+
 
 def truncate_tool_response(result: Any, max_length: int = MAX_TOOL_RESPONSE_LENGTH) -> str:
     """Truncate tool response to prevent context overflow, preserving screenshot references"""
@@ -1150,7 +1178,7 @@ class AgentExecutor:
             yield {"type": "done"}
         except Exception as e:
             logger.exception("Agent error")
-            yield {"type": "error", "content": str(e)}
+            yield {"type": "error", "content": sanitize_error(str(e))}
             yield {"type": "done"}
 
 agent_executor = AgentExecutor()

@@ -576,6 +576,15 @@ class VMControlService:
                             if data.get("screenshot"):
                                 data = self._compress_screenshot(data)
                             
+                            if command.startswith("browser") or command in ("click", "type", "key_press", "key_combo", "scroll"):
+                                try:
+                                    screenshot_data = await self.take_screenshot(machine_id)
+                                    if screenshot_data:
+                                        data["frontendScreenshot"] = screenshot_data
+                                        logger.info(f"Verification screenshot captured after {command}")
+                                except Exception as e:
+                                    logger.debug(f"Could not capture verification screenshot: {e}")
+                            
                             return data
                         elif result.get("type") == "error":
                             if machine_id in self.connection_health:

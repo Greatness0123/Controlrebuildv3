@@ -5,6 +5,7 @@ import Image from 'next/image';
 import { motion } from 'framer-motion';
 import { ArrowLeft, ArrowRight, Command, Download, LayoutGrid, Monitor, Terminal } from 'lucide-react';
 import { DESKTOP_DOWNLOAD_URLS } from '@/lib/download-urls';
+import { PlatformLogos } from '@/components/landing/SoftwareLogos';
 
 type PlatformKey = keyof typeof DESKTOP_DOWNLOAD_URLS;
 
@@ -56,13 +57,17 @@ export default function DownloadPage() {
             Install Control where your apps already live
           </h1>
           <p className="mt-5 text-neutral-400 max-w-xl text-sm sm:text-base leading-relaxed">
-            The desktop build runs automation on your machine with lower latency than a remote session. Host your
-            installers, then paste URLs into <code className="text-neutral-300 font-mono text-xs">lib/download-urls.ts</code>{' '}
-            (documented in <span className="text-neutral-300">LANDING_DUMMY_AND_SOCIAL_LINKS.md</span>).
+            Run AI automation directly on your machine. Control works locally with lower latency than remote sessions, 
+            keeping your sensitive work on hardware you control.
           </p>
         </motion.div>
 
-        <div className="mt-12 grid sm:grid-cols-3 gap-5">
+        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.45, delay: 0.1 }} className="mt-8">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-neutral-600 mb-4">Available for</p>
+          <PlatformLogos />
+        </motion.div>
+
+        <div className="mt-10 grid sm:grid-cols-3 gap-5">
           {PLATFORMS.map((p, i) => {
             const url = DESKTOP_DOWNLOAD_URLS[p.key];
             const ready = Boolean(url);
@@ -81,15 +86,14 @@ export default function DownloadPage() {
                 <h2 className="font-landing text-lg font-semibold text-white">{p.name}</h2>
                 <p className="mt-1 text-xs text-neutral-500 uppercase tracking-wider">{p.arch}</p>
                 <p className="mt-4 text-sm text-neutral-500 leading-relaxed flex-1">
-                  Full voice and vision automation on your hardware. Pair with Control Web for remote viewing when you
-                  need it.
+                  Full voice and vision automation on your hardware. Use "Hey Control" wake word or push-to-talk.
                 </p>
                 {ready ? (
                   <a
                     href={url}
                     className="mt-6 inline-flex items-center justify-center gap-2 w-full py-3 rounded-full bg-white text-black text-[11px] font-semibold uppercase tracking-[0.18em] hover:bg-neutral-200 transition-colors"
                   >
-                    Download
+                    Download for {p.name}
                     <Download className="w-4 h-4" strokeWidth={2} />
                   </a>
                 ) : (
@@ -104,6 +108,18 @@ export default function DownloadPage() {
               </motion.article>
             );
           })}
+        </div>
+
+        <div className="mt-16 p-6 rounded-2xl border border-white/[0.08] bg-white/[0.02] flex flex-col sm:flex-row items-center gap-6">
+          <div className="flex-1">
+            <h3 className="font-landing text-lg font-semibold text-white mb-2">Electron-based desktop app</h3>
+            <p className="text-sm text-neutral-400">Cross-platform desktop application with native performance. Includes voice control, local execution, and remote desktop viewing capabilities.</p>
+          </div>
+          <div className="flex gap-3">
+            <span className="px-3 py-1.5 rounded-lg bg-white/[0.05] border border-white/[0.08] text-xs text-neutral-400">Windows</span>
+            <span className="px-3 py-1.5 rounded-lg bg-white/[0.05] border border-white/[0.08] text-xs text-neutral-400">macOS</span>
+            <span className="px-3 py-1.5 rounded-lg bg-white/[0.05] border border-white/[0.08] text-xs text-neutral-400">Linux</span>
+          </div>
         </div>
 
         <div className="mt-20 grid lg:grid-cols-2 gap-10 items-center border-t border-white/[0.08] pt-16">
