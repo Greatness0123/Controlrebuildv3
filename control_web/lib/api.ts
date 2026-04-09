@@ -1,6 +1,7 @@
 const BACKEND_URL = typeof window !== 'undefined' ? '' : (process.env.NEXT_PUBLIC_BACKEND_URL || 'http://20.164.16.171:8000');
 
 import { getAccessToken, getSupabaseClient } from './supabase';
+import { getCached, setCache, invalidateCache, withCache } from './cache';
 
 async function authHeaders(): Promise<Record<string, string>> {
   const token = await getAccessToken();
@@ -30,7 +31,7 @@ async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> 
 }
 
 export const vmApi = {
-  list: () => apiFetch<{ vms: any[] }>('/api/vm/list'),
+  list: () => withCache('vm:list', () => apiFetch<{ vms: any[] }>('/api/vm/list'), 15000),
   create: (name: string) => apiFetch<{ vm: any }>('/api/vm/create', {
     method: 'POST', body: JSON.stringify({ name }),
   }),
@@ -63,23 +64,28 @@ export const vmApi = {
 
 export const chatApi = {
   list: async () => {
-    try {
-      const supabase = getSupabaseClient();
-      const { data, error } = await supabase
-        .from('chat_sessions')
-        .select('*')
-        .order('updated_at', { ascending: false });
-      if (error) throw error;
-      return { sessions: data };
-    } catch (err) {
-      console.warn('Supabase fetch failed, falling back to backend:', err);
-      return apiFetch<{ sessions: any[] }>('/api/chat/list');
-    }
+    return withCache('chat:list', async () => {
+      try {
+        const supabase = getSupabaseClient();
+        const { data, error } = await supabase
+          .from('chat_sessions')
+          .select('*')
+          .order('updated_at', { ascending: false });
+        if (error) throw error;
+        return { sessions: data };
+      } catch (err) {
+        console.warn('Supabase fetch failed, falling back to backend:', err);
+        return apiFetch<{ sessions: any[] }>('/api/chat/list');
+      }
+    }, 10000);
   },
-  create: (vmId?: string, deviceId?: string) =>
+create: (vmId?: string, deviceId?: string) =>
     apiFetch<{ session: any }>('/api/chat/create', {
       method: 'POST',
       body: JSON.stringify({ vm_id: vmId, device_id: deviceId }),
+    }).then(res => {
+      invalidateCache('chat:list');
+      return res;
     }),
   messages: async (sessionId: string) => {
     try {
@@ -102,7 +108,10 @@ export const chatApi = {
       body: JSON.stringify(data),
     }),
 delete: (sessionId: string) =>
-    apiFetch<{ success: boolean }>(`/api/chat/${sessionId}`, { method: 'DELETE' }),
+    apiFetch<{ success: boolean }>(`/api/chat/${sessionId}`, { method: 'DELETE' }).then(res => {
+      invalidateCache('chat:list');
+      return res;
+    }),
 
   saveMessage: async (message: {
     session_id: string;
@@ -235,7 +244,7 @@ export const pairApi = {
     apiFetch<{ device_id: string; name: string; status: string }>('/api/pair/validate', {
       method: 'POST', body: JSON.stringify({ code }),
     }),
-  devices: () => apiFetch<{ devices: any[] }>('/api/pair/devices'),
+  devices: () => withCache('pair:devices', () => apiFetch<{ devices: any[] }>('/api/pair/devices'), 15000),
   updateStatus: (deviceId: string, status: string) =>
     apiFetch<{ id: string; status: string }>(`/api/pair/${deviceId}`, {
       method: 'PATCH',
@@ -283,4 +292,28 @@ export const workflowApi = {
     method: 'POST',
     body: JSON.stringify(target),
   }),
+};
+
+export const marketplaceApi = {
+  list: (category?: string) => apiFetch<{ workflows: any[] }>(`/api/marketplace/list${category ? `?category=${category}` : ''}`),
+  get: (id: string) => apiFetch<{ workflow: any; comments: any[] }>(`/api/marketplace/${id}`),
+  publish: (workflowId: string, price: number, description: string) => apiFetch<{ listing: any }>('/api/marketplace/publish', {
+    method: 'POST',
+    body: JSON.stringify({ workflow_id: workflowId, price, description }),
+  }),
+  purchase: (listingId: string) => apiFetch<{ workflow: any }>(`/api/marketplace/${listingId}/purchase`, {
+    method: 'POST',
+  }),
+  addComment: (listingId: string, content: string) => apiFetch<{ comment: any }>(`/api/marketplace/${listingId}/comments`, {
+    method: 'POST',
+    body: JSON.stringify({ content }),
+  }),
+  getComments: (listingId: string) => apiFetch<{ comments: any[] }>(`/api/marketplace/${listingId}/comments`),
+  star: (listingId: string) => apiFetch<{ stars: number }>(`/api/marketplace/${listingId}/star`, {
+    method: 'POST',
+  }),
+  unstar: (listingId: string) => apiFetch<{ stars: number }>(`/api/marketplace/${listingId}/star`, {
+    method: 'DELETE',
+  }),
+  getUserListings: () => apiFetch<{ listings: any[] }>('/api/marketplace/my-listings'),
 };

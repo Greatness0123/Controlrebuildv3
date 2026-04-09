@@ -57,6 +57,7 @@ class VMService:
                 VM_IMAGE_NAME,
                 detach=True,
                 name=f"control-vm-{user_id}-{random.randint(1000,9999)}",
+                network="control-net",
                 ports={
                     "6080/tcp": ("0.0.0.0", novnc_port),
                     "5900/tcp": ("0.0.0.0", vnc_port),

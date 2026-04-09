@@ -52,18 +52,28 @@ export default function ChatSessionPage() {
 
     const loadSession = async () => {
       try {
-        const chatRes = await chatApi.list();
-        const found = chatRes.sessions.find(s => s.id === chatId);
-        if (!found) { router.push('/workspace'); return; }
-        setSessions(chatRes.sessions);
+        const found = sessions.find(s => s.id === chatId);
+        if (!found) {
+          const chatRes = await chatApi.list();
+          const session = chatRes.sessions.find(s => s.id === chatId);
+          if (!session) { router.push('/workspace'); return; }
+          setSessions(chatRes.sessions);
+          setActiveSession(session.id);
+        }
 
-        const [vmRes, pairRes] = await Promise.all([
-          vmApi.list().catch(() => ({ vms: [] })),
-          pairApi.devices().catch(() => ({ devices: [] })),
-        ]);
-        setVMs(vmRes.vms);
-        setDevices(pairRes.devices);
-        setCurrentVm(vmRes.vms.find(v => v.id === found.vm_id));
+        if (vms.length === 0 || devices.length === 0) {
+          const [vmRes, pairRes] = await Promise.all([
+            vmApi.list().catch(() => ({ vms: [] })),
+            pairApi.devices().catch(() => ({ devices: [] })),
+          ]);
+          setVMs(vmRes.vms);
+          setDevices(pairRes.devices);
+        }
+        
+        const currentSession = sessions.find(s => s.id === chatId) || found;
+        if (currentSession?.vm_id && vms.length > 0) {
+          setCurrentVm(vms.find(v => v.id === currentSession.vm_id));
+        }
       } catch (err) {
         console.error(err);
       } finally {

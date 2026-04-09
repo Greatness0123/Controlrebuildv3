@@ -660,7 +660,7 @@ class VMAgent:
         return {"success": True, "exists": os.path.exists(filepath), "filepath": filepath}
 
     async def _directory_list(self, params: dict) -> dict:
-        dirpath = params.get('dirpath', params.get('path', '/home/controluser/Desktop'))
+        dirpath = params.get('dirpath', params.get('path', '/home/controluser'))
         if not os.path.isabs(dirpath):
             dirpath = os.path.join('/home/controluser/Desktop', dirpath)
 

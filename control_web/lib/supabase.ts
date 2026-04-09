@@ -4,24 +4,42 @@ const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
 let _client: SupabaseClient | null = null;
+let _cachedSession: any = null;
+let _sessionFetched = false;
 
 export function getSupabaseClient(): SupabaseClient {
   if (_client) return _client;
-  _client = createClient(supabaseUrl, supabaseAnonKey);
+  _client = createClient(supabaseUrl, supabaseAnonKey, {
+    auth: {
+      persistSession: true,
+      autoRefreshToken: true,
+      detectSessionInUrl: true,
+    }
+  });
   return _client;
 }
 
-export async function getSession() {
+export async function getSession(forceRefresh = false) {
+  if (!forceRefresh && _cachedSession && _sessionFetched) {
+    return _cachedSession;
+  }
+  
   const client = getSupabaseClient();
   try {
     const { data, error } = await client.auth.getSession();
     if (error) {
       console.warn('Session error:', error.message);
+      _cachedSession = null;
+      _sessionFetched = true;
       return null;
     }
+    _cachedSession = data.session;
+    _sessionFetched = true;
     return data.session;
   } catch (e) {
     console.warn('Session fetch failed:', e);
+    _cachedSession = null;
+    _sessionFetched = true;
     return null;
   }
 }
@@ -63,6 +81,8 @@ export async function signUp(email: string, password: string, firstName: string,
 }
 
 export async function signOut() {
+  _cachedSession = null;
+  _sessionFetched = false;
   const client = getSupabaseClient();
   await client.auth.signOut();
 }

@@ -3,14 +3,15 @@
 import { useEffect, useState, ReactNode } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
-import { getSupabaseClient } from '@/lib/supabase';
+import { getSession, getSupabaseClient } from '@/lib/supabase';
 import { chatApi, vmApi, pairApi } from '@/lib/api';
 import { useAuthStore, useChatStore, useVMStore, useDeviceStore } from '@/lib/store';
 import { useModal } from '@/lib/useModal';
 import { useTheme } from 'next-themes';
+import { clearCache } from '@/lib/cache';
 import {
   Command, Monitor, MessageSquare, Cpu, Settings, LogOut, Plus, Sun, Moon, GitBranch,
-  Link as LinkIcon, ChevronLeft, ChevronRight, Loader2, Menu, X, Trash, Edit2, LayoutDashboard, Crown, Shield, FolderOpen
+  Link as LinkIcon, ChevronLeft, ChevronRight, Loader2, Menu, X, Trash, Edit2, LayoutDashboard, Crown, Shield, FolderOpen, ShoppingBag
 } from 'lucide-react';
 import { WorkspaceTour } from '@/components/workspace/WorkspaceTour';
 
@@ -35,15 +36,17 @@ export default function WorkspaceLayout({ children }: { children: ReactNode }) {
   const [editTitle, setEditTitle] = useState('');
 
   useEffect(() => {
-    const supabase = getSupabaseClient();
     const loginWithReturn = () => {
       const q = pathname ? `?next=${encodeURIComponent(pathname)}` : '';
       router.push(`/auth/login${q}`);
     };
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    
+    getSession().then((session) => {
       if (!session) loginWithReturn();
       else { setUser(session.user); setLoading(false); }
     });
+    
+    const supabase = getSupabaseClient();
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === 'SIGNED_OUT' || !session) { loginWithReturn(); setUser(null); }
       else setUser(session.user);
@@ -80,6 +83,7 @@ export default function WorkspaceLayout({ children }: { children: ReactNode }) {
   }, [user]);
 
   const handleSignOut = async () => {
+    clearCache();
     const supabase = getSupabaseClient();
     await supabase.auth.signOut();
   };
@@ -246,6 +250,7 @@ export default function WorkspaceLayout({ children }: { children: ReactNode }) {
         <NavLink href="/machines" icon={<Cpu size={14} />} label="Machines" active={pathname === '/machines'} collapsed={isCollapsed && !isMobile} />
         <NavLink href="/files" icon={<FolderOpen size={14} />} label="File Manager" active={pathname === '/files'} collapsed={isCollapsed && !isMobile} />
         <NavLink href="/workflows" icon={<GitBranch size={14} />} label="Workflows" active={pathname === '/workflows'} collapsed={isCollapsed && !isMobile} />
+        <NavLink href="/marketplace" icon={<ShoppingBag size={14} />} label="Marketplace" active={pathname === '/marketplace'} collapsed={isCollapsed && !isMobile} />
         <NavLink href="/pair" icon={<LinkIcon size={14} />} label="Pair Device" active={pathname === '/pair'} collapsed={isCollapsed && !isMobile} />
         <NavLink href="/vault" icon={<Shield size={14} />} label="Secure Vault" active={pathname === '/vault'} collapsed={isCollapsed && !isMobile} />
         <NavLink href="/pricing" icon={<Crown size={14} className="text-yellow-500/50" />} label="Pricing Plans" active={pathname === '/pricing'} collapsed={isCollapsed && !isMobile} />

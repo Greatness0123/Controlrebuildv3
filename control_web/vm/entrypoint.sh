@@ -76,18 +76,19 @@ echo "[entrypoint] Starting AI Agent WebSocket server..."
 sleep 2
 export DISPLAY=:1
 
-# Create .Xauthority file to fix PyAutoGUI X11 auth error
+# Create .Xauthority file to fix PyAutoGUI X11 auth error - DO THIS BEFORE starting agent
 touch /home/controluser/.Xauthority
 xhost +local:root 2>/dev/null || xhost + 2>/dev/null || true
+echo "[entrypoint] X access control disabled for PyAutoGUI"
 
 # Start AI Agent - it listens on port 8080
-python3 /home/controluser/ai_agent.py &
+python3 /home/controluser/ai_agent.py > /home/controluser/agent_logs.txt 2>&1 &
 AGENT_PID=$!
-sleep 2
-if kill -0 $AGENT_PID 2>/dev/null; then
-    echo "[entrypoint] AI Agent started successfully (PID $AGENT_PID, port 8080)"
+sleep 3
+if ps -p $AGENT_PID > /dev/null; then
+    echo "[entrypoint] AI Agent is confirmed ALIVE on port 8080 (PID $AGENT_PID)"
 else
-    echo "[entrypoint] WARNING: AI Agent may have failed to start"
+    echo "[entrypoint] ERROR: AI Agent died. Check /home/controluser/agent_logs.txt"
 fi
 
 # Verify WebSocket server is listening
@@ -97,11 +98,6 @@ netstat -tlnp 2>/dev/null | grep -E "8080|8081" || ss -tlnp | grep -E "8080|8081
 echo "[entrypoint] All services started. Container ready."
 echo "[entrypoint] Ports: VNC=5900, noVNC=6080, Agent=8080"
 echo "[entrypoint] ==========================================="
-
-# Enable X access for pyautogui/automation
-export DISPLAY=:1
-xhost +local:root 2>/dev/null || xhost + 2>/dev/null || true
-echo "[entrypoint] X access control configured"
 
 # Start noVNC proxy (foreground — keeps the container alive)
 while true; do
