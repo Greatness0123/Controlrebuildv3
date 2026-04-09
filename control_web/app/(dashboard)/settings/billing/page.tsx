@@ -214,8 +214,9 @@ useEffect(() => {
       if (userRes.data) {
         setUserData(userRes.data);
         const internalId = userRes.data.id as string;
+        // Broaden billing window to capture more usage data (default: 365 days)
         const since = new Date();
-        since.setDate(since.getDate() - 120);
+        since.setDate(since.getDate() - 365);
 
         // First try to fetch from billing_metrics table (more reliable)
         const { data: billingRows, error: billingErr } = await supabase
@@ -246,6 +247,11 @@ useEffect(() => {
               act: v.act,
             }));
           setMessageUsageDaily(billingDerived);
+          // Improve total token visibility by deriving from billing_metrics when available
+          const lifetimeTokens = billingRows.reduce((sum: number, r: any) => sum + (r.tokens || 0), 0);
+          if (typeof lifetimeTokens === 'number') {
+            setUserData((prev: any) => prev ? { ...prev, total_token_usage: lifetimeTokens } : prev);
+          }
         } else {
           // Fallback: aggregate from chat_messages
           const { data: msgs, error: msgErr } = await supabase
