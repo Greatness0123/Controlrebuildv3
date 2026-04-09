@@ -64,7 +64,7 @@ services:
 
 networks:
   control-net:
-    driver: bridge
+    external: true
 
 volumes:
   caddy_data:
