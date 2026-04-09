@@ -6,8 +6,10 @@ import WorkflowDesigner from '@/components/WorkflowDesigner';
 import {
   Plus, GitBranch, Trash2, Edit2, Play,
   Loader2, MoreVertical, Check, X, Clock, Hash, AppWindow,
+  DollarSign, ShoppingCart, Upload, Package
 } from 'lucide-react';
 import { useModal } from '@/lib/useModal';
+import { marketplaceApi } from '@/lib/api';
 
 function cn(...classes: (string | undefined | null | false)[]) {
   return classes.filter(Boolean).join(' ');
@@ -18,6 +20,12 @@ export default function WorkflowsPage() {
   const [loading, setLoading] = useState(true);
   const [isDesignerOpen, setIsDesignerOpen] = useState(false);
   const [editingWorkflow, setEditingWorkflow] = useState<any>(null);
+  const [showPublishModal, setShowPublishModal] = useState(false);
+  const [publishingWorkflow, setPublishingWorkflow] = useState<any>(null);
+  const [publishPrice, setPublishPrice] = useState(0);
+  const [publishDescription, setPublishDescription] = useState('');
+  const [publishCategory, setPublishCategory] = useState('productivity');
+  const [publishing, setPublishing] = useState(false);
   const { modal, alert } = useModal();
 
   const fetchWorkflows = async () => {
@@ -65,6 +73,28 @@ export default function WorkflowsPage() {
     }
   };
 
+  const handlePublishClick = (wf: any) => {
+    setPublishingWorkflow(wf);
+    setPublishPrice(0);
+    setPublishDescription('');
+    setPublishCategory('productivity');
+    setShowPublishModal(true);
+  };
+
+  const handlePublish = async () => {
+    if (!publishingWorkflow) return;
+    setPublishing(true);
+    try {
+      await marketplaceApi.publish(publishingWorkflow.id, publishPrice, publishDescription, publishCategory);
+      setShowPublishModal(false);
+      alert(`Workflow "${publishingWorkflow.name}" published to marketplace!`);
+    } catch (err: any) {
+      alert(err.message || 'Failed to publish workflow');
+    } finally {
+      setPublishing(false);
+    }
+  };
+
   if (isDesignerOpen) {
     return (
       <div className="flex-1 flex flex-col h-full overflow-hidden p-4 bg-secondary/30">
@@ -83,6 +113,106 @@ export default function WorkflowsPage() {
   return (
     <div className="flex-1 overflow-y-auto w-full bg-background">
       {modal}
+      {showPublishModal && (
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
+          <div className="bg-card border border-border rounded-2xl p-6 w-full max-w-md shadow-2xl">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-lg font-black text-foreground uppercase">Publish to Marketplace</h2>
+              <button onClick={() => setShowPublishModal(false)} className="p-2 text-text-muted hover:text-foreground">
+                <X size={18} />
+              </button>
+            </div>
+            
+            <div className="space-y-4">
+              <div>
+                <label className="text-[10px] font-black text-text-muted uppercase tracking-widest block mb-2">Workflow</label>
+                <div className="bg-secondary border border-border rounded-xl px-4 py-3 text-sm font-bold text-foreground">
+                  {publishingWorkflow?.name}
+                </div>
+              </div>
+              
+              <div>
+                <label className="text-[10px] font-black text-text-muted uppercase tracking-widest block mb-2">Price (USD)</label>
+                <div className="flex items-center gap-2">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="priceType"
+                      checked={publishPrice === 0}
+                      onChange={() => setPublishPrice(0)}
+                      className="w-4 h-4 accent-accent-primary"
+                    />
+                    <span className="text-sm text-foreground font-medium">Free</span>
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="priceType"
+                      checked={publishPrice > 0}
+                      onChange={() => setPublishPrice(publishPrice > 0 ? publishPrice : 9.99)}
+                      className="w-4 h-4 accent-accent-primary"
+                    />
+                    <span className="text-sm text-foreground font-medium">Paid</span>
+                  </label>
+                </div>
+                {publishPrice > 0 && (
+                  <input
+                    type="number"
+                    min="0.01"
+                    step="0.01"
+                    value={publishPrice}
+                    onChange={(e) => setPublishPrice(parseFloat(e.target.value) || 0)}
+                    className="w-full mt-2 bg-secondary border border-border rounded-xl px-4 py-3 text-sm text-foreground outline-none focus:border-accent-primary"
+                    placeholder="Enter price"
+                  />
+                )}
+              </div>
+              
+              <div>
+                <label className="text-[10px] font-black text-text-muted uppercase tracking-widest block mb-2">Category</label>
+                <select
+                  value={publishCategory}
+                  onChange={(e) => setPublishCategory(e.target.value)}
+                  className="w-full bg-secondary border border-border rounded-xl px-4 py-3 text-sm text-foreground outline-none focus:border-accent-primary"
+                >
+                  <option value="productivity">Productivity</option>
+                  <option value="developer">Developer Tools</option>
+                  <option value="automation">Automation</option>
+                  <option value="ai">AI & ML</option>
+                  <option value="data">Data Processing</option>
+                </select>
+              </div>
+              
+              <div>
+                <label className="text-[10px] font-black text-text-muted uppercase tracking-widest block mb-2">Description</label>
+                <textarea
+                  value={publishDescription}
+                  onChange={(e) => setPublishDescription(e.target.value)}
+                  className="w-full bg-secondary border border-border rounded-xl px-4 py-3 text-sm text-foreground outline-none focus:border-accent-primary resize-none h-24"
+                  placeholder="Describe your workflow..."
+                />
+              </div>
+            </div>
+            
+            <div className="flex gap-3 mt-6">
+              <button
+                onClick={() => setShowPublishModal(false)}
+                className="flex-1 py-3 bg-secondary border border-border text-foreground rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-card-hover transition-all"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handlePublish}
+                disabled={publishing}
+                className="flex-1 py-3 bg-accent-primary text-accent-foreground rounded-xl text-[10px] font-black uppercase tracking-widest hover:opacity-90 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {publishing ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />}
+                Publish
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       <div className="max-w-6xl mx-auto p-4 sm:p-10">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-8 sm:mb-10 gap-4 sm:gap-0">
           <div>
@@ -149,8 +279,12 @@ export default function WorkflowsPage() {
                       <button className="p-2 text-text-muted hover:text-foreground">
                         <MoreVertical size={16} />
                       </button>
-                      <div className="absolute right-0 top-full mt-1 w-32 bg-card border border-border rounded-xl shadow-2xl opacity-0 group-hover/menu:opacity-100 pointer-events-none group-hover/menu:pointer-events-auto transition-all z-10 p-1">
+                      <div className="absolute right-0 top-full mt-1 w-40 bg-card border border-border rounded-xl shadow-2xl opacity-0 group-hover/menu:opacity-100 pointer-events-none group-hover/menu:pointer-events-auto transition-all z-10 p-1">
                         <button onClick={() => handleEdit(wf)} className="w-full text-left px-3 py-2 text-[10px] font-bold uppercase tracking-widest hover:bg-secondary rounded-lg">Edit</button>
+                        <button onClick={() => handlePublishClick(wf)} className="w-full text-left px-3 py-2 text-[10px] font-bold uppercase tracking-widest hover:bg-secondary rounded-lg flex items-center gap-2">
+                          <ShoppingCart size={12} />
+                          Publish
+                        </button>
                         <button onClick={() => handleDelete(wf.id)} className="w-full text-left px-3 py-2 text-[10px] font-bold uppercase tracking-widest hover:bg-red-500/10 text-red-500 rounded-lg">Delete</button>
                       </div>
                     </div>

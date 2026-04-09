@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useAuthStore } from '@/lib/store';
 import { getSupabaseClient } from '@/lib/supabase';
-import { LogOut, Save, Loader2, Edit2 } from 'lucide-react';
+import { LogOut, Save, Loader2, Edit2, CreditCard, Wallet, Building } from 'lucide-react';
 import { toast } from 'sonner';
 
 function cn(...classes: (string | undefined | false | null)[]) {
@@ -16,6 +16,15 @@ export default function AccountPage() {
   const [isEditing, setIsEditing] = useState(false);
   const [firstName, setFirstName] = useState(user?.user_metadata?.first_name || '');
   const [lastName, setLastName] = useState(user?.user_metadata?.last_name || '');
+  
+  const [isEditingPayment, setIsEditingPayment] = useState(false);
+  const [paymentDetails, setPaymentDetails] = useState({
+    bankName: user?.user_metadata?.bank_name || '',
+    accountNumber: user?.user_metadata?.account_number || '',
+    accountName: user?.user_metadata?.account_name || '',
+    routingNumber: user?.user_metadata?.routing_number || '',
+    paypalEmail: user?.user_metadata?.paypal_email || '',
+  });
 
   const handleSignOut = async () => {
     const supabase = getSupabaseClient();
@@ -35,6 +44,24 @@ export default function AccountPage() {
       toast.success('Profile updated successfully');
     } catch (err: any) {
       toast.error(err.message || 'Failed to update profile');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSavePayment = async () => {
+    setLoading(true);
+    try {
+      const supabase = getSupabaseClient();
+      const { data, error } = await supabase.auth.updateUser({
+        data: paymentDetails
+      });
+      if (error) throw error;
+      setUser(data.user);
+      setIsEditingPayment(false);
+      toast.success('Payment details saved successfully');
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to save payment details');
     } finally {
       setLoading(false);
     }
@@ -123,6 +150,125 @@ export default function AccountPage() {
             <SettingsRow label="User ID" value={user?.id?.substring(0, 12) + '...' || '-'} mono />
           </>
         )}
+
+        <div className="pt-4 border-t border-border">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-sm font-bold text-foreground flex items-center gap-2">
+              <Wallet size={14} />
+              Payment Details
+            </h3>
+            {isEditingPayment ? (
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setIsEditingPayment(false)}
+                  className="px-3 py-1.5 text-xs font-bold text-text-muted hover:text-foreground transition-all"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleSavePayment}
+                  disabled={loading}
+                  className="flex items-center gap-1.5 px-4 py-1.5 bg-accent-primary text-accent-foreground rounded-lg text-xs font-black hover:opacity-90 transition-all disabled:opacity-50"
+                >
+                  {loading ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />}
+                  Save
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={() => setIsEditingPayment(true)}
+                className="flex items-center gap-2 px-4 py-1.5 bg-secondary border border-border text-foreground rounded-lg text-xs font-bold hover:bg-card-hover transition-all"
+              >
+                <Edit2 size={12} />
+                Edit
+              </button>
+            )}
+          </div>
+          
+          <div className="bg-card border border-border p-4 rounded-xl space-y-3">
+            <p className="text-xs text-text-muted mb-3">
+              Add your payment details to receive payments when users purchase your workflows from the marketplace.
+            </p>
+            
+            {isEditingPayment ? (
+              <div className="space-y-3">
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-black text-text-muted uppercase tracking-widest">Bank Name</label>
+                    <input
+                      type="text"
+                      value={paymentDetails.bankName}
+                      onChange={(e) => setPaymentDetails({...paymentDetails, bankName: e.target.value})}
+                      className="w-full bg-secondary border border-border rounded-lg px-3 py-2 text-xs text-foreground outline-none focus:border-accent-primary"
+                      placeholder="Bank name"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-black text-text-muted uppercase tracking-widest">Account Number</label>
+                    <input
+                      type="text"
+                      value={paymentDetails.accountNumber}
+                      onChange={(e) => setPaymentDetails({...paymentDetails, accountNumber: e.target.value})}
+                      className="w-full bg-secondary border border-border rounded-lg px-3 py-2 text-xs text-foreground outline-none focus:border-accent-primary"
+                      placeholder="Account number"
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-black text-text-muted uppercase tracking-widest">Account Name</label>
+                    <input
+                      type="text"
+                      value={paymentDetails.accountName}
+                      onChange={(e) => setPaymentDetails({...paymentDetails, accountName: e.target.value})}
+                      className="w-full bg-secondary border border-border rounded-lg px-3 py-2 text-xs text-foreground outline-none focus:border-accent-primary"
+                      placeholder="Account name"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-black text-text-muted uppercase tracking-widest">Routing Number</label>
+                    <input
+                      type="text"
+                      value={paymentDetails.routingNumber}
+                      onChange={(e) => setPaymentDetails({...paymentDetails, routingNumber: e.target.value})}
+                      className="w-full bg-secondary border border-border rounded-lg px-3 py-2 text-xs text-foreground outline-none focus:border-accent-primary"
+                      placeholder="Routing number"
+                    />
+                  </div>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black text-text-muted uppercase tracking-widest">PayPal Email (Alternative)</label>
+                  <input
+                    type="email"
+                    value={paymentDetails.paypalEmail}
+                    onChange={(e) => setPaymentDetails({...paymentDetails, paypalEmail: e.target.value})}
+                    className="w-full bg-secondary border border-border rounded-lg px-3 py-2 text-xs text-foreground outline-none focus:border-accent-primary"
+                    placeholder="paypal@example.com"
+                  />
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-2 text-xs">
+                <div className="flex justify-between py-2 border-b border-border">
+                  <span className="text-text-muted font-medium">Bank Name</span>
+                  <span className="text-foreground font-bold">{paymentDetails.bankName || '-'}</span>
+                </div>
+                <div className="flex justify-between py-2 border-b border-border">
+                  <span className="text-text-muted font-medium">Account Number</span>
+                  <span className="text-foreground font-bold">{paymentDetails.accountNumber ? '****' + paymentDetails.accountNumber.slice(-4) : '-'}</span>
+                </div>
+                <div className="flex justify-between py-2 border-b border-border">
+                  <span className="text-text-muted font-medium">Account Name</span>
+                  <span className="text-foreground font-bold">{paymentDetails.accountName || '-'}</span>
+                </div>
+                <div className="flex justify-between py-2 border-b border-border">
+                  <span className="text-text-muted font-medium">PayPal Email</span>
+                  <span className="text-foreground font-bold">{paymentDetails.paypalEmail || '-'}</span>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
 
         <div className="pt-4 border-t border-border">
           <button

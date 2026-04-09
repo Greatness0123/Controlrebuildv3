@@ -38,9 +38,11 @@ function Code({ size }: { size?: number }) {
 function Brain({ size }: { size?: number }) {
   const s = size || 24;
   return (
-    <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M9.5 2A5 5 0 0 1 12 4a5 5 0 0 1 2.5-2 5 5 0 0 1 9.5 3 5 5 0 0 1-4.5 5h-10A5 5 0 0 1 0 5a5 5 0 0 1 9.5-3z" />
-      <path d="M12 22a7 7 0 0 0 7-7H5a7 7 0 0 0 7 7z" />
+    <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ minWidth: s, minHeight: s }}>
+      <path d="M12 4a4 4 0 0 1 2 7.5c0 2-1 3.5-2 4.5s-2 2-2 2 1 1.5 2 2.5 2 1 2 1" />
+      <path d="M12 4a4 4 0 0 0-2 7.5c0 2 1 3.5 2 4.5s2 2 2 2-1 1.5-2 2.5-2 1-2 1" />
+      <path d="M12 4a4 4 0 0 1 2-1.5c1.5 0 2.5 1 2.5 2.5s-1 3-2 4-2 2.5-2 2.5 1 1.5 2 2.5 2 1 2 1" />
+      <circle cx="12" cy="12" r="2" />
     </svg>
   );
 }

@@ -297,9 +297,9 @@ export const workflowApi = {
 export const marketplaceApi = {
   list: (category?: string) => apiFetch<{ workflows: any[] }>(`/api/marketplace/list${category ? `?category=${category}` : ''}`),
   get: (id: string) => apiFetch<{ workflow: any; comments: any[] }>(`/api/marketplace/${id}`),
-  publish: (workflowId: string, price: number, description: string) => apiFetch<{ listing: any }>('/api/marketplace/publish', {
+  publish: (workflowId: string, price: number, description: string, category: string = 'productivity') => apiFetch<{ listing: any }>('/api/marketplace/publish', {
     method: 'POST',
-    body: JSON.stringify({ workflow_id: workflowId, price, description }),
+    body: JSON.stringify({ workflow_id: workflowId, price, description, category }),
   }),
   purchase: (listingId: string) => apiFetch<{ workflow: any }>(`/api/marketplace/${listingId}/purchase`, {
     method: 'POST',
