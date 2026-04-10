@@ -5,6 +5,8 @@ import Image from 'next/image';
 
 const fadeTransition = { duration: 0.55, ease: [0.22, 1, 0.36, 1] as const };
 
+
+
 const softwareLogos = [
   { name: 'Blender', src: 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTnJWv8OMc3xyH7Omf0GWQ2twaIKx_ft05uXQ&s' },
   { name: 'AutoCAD', src: 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcS12RJuHpi5fQAlJG2Ca0a_Q2EMyDhOUikLXQ&s' },
@@ -26,31 +28,32 @@ const platformLogos = [
 
 export function SoftwareLogos({ className = '', showLabels = false }: { className?: string; showLabels?: boolean }) {
   return (
-    <div className={`flex flex-wrap items-center gap-4 sm:gap-6 ${className}`}>
-      {softwareLogos.map((logo, i) => (
+    <div className={`flex flex-wrap items-center gap-4 ${className}`}>
+      {softwareLogos.map((software, i) => (
         <motion.div
-          key={logo.name}
-          initial={{ opacity: 0, y: 8 }}
-          whileInView={{ opacity: 1, y: 0 }}
+          key={software.name}
+          initial={{ opacity: 0, scale: 0.9 }}
+          whileInView={{ opacity: 1, scale: 1 }}
           viewport={{ once: true }}
           transition={{ ...fadeTransition, delay: i * 0.05 }}
-          className="relative group"
+          className="group relative"
         >
-          <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center overflow-hidden transition-all duration-200 group-hover:border-white/20 group-hover:bg-white/10">
+          {/* Parent div defines the final shape */}
+          <div className="relative w-12 h-12 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center overflow-hidden transition-all duration-300 group-hover:border-white/20 group-hover:bg-white/10">
             <Image
-              src={logo.src}
-              alt={logo.name}
-              width={36}
-              height={36}
-              className="w-7 h-7 sm:w-8 sm:h-8 object-contain"
+              src={software.src}
+              alt={software.name}
+              /* Use fill to cover the entire div area */
+              fill
+              className="object-cover transition-transform duration-300 group-hover:scale-110"
               unoptimized
             />
           </div>
           {showLabels && (
-            <span className="text-xs text-neutral-400 font-medium ml-2">{logo.name}</span>
+            <span className="text-xs text-neutral-400 font-medium ml-2">{software.name}</span>
           )}
           <div className="absolute -bottom-8 left-1/2 -translate-x-1/2 px-2 py-1 bg-black/80 text-white text-[10px] font-medium rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
-            {logo.name}
+            {software.name}
           </div>
         </motion.div>
       ))}
@@ -61,7 +64,7 @@ export function SoftwareLogos({ className = '', showLabels = false }: { classNam
 export function PlatformLogos({ className = '' }: { className?: string }) {
   return (
     <div className={`flex items-center gap-6 ${className}`}>
-      {softwareLogos.map((platform, i) => (
+      {platformLogos.map((platform, i) => (
         <motion.div
           key={platform.name}
           initial={{ opacity: 0, y: 8 }}
@@ -71,14 +74,11 @@ export function PlatformLogos({ className = '' }: { className?: string }) {
           className="relative group"
         >
           <div className="flex items-center gap-2">
-            {/* 1. Added 'relative' to the container and removed 'overflow-hidden' 
-                if you want the icon to potentially bleed out, though usually 
-                keeping it ensures it takes the div's shape exactly. */}
-            <div className="relative w-10 h-10 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center overflow-hidden">
+            {/* Parent div handles the rounded-lg shape */}
+            <div className="relative w-10 h-10 rounded-lg bg-white/5 border border-white/10 overflow-hidden">
               <Image
                 src={platform.src}
                 alt={platform.name}
-                /* 2. Changed to fill and object-cover to match the div's rounded-lg shape */
                 fill
                 className="object-cover"
                 unoptimized
