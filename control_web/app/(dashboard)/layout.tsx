@@ -34,7 +34,7 @@ export default function WorkspaceLayout({ children }: { children: ReactNode }) {
   const [isCreatingChat, setIsCreatingChat] = useState(false);
   const [editingSessionId, setEditingSessionId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState('');
-  const [showRecentChats, setShowRecentChats] = useState(false);
+  const [chatHistoryOpen, setChatHistoryOpen] = useState(false);
 
   useEffect(() => {
     const loginWithReturn = () => {
@@ -184,11 +184,64 @@ export default function WorkspaceLayout({ children }: { children: ReactNode }) {
             <span className="truncate">{isCreatingChat ? 'Syncing...' : 'New Session'}</span>
           )}
         </button>
+
+        <button
+          onClick={() => setChatHistoryOpen(!chatHistoryOpen)}
+          className={cn(
+            "mt-2 h-9 flex items-center gap-2 rounded-xl transition-all",
+            (sidebarOpen || isMobile) 
+              ? "w-full px-3 bg-card border border-border text-text-secondary hover:bg-card-hover hover:text-foreground" 
+              : "w-10 justify-center bg-card border border-border text-text-secondary hover:bg-card-hover"
+          )}
+          title="Chat History"
+        >
+          <MessageSquare size={16} strokeWidth={2.5} className="shrink-0" />
+          {(sidebarOpen || isMobile) && (
+            <span className="truncate text-[10px] font-bold uppercase tracking-widest">Chat History</span>
+          )}
+        </button>
       </div>
 
-      {!sidebarOpen && !isMobile && <div className="flex-1" />}
+      {chatHistoryOpen && (sidebarOpen || isMobile) && (
+        <div className="flex-1 flex flex-col min-h-0 border-b border-border overflow-hidden">
+          <div className="flex items-center justify-between px-3 py-2 border-b border-border shrink-0">
+            <span className="text-[10px] font-black uppercase tracking-widest text-text-muted">Chat History</span>
+            <button
+              onClick={() => setChatHistoryOpen(false)}
+              className="p-1 hover:bg-card-hover rounded-md text-text-muted transition-colors"
+              title="Close"
+            >
+              <ChevronLeft size={12} />
+            </button>
+          </div>
+          <div className="flex-1 overflow-y-auto p-2 space-y-0.5">
+            {sessions.length === 0 ? (
+              <div className="text-center py-4 text-text-muted text-[10px]">No chats yet</div>
+            ) : (
+              sessions.slice(0, 10).map((session) => (
+                <Link
+                  key={session.id}
+                  href={`/c/${session.id}`}
+                  onClick={() => isMobile && setMobileOpen(false)}
+                  className={cn(
+                    "flex items-center gap-2 px-2 py-1.5 rounded-lg text-xs transition-all",
+                    pathname === `/c/${session.id}`
+                      ? 'bg-card text-foreground font-medium'
+                      : 'text-text-secondary hover:bg-card-hover hover:text-foreground'
+                  )}
+                >
+                  <MessageSquare size={10} className="shrink-0 opacity-60" />
+                  <span className="truncate">{session.title}</span>
+                </Link>
+              ))
+            )}
+          </div>
+        </div>
+      )}
 
-      <div className="p-2 pt-4 space-y-0.25 border-t border-border shrink-0">
+      {!chatHistoryOpen && !sidebarOpen && !isMobile && <div className="flex-1" />}
+
+      <div className="p-2 space-y-0.25 border-t border-border shrink-0">
         <NavLink href="/workspace" icon={<LayoutDashboard size={14} />} label="Workspace" active={pathname === '/workspace'} collapsed={isCollapsed && !isMobile} />
 
         <NavLink href="/machines" icon={<Cpu size={14} />} label="Machines" active={pathname === '/machines'} collapsed={isCollapsed && !isMobile} />
@@ -199,47 +252,6 @@ export default function WorkspaceLayout({ children }: { children: ReactNode }) {
         <NavLink href="/vault" icon={<Shield size={14} />} label="Secure Vault" active={pathname === '/vault'} collapsed={isCollapsed && !isMobile} />
         <NavLink href="/pricing" icon={<Crown size={14} className="text-yellow-500/50" />} label="Pricing Plans" active={pathname === '/pricing'} collapsed={isCollapsed && !isMobile} />
         <NavLink href="/settings" icon={<Settings size={14} />} label="Settings" active={pathname === '/settings'} collapsed={isCollapsed && !isMobile} />
-
-        {(sidebarOpen || isMobile) && (
-          <div className="mt-2 pt-2 border-t border-border">
-            <button
-              onClick={() => setShowRecentChats(!showRecentChats)}
-              className={cn(
-                "w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold uppercase tracking-widest transition-all",
-                showRecentChats 
-                  ? "bg-accent-primary text-accent-foreground" 
-                  : "text-text-muted hover:text-foreground hover:bg-card-hover"
-              )}
-            >
-              <MessageSquare size={12} />
-              {showRecentChats ? 'Hide History' : 'Chat History'}
-            </button>
-            
-            {showRecentChats && (
-              <div className="mt-2 max-h-64 overflow-y-auto space-y-0.5 px-1">
-                {sessions.length === 0 ? (
-                  <div className="text-center py-4 text-text-muted text-[10px]">No chats yet</div>
-                ) : (
-                  sessions.slice(0, 10).map((session) => (
-                    <Link
-                      key={session.id}
-                      href={`/c/${session.id}`}
-                      className={cn(
-                        "flex items-center gap-2 px-2 py-1.5 rounded-lg text-xs transition-all",
-                        pathname === `/c/${session.id}`
-                          ? 'bg-card text-foreground font-medium'
-                          : 'text-text-secondary hover:bg-card-hover hover:text-foreground'
-                      )}
-                    >
-                      <MessageSquare size={10} className="shrink-0 opacity-60" />
-                      <span className="truncate">{session.title}</span>
-                    </Link>
-                  ))
-                )}
-              </div>
-            )}
-          </div>
-        )}
       </div>
 
       <div className="p-2 border-t border-border space-y-0.5 shrink-0">
