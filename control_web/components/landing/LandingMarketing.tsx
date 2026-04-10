@@ -28,6 +28,7 @@ import {
   MessagesSquare,
   Zap,
   Bot,
+  Send,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { useRef, useState } from 'react';
@@ -664,9 +665,9 @@ function SocialFooterIcons() {
     Icon: LucideIcon;
   }[] = [
     { id: 'twitter', url: links.twitter, label: 'X (Twitter)', Icon: Twitter },
-    { id: 'github', url: links.github, label: 'GitHub', Icon: Github },
-    { id: 'linkedin', url: links.linkedin, label: 'LinkedIn', Icon: Linkedin },
-    { id: 'discord', url: links.discord, label: 'Discord', Icon: MessagesSquare },
+    { id: 'github', url: "https://github.com/Control0123", label: 'GitHub', Icon: Github },
+    { id: 'linkedin', url: "https://linkedin.com/company/control123", label: 'LinkedIn', Icon: Linkedin },
+    { id: 'discord', url: "https://t.me/control0123", label: 'Discord', Icon: Send },
   ];
 
   return (
@@ -757,18 +758,18 @@ function LandingFooter() {
           <div>
             <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-neutral-600 mb-4">Company</p>
             <p className="text-sm text-neutral-500 leading-relaxed mb-5">
-              Control AI builds the desktop action layer. Connect your profiles below (configure URLs in{' '}
-              <code className="text-xs text-neutral-400 font-mono">.env.local</code>).
+              Control AI builds the desktop action layer. 
+              {/* <code className="text-xs text-neutral-400 font-mono">.env.local</code>). */}
             </p>
             <SocialFooterIcons />
           </div>
         </div>
         <div className="mt-14 pt-8 border-t border-white/[0.06] flex flex-col sm:flex-row justify-between gap-4 items-center text-[10px] font-semibold uppercase tracking-[0.2em] text-neutral-600">
           <span>© {new Date().getFullYear()} Control AI</span>
-          <span className="flex items-center gap-2">
+          {/* <span className="flex items-center gap-2">
             <Shield className="w-3.5 h-3.5" strokeWidth={2} />
             Encrypted transport · Review security posture before production
-          </span>
+          </span> */}
         </div>
       </div>
     </footer>
