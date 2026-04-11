@@ -1,0 +1,110 @@
+name: Build Desktop App
+
+on:
+  push:
+    branches:
+      - main
+      - master
+  workflow_dispatch:
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        include:
+          - os: windows-latest
+            platform: windows
+            python_zip: python-windows.zip
+          - os: macos-latest
+            platform: macos
+            python_zip: python-macos.zip
+          - os: ubuntu-latest
+            platform: linux
+            python_zip: python-linux.zip
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: package-lock.json
+
+      - name: Create assets directory
+        run: mkdir -p assets
+
+      - name: Download and extract Vosk model
+        run: |
+          curl -L -o vosk-model.zip "https://github.com/Greatness0123/Controlrebuildv3/releases/download/assets/vosk-model.zip"
+          unzip -o vosk-model.zip -d assets/
+          rm vosk-model.zip
+
+      - name: Download and extract platform-specific Python binaries
+        if: matrix.python_zip != ''
+        run: |
+          curl -L -o python.zip "https://github.com/Greatness0123/Controlrebuildv3/releases/download/assets/${{ matrix.python_zip }}"
+          unzip -o python.zip -d assets/binaries/
+          rm python.zip
+
+      - name: Create binaries directory if not exists
+        run: mkdir -p assets/binaries
+
+      - name: Verify assets structure
+        run: |
+          echo "=== Assets directory ==="
+          ls -la assets/
+          echo "=== Vosk model (if exists) ==="
+          ls -la assets/vosk-model* 2>/dev/null || echo "No vosk model found"
+          echo "=== Binaries directory ==="
+          ls -la assets/binaries/ 2>/dev/null || echo "No binaries found"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Post-install hook
+        run: npm run postinstall
+
+      - name: Build the Electron app
+        run: npm run build
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Move portable exe to dist root
+        if: matrix.platform == 'windows'
+        run: |
+          if [ -f "dist/win-unpacked/Control.exe" ]; then
+            cp "dist/win-unpacked/Control.exe" "dist/Control-portable.exe" 2>/dev/null || true
+          fi
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.platform }}-build
+          path: |
+            dist/
+            !dist/**/*.map
+          retention-days: 7
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: artifacts/**/*
+          draft: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
