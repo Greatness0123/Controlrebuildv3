@@ -86,7 +86,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: windows-build
-          path: dist/win-unpacked/
+          path: |
+            dist/win-unpacked/
+            dist/*.exe
           retention-days: 7
 
       - name: Upload macOS artifacts
@@ -94,7 +96,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: macos-build
-          path: dist/mac/
+          path: |
+            dist/mac/
+            dist/*.dmg
           retention-days: 7
 
       - name: Upload Linux artifacts
@@ -102,7 +106,10 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: linux-build
-          path: dist/linux-unpacked/
+          path: |
+            dist/linux-unpacked/
+            dist/*.AppImage
+            dist/*.deb
           retention-days: 7
 
   release:
