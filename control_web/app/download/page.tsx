@@ -3,21 +3,12 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import { motion } from 'framer-motion';
-import { ArrowLeft, ArrowRight, Command, Download } from 'lucide-react';
-import { DESKTOP_DOWNLOAD_URLS } from '@/lib/download-urls';
+import { ArrowLeft, ArrowRight, Command, Download, ChevronDown } from 'lucide-react';
+import { DESKTOP_DOWNLOAD_URLS, PlatformDownloads, getReleaseUrl } from '@/lib/download-urls';
 import { PlatformLogos, platformLogos } from '@/components/landing/SoftwareLogos';
+import { useState } from 'react';
 
 type PlatformKey = keyof typeof DESKTOP_DOWNLOAD_URLS;
-
-const PLATFORMS: {
-  key: PlatformKey;
-  name: string;
-  arch: string;
-}[] = [
-  { key: 'mac', name: 'macOS', arch: 'Apple Silicon and Intel (.dmg)' },
-  { key: 'windows', name: 'Windows', arch: 'x64 installer' },
-  { key: 'linux', name: 'Linux', arch: 'AppImage or package (TBD)' },
-];
 
 function getPlatformLogo(key: PlatformKey) {
   const logoMap: Record<PlatformKey, string> = {
@@ -27,6 +18,77 @@ function getPlatformLogo(key: PlatformKey) {
   };
   return platformLogos.find(p => p.name === logoMap[key]);
 }
+
+function DownloadOptions({ downloads }: { downloads: PlatformDownloads }) {
+  const hasUrls = downloads.some(v => v.url);
+  const [isOpen, setIsOpen] = useState(false);
+  const activeDownloads = downloads.filter(v => v.url);
+
+  if (!hasUrls) {
+    return (
+      <button
+        type="button"
+        disabled
+        className="mt-6 inline-flex items-center justify-center gap-2 w-full py-3 rounded-full border border-white/15 text-neutral-500 text-[11px] font-semibold uppercase tracking-[0.18em] cursor-not-allowed"
+      >
+        Coming soon
+      </button>
+    );
+  }
+
+  if (activeDownloads.length === 1) {
+    return (
+      <a
+        href={activeDownloads[0].url}
+        className="mt-6 inline-flex items-center justify-center gap-2 w-full py-3 rounded-full bg-white text-black text-[11px] font-semibold uppercase tracking-[0.18em] hover:bg-neutral-200 transition-colors"
+      >
+        Download
+        <Download className="w-4 h-4" strokeWidth={2} />
+      </a>
+    );
+  }
+
+  return (
+    <div className="mt-6 relative">
+      <button
+        type="button"
+        onClick={() => setIsOpen(!isOpen)}
+        className="inline-flex items-center justify-center gap-2 w-full py-3 rounded-full bg-white text-black text-[11px] font-semibold uppercase tracking-[0.18em] hover:bg-neutral-200 transition-colors"
+      >
+        Download
+        <ChevronDown className={`w-4 h-4 transition-transform ${isOpen ? 'rotate-180' : ''}`} strokeWidth={2} />
+      </button>
+      
+      {isOpen && (
+        <div className="absolute top-full left-0 right-0 mt-2 bg-[#1a1a1a] border border-white/10 rounded-xl overflow-hidden z-20">
+          {downloads.map((version, i) => (
+            <a
+              key={i}
+              href={version.url}
+              onClick={() => setIsOpen(false)}
+              className="flex items-center justify-between px-4 py-3 hover:bg-white/5 transition-colors border-b border-white/5 last:border-0"
+            >
+              <div className="text-left">
+                <p className="text-sm text-white font-medium">{version.name}</p>
+                <p className="text-xs text-neutral-500">{version.description}</p>
+              </div>
+              <Download className="w-4 h-4 text-neutral-500" strokeWidth={2} />
+            </a>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+const PLATFORMS: {
+  key: PlatformKey;
+  name: string;
+}[] = [
+  { key: 'mac', name: 'macOS' },
+  { key: 'windows', name: 'Windows' },
+  { key: 'linux', name: 'Linux' },
+];
 
 export default function DownloadPage() {
   return (
@@ -77,9 +139,9 @@ export default function DownloadPage() {
 
         <div className="mt-10 grid sm:grid-cols-3 gap-5">
           {PLATFORMS.map((p, i) => {
-            const url = DESKTOP_DOWNLOAD_URLS[p.key];
-            const ready = Boolean(url);
+            const downloads = DESKTOP_DOWNLOAD_URLS[p.key];
             const logo = getPlatformLogo(p.key);
+            const hasUrls = downloads.some(v => v.url);
             return (
               <motion.article
                 key={p.key}
@@ -100,27 +162,16 @@ export default function DownloadPage() {
                   )}
                 </div>
                 <h2 className="font-landing text-lg font-semibold text-white">{p.name}</h2>
-                <p className="mt-1 text-xs text-neutral-500 uppercase tracking-wider">{p.arch}</p>
+                <p className="mt-1 text-xs text-neutral-500 uppercase tracking-wider">
+                  {hasUrls 
+                    ? `${downloads.filter(v => v.url).length} version${downloads.filter(v => v.url).length > 1 ? 's' : ''} available`
+                    : 'Select your version'
+                  }
+                </p>
                 <p className="mt-4 text-sm text-neutral-500 leading-relaxed flex-1">
                   Full voice and vision automation on your hardware. Use "Hey Control" wake word or push-to-talk.
                 </p>
-                {ready ? (
-                  <a
-                    href={url}
-                    className="mt-6 inline-flex items-center justify-center gap-2 w-full py-3 rounded-full bg-white text-black text-[11px] font-semibold uppercase tracking-[0.18em] hover:bg-neutral-200 transition-colors"
-                  >
-                    Download for {p.name}
-                    <Download className="w-4 h-4" strokeWidth={2} />
-                  </a>
-                ) : (
-                  <button
-                    type="button"
-                    disabled
-                    className="mt-6 inline-flex items-center justify-center gap-2 w-full py-3 rounded-full border border-white/15 text-neutral-500 text-[11px] font-semibold uppercase tracking-[0.18em] cursor-not-allowed"
-                  >
-                    Coming soon
-                  </button>
-                )}
+                <DownloadOptions downloads={downloads} />
               </motion.article>
             );
           })}
