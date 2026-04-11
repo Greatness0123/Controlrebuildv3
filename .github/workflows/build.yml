@@ -5,6 +5,8 @@ on:
     branches:
       - main
       - master
+    tags:
+      - 'v*'
   workflow_dispatch:
 
 jobs:
@@ -95,21 +97,19 @@ jobs:
           ls -la dist/*.exe || echo "No exe files"
         shell: bash
 
-      - name: Upload Windows NSIS installer
-        if: matrix.platform == 'windows'
-        uses: actions/upload-artifact@v7
+      - name: Upload Windows NSIS installer to Release
+        if: matrix.platform == 'windows' && startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
         with:
-          name: windows-nsis
-          path: dist/Setup*.exe
-          if-no-files-found: warn
+          draft: true
+          files: dist/Setup*.exe
 
-      - name: Upload Windows Portable
-        if: matrix.platform == 'windows'
-        uses: actions/upload-artifact@v7
+      - name: Upload Windows Portable to Release
+        if: matrix.platform == 'windows' && startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
         with:
-          name: windows-portable
-          path: dist/*Portable*.exe
-          if-no-files-found: warn
+          draft: true
+          files: dist/*Portable*.exe
 
       - name: List macOS dist
         if: matrix.platform == 'macos'
@@ -117,19 +117,19 @@ jobs:
           ls -la dist/*.dmg || echo "No dmg files"
         shell: bash
 
-      - name: Upload macOS Intel
-        if: matrix.platform == 'macos'
-        uses: actions/upload-artifact@v7
+      - name: Upload macOS Intel to Release
+        if: matrix.platform == 'macos' && startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
         with:
-          name: macos-intel
-          path: dist/Control-1.0.0.dmg
+          draft: true
+          files: dist/Control-1.0.0.dmg
 
-      - name: Upload macOS ARM64
-        if: matrix.platform == 'macos'
-        uses: actions/upload-artifact@v7
+      - name: Upload macOS ARM64 to Release
+        if: matrix.platform == 'macos' && startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
         with:
-          name: macos-arm64
-          path: dist/Control-1.0.0-arm64.dmg
+          draft: true
+          files: dist/Control-1.0.0-arm64.dmg
 
       - name: List Linux dist
         if: matrix.platform == 'linux'
@@ -137,21 +137,19 @@ jobs:
           ls -la dist/*.AppImage dist/*.deb || echo "No files"
         shell: bash
 
-      - name: Upload Linux AppImage
-        if: matrix.platform == 'linux'
-        uses: actions/upload-artifact@v7
+      - name: Upload Linux AppImage to Release
+        if: matrix.platform == 'linux' && startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
         with:
-          name: linux-appimage
-          path: dist/*.AppImage
-          if-no-files-found: warn
+          draft: true
+          files: dist/*.AppImage
 
-      - name: Upload Linux deb
-        if: matrix.platform == 'linux'
-        uses: actions/upload-artifact@v7
+      - name: Upload Linux deb to Release
+        if: matrix.platform == 'linux' && startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
         with:
-          name: linux-deb
-          path: dist/*.deb
-          if-no-files-found: warn
+          draft: true
+          files: dist/*.deb
 
       - name: Upload macOS unpacked
         if: matrix.platform == 'macos'
@@ -168,22 +166,3 @@ jobs:
           name: linux-unpacked
           path: dist/linux-unpacked/
           retention-days: 7
-
-  release:
-    needs: build
-    runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/')
-
-    steps:
-      - name: Download all artifacts
-        uses: actions/download-artifact@v4
-        with:
-          path: artifacts
-
-      - name: Create Release
-        uses: softprops/action-gh-release@v1
-        with:
-          files: artifacts/**/*
-          draft: true
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

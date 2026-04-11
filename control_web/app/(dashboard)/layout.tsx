@@ -11,7 +11,7 @@ import { useTheme } from 'next-themes';
 import { clearCache } from '@/lib/cache';
 import {
   Command, Monitor, MessageSquare, Cpu, Settings, LogOut, Plus, Sun, Moon, GitBranch,
-  Link as LinkIcon, ChevronLeft, ChevronRight, Loader2, Menu, X, Trash, Edit2, LayoutDashboard, Crown, Shield, FolderOpen, ShoppingBag
+  Link as LinkIcon, ChevronLeft, ChevronRight, Loader2, Menu, X, Trash, Edit2, LayoutDashboard, Crown, Shield, FolderOpen, ShoppingBag, History
 } from 'lucide-react';
 import { WorkspaceTour } from '@/components/workspace/WorkspaceTour';
 
@@ -34,7 +34,7 @@ export default function WorkspaceLayout({ children }: { children: ReactNode }) {
   const [isCreatingChat, setIsCreatingChat] = useState(false);
   const [editingSessionId, setEditingSessionId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState('');
-  const [chatHistoryOpen, setChatHistoryOpen] = useState(false);
+  const [showChatHistoryModal, setShowChatHistoryModal] = useState(false);
 
   useEffect(() => {
     const loginWithReturn = () => {
@@ -186,7 +186,7 @@ export default function WorkspaceLayout({ children }: { children: ReactNode }) {
         </button>
 
         <button
-          onClick={() => setChatHistoryOpen(!chatHistoryOpen)}
+          onClick={() => setShowChatHistoryModal(true)}
           className={cn(
             "mt-2 h-9 flex items-center gap-2 rounded-xl transition-all",
             (sidebarOpen || isMobile) 
@@ -195,63 +195,75 @@ export default function WorkspaceLayout({ children }: { children: ReactNode }) {
           )}
           title="Chat History"
         >
-          <MessageSquare size={16} strokeWidth={2.5} className="shrink-0" />
+          <History size={16} strokeWidth={2.5} className="shrink-0" />
           {(sidebarOpen || isMobile) && (
             <span className="truncate text-[10px] font-bold uppercase tracking-widest">Chat History</span>
           )}
         </button>
       </div>
 
-      {chatHistoryOpen && (sidebarOpen || isMobile) && (
-        <div className="flex-1 flex flex-col min-h-0 border-b border-border overflow-hidden">
-          <div className="flex items-center justify-between px-3 py-2 border-b border-border shrink-0">
-            <span className="text-[10px] font-black uppercase tracking-widest text-text-muted">Chat History</span>
-            <button
-              onClick={() => setChatHistoryOpen(false)}
-              className="p-1 hover:bg-card-hover rounded-md text-text-muted transition-colors"
-              title="Close"
-            >
-              <ChevronLeft size={12} />
-            </button>
-          </div>
-          <div className="flex-1 overflow-y-auto p-2 space-y-0.5">
-            {sessions.length === 0 ? (
-              <div className="text-center py-4 text-text-muted text-[10px]">No chats yet</div>
-            ) : (
-              sessions.slice(0, 10).map((session) => (
-                <Link
-                  key={session.id}
-                  href={`/c/${session.id}`}
-                  onClick={() => isMobile && setMobileOpen(false)}
-                  className={cn(
-                    "flex items-center gap-2 px-2 py-1.5 rounded-lg text-xs transition-all",
-                    pathname === `/c/${session.id}`
-                      ? 'bg-card text-foreground font-medium'
-                      : 'text-text-secondary hover:bg-card-hover hover:text-foreground'
-                  )}
-                >
-                  <MessageSquare size={10} className="shrink-0 opacity-60" />
-                  <span className="truncate">{session.title}</span>
-                </Link>
-              ))
-            )}
+      {showChatHistoryModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={() => setShowChatHistoryModal(false)} />
+          <div className="relative w-full max-w-md max-h-[80vh] bg-secondary border border-border rounded-2xl shadow-2xl flex flex-col overflow-hidden">
+            <div className="flex items-center justify-between px-4 py-3 border-b border-border shrink-0">
+              <div className="flex items-center gap-2">
+                <History size={18} strokeWidth={2.5} className="text-text-secondary" />
+                <span className="text-sm font-black uppercase tracking-widest text-foreground">Chat History</span>
+              </div>
+              <button
+                onClick={() => setShowChatHistoryModal(false)}
+                className="p-1.5 hover:bg-card-hover rounded-lg text-text-muted transition-colors"
+              >
+                <X size={16} />
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-2 space-y-1">
+              {sessions.length === 0 ? (
+                <div className="text-center py-8 text-text-muted text-xs">No chat sessions yet</div>
+              ) : (
+                sessions.map((session) => (
+                  <Link
+                    key={session.id}
+                    href={`/c/${session.id}`}
+                    onClick={() => { setShowChatHistoryModal(false); isMobile && setMobileOpen(false); }}
+                    className={cn(
+                      "flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all",
+                      pathname === `/c/${session.id}`
+                        ? 'bg-accent-primary/10 text-accent-primary font-medium'
+                        : 'text-text-secondary hover:bg-card-hover hover:text-foreground'
+                    )}
+                  >
+                    <MessageSquare size={14} className="shrink-0 opacity-60" />
+                    <span className="truncate flex-1">{session.title}</span>
+                    <span className="text-[10px] text-text-muted shrink-0">
+                      {session.updated_at ? new Date(session.updated_at).toLocaleDateString() : ''}
+                    </span>
+                  </Link>
+                ))
+              )}
+            </div>
           </div>
         </div>
       )}
 
-      {!chatHistoryOpen && !sidebarOpen && !isMobile && <div className="flex-1" />}
+      {!sidebarOpen && !isMobile && <div className="flex-1" />}
 
-      <div className="p-2 space-y-0.25 border-t border-border shrink-0">
-        <NavLink href="/workspace" icon={<LayoutDashboard size={14} />} label="Workspace" active={pathname === '/workspace'} collapsed={isCollapsed && !isMobile} />
-
-        <NavLink href="/machines" icon={<Cpu size={14} />} label="Machines" active={pathname === '/machines'} collapsed={isCollapsed && !isMobile} />
-        <NavLink href="/files" icon={<FolderOpen size={14} />} label="File Manager" active={pathname === '/files'} collapsed={isCollapsed && !isMobile} />
-        <NavLink href="/workflows" icon={<GitBranch size={14} />} label="Workflows" active={pathname === '/workflows'} collapsed={isCollapsed && !isMobile} />
-        <NavLink href="/marketplace" icon={<ShoppingBag size={14} />} label="Marketplace" active={pathname === '/marketplace'} collapsed={isCollapsed && !isMobile} />
-        <NavLink href="/pair" icon={<LinkIcon size={14} />} label="Pair Device" active={pathname === '/pair'} collapsed={isCollapsed && !isMobile} />
-        <NavLink href="/vault" icon={<Shield size={14} />} label="Secure Vault" active={pathname === '/vault'} collapsed={isCollapsed && !isMobile} />
-        <NavLink href="/pricing" icon={<Crown size={14} className="text-yellow-500/50" />} label="Pricing Plans" active={pathname === '/pricing'} collapsed={isCollapsed && !isMobile} />
-        <NavLink href="/settings" icon={<Settings size={14} />} label="Settings" active={pathname === '/settings'} collapsed={isCollapsed && !isMobile} />
+      <div className="flex-1 flex flex-col min-h-0 justify-between">
+        <div className="py-2 space-y-0.25 shrink-0">
+          <NavLink href="/workspace" icon={<LayoutDashboard size={14} />} label="Workspace" active={pathname === '/workspace'} collapsed={isCollapsed && !isMobile} />
+          <NavLink href="/machines" icon={<Cpu size={14} />} label="Machines" active={pathname === '/machines'} collapsed={isCollapsed && !isMobile} />
+          <NavLink href="/files" icon={<FolderOpen size={14} />} label="File Manager" active={pathname === '/files'} collapsed={isCollapsed && !isMobile} />
+          <NavLink href="/workflows" icon={<GitBranch size={14} />} label="Workflows" active={pathname === '/workflows'} collapsed={isCollapsed && !isMobile} />
+          <NavLink href="/marketplace" icon={<ShoppingBag size={14} />} label="Marketplace" active={pathname === '/marketplace'} collapsed={isCollapsed && !isMobile} />
+        </div>
+        <div className="flex-1" />
+        <div className="py-2 border-t border-border space-y-0.25 shrink-0">
+          <NavLink href="/pair" icon={<LinkIcon size={14} />} label="Pair Device" active={pathname === '/pair'} collapsed={isCollapsed && !isMobile} />
+          <NavLink href="/vault" icon={<Shield size={14} />} label="Secure Vault" active={pathname === '/vault'} collapsed={isCollapsed && !isMobile} />
+          <NavLink href="/pricing" icon={<Crown size={14} className="text-yellow-500/50" />} label="Pricing Plans" active={pathname === '/pricing'} collapsed={isCollapsed && !isMobile} />
+          <NavLink href="/settings" icon={<Settings size={14} />} label="Settings" active={pathname === '/settings'} collapsed={isCollapsed && !isMobile} />
+        </div>
       </div>
 
       <div className="p-2 border-t border-border space-y-0.5 shrink-0">
