@@ -149,20 +149,6 @@ jobs:
           name: linux-deb
           path: dist/*.deb
 
-      - name: Create GitHub Release
-        if: matrix.platform == 'windows'
-        run: |
-          TAG_NAME=$(git describe --tags --always --abbrev=0 2>/dev/null || echo "latest")
-          
-          gh release create "$TAG_NAME" \
-            dist/*.exe \
-            --draft \
-            --title "Control Desktop App ($TAG_NAME)" \
-            --notes "Auto-built from GitHub Actions"
-        shell: bash
-        env:
-          GH_TOKEN: ${{ github.token }}
-
       - name: Upload macOS unpacked
         if: matrix.platform == 'macos'
         uses: actions/upload-artifact@v4
@@ -184,6 +170,11 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
       - name: Download all artifacts
         uses: actions/download-artifact@v4
         with:
@@ -191,26 +182,20 @@ jobs:
 
       - name: Create GitHub Release with all installers
         run: |
-          # Get tag name
           TAG_NAME=$(git describe --tags --always --abbrev=0 2>/dev/null || echo "latest")
           
-          # Collect all installer files from all platforms
           ls -la artifacts/
           
-          # Find and upload all files
-          find artifacts/ -type f -name "*.exe" -o -name "*.dmg" -o -name "*.AppImage" -o -name "*.deb" | while read file; do
-            echo "Uploading: $file"
-          done
-          
-          # Create release with all files
+          # Create release with all installer files (excluding unpacked apps)
           gh release create "$TAG_NAME" \
-            artifacts/**/*.exe \
-            artifacts/**/*.dmg \
-            artifacts/**/*.AppImage \
-            artifacts/**/*.deb \
+            artifacts/windows-nsis/*.exe \
+            artifacts/macos-intel/*.dmg \
+            artifacts/macos-arm64/*.dmg \
+            artifacts/linux-appimage/*.AppImage \
+            artifacts/linux-deb/*.deb \
             --draft \
             --title "Control Desktop App ($TAG_NAME)" \
             --notes "Auto-built from GitHub Actions"
         shell: bash
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
