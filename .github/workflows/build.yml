@@ -91,12 +91,10 @@ jobs:
 
       - name: Upload Windows installer
         if: matrix.platform == 'windows'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
-          name: windows-installer
           path: dist/*.exe
-          retention-days: 7
-          compression-level: 0
+          archive: false
 
       - name: Upload macOS unpacked
         if: matrix.platform == 'macos'
@@ -108,12 +106,10 @@ jobs:
 
       - name: Upload macOS installer
         if: matrix.platform == 'macos'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
-          name: macos-installer
           path: dist/*.dmg
-          retention-days: 7
-          compression-level: 0
+          archive: false
 
       - name: Upload Linux unpacked
         if: matrix.platform == 'linux'
@@ -125,21 +121,17 @@ jobs:
 
       - name: Upload Linux AppImage
         if: matrix.platform == 'linux'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
-          name: linux-appimage
           path: dist/*.AppImage
-          retention-days: 7
-          compression-level: 0
+          archive: false
 
       - name: Upload Linux deb
         if: matrix.platform == 'linux'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
-          name: linux-deb
           path: dist/*.deb
-          retention-days: 7
-          compression-level: 0
+          archive: false
 
   release:
     needs: build
