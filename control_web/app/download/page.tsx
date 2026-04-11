@@ -3,9 +3,9 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import { motion } from 'framer-motion';
-import { ArrowLeft, ArrowRight, Command, Download, LayoutGrid, Monitor, Terminal } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Command, Download } from 'lucide-react';
 import { DESKTOP_DOWNLOAD_URLS } from '@/lib/download-urls';
-import { PlatformLogos } from '@/components/landing/SoftwareLogos';
+import { PlatformLogos, platformLogos } from '@/components/landing/SoftwareLogos';
 
 type PlatformKey = keyof typeof DESKTOP_DOWNLOAD_URLS;
 
@@ -13,12 +13,20 @@ const PLATFORMS: {
   key: PlatformKey;
   name: string;
   arch: string;
-  icon: typeof Monitor;
 }[] = [
-  { key: 'mac', name: 'macOS', arch: 'Apple Silicon and Intel (.dmg)', icon: Monitor },
-  { key: 'windows', name: 'Windows', arch: 'x64 installer', icon: LayoutGrid },
-  { key: 'linux', name: 'Linux', arch: 'AppImage or package (TBD)', icon: Terminal },
+  { key: 'mac', name: 'macOS', arch: 'Apple Silicon and Intel (.dmg)' },
+  { key: 'windows', name: 'Windows', arch: 'x64 installer' },
+  { key: 'linux', name: 'Linux', arch: 'AppImage or package (TBD)' },
 ];
+
+function getPlatformLogo(key: PlatformKey) {
+  const logoMap: Record<PlatformKey, string> = {
+    mac: 'macOS',
+    windows: 'Windows',
+    linux: 'Linux',
+  };
+  return platformLogos.find(p => p.name === logoMap[key]);
+}
 
 export default function DownloadPage() {
   return (
@@ -71,7 +79,7 @@ export default function DownloadPage() {
           {PLATFORMS.map((p, i) => {
             const url = DESKTOP_DOWNLOAD_URLS[p.key];
             const ready = Boolean(url);
-            const Icon = p.icon;
+            const logo = getPlatformLogo(p.key);
             return (
               <motion.article
                 key={p.key}
@@ -80,8 +88,17 @@ export default function DownloadPage() {
                 transition={{ delay: 0.08 * i, duration: 0.45 }}
                 className="rounded-2xl border border-white/[0.1] bg-white/[0.02] p-6 sm:p-7 flex flex-col min-h-[280px]"
               >
-                <div className="w-11 h-11 rounded-xl border border-white/15 flex items-center justify-center text-neutral-300 mb-5">
-                  <Icon className="w-5 h-5" strokeWidth={1.5} />
+                <div className="w-11 h-11 rounded-xl border border-white/15 flex items-center justify-center mb-5 overflow-hidden bg-white/5">
+                  {logo && (
+                    <Image
+                      src={logo.src}
+                      alt={logo.name}
+                      width={28}
+                      height={28}
+                      className="object-contain"
+                      unoptimized
+                    />
+                  )}
                 </div>
                 <h2 className="font-landing text-lg font-semibold text-white">{p.name}</h2>
                 <p className="mt-1 text-xs text-neutral-500 uppercase tracking-wider">{p.arch}</p>

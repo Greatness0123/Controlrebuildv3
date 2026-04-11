@@ -33,7 +33,7 @@ import {
 import type { LucideIcon } from 'lucide-react';
 import { useRef, useState } from 'react';
 import { getSocialLinks } from '@/lib/social-links';
-import { SoftwareLogos } from './SoftwareLogos';
+import { SoftwareLogos, SoftwareLogosMarquee } from './SoftwareLogos';
 
 const fadeEase = [0.22, 1, 0.36, 1] as const;
 const fadeTransition: Transition = { duration: 0.55, ease: fadeEase };
@@ -111,7 +111,7 @@ export default function LandingMarketing() {
               className="mt-8"
             >
               <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-neutral-600 mb-4">Works with</p>
-              <SoftwareLogos />
+              <SoftwareLogosMarquee />
             </motion.div>
             <motion.div
               initial={{ opacity: 0, y: 16 }}
