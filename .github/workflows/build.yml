@@ -80,48 +80,27 @@ jobs:
         shell: bash
         env:
           GH_TOKEN: ${{ secrets.GH_TOKEN }}
+        id: build
 
-      - name: List Windows dist
+      - name: List all dist files
         if: matrix.platform == 'windows'
         run: |
           echo "=== dist/ contents ==="
           ls -la dist/
-          echo "=== All files in dist ==="
-          find dist/ -type f
-        shell: bash
-        env:
-          GH_TOKEN: ${{ secrets.GH_TOKEN }}
-
-      - name: Upload Windows unpacked
-        if: matrix.platform == 'windows'
-        uses: actions/upload-artifact@v4
-        with:
-          name: windows-unpacked
-          path: dist/win-unpacked/
-          retention-days: 7
-
-      - name: List Windows dist
-        if: matrix.platform == 'windows'
-        run: |
-          echo "=== dist/ contents ==="
-          ls -la dist/
-          echo "=== Looking for exe files ==="
-          find dist/ -name "*.exe" -type f
-        shell: bash
 
       - name: Upload Windows NSIS installer
         if: matrix.platform == 'windows'
         uses: actions/upload-artifact@v7
         with:
           name: windows-nsis
-          path: dist/*-Setup*.exe
+          path: dist/Control Setup*.exe
 
       - name: Upload Windows Portable
         if: matrix.platform == 'windows'
         uses: actions/upload-artifact@v7
         with:
           name: windows-portable
-          path: dist/*-portable*.exe
+          path: dist/Control 1.0.0.exe
 
       - name: List macOS dist
         if: matrix.platform == 'macos'
