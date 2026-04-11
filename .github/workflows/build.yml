@@ -89,29 +89,51 @@ jobs:
           path: dist/win-unpacked/
           retention-days: 7
 
-      - name: Upload Windows installer
+      - name: List Windows dist
         if: matrix.platform == 'windows'
         run: |
-          ls dist/*.exe
+          ls -la dist/
         shell: bash
 
-      - name: Upload macOS installer
+      - name: Upload Windows NSIS installer
+        if: matrix.platform == 'windows'
+        uses: actions/upload-artifact@v7
+        with:
+          name: Control-Setup-NSIS
+          path: dist/Control-Setup.exe
+
+      - name: Upload Windows Portable
+        if: matrix.platform == 'windows'
+        uses: actions/upload-artifact@v7
+        with:
+          name: Control-Portable
+          path: dist/Control-Portable.exe
+
+      - name: List macOS dist
         if: matrix.platform == 'macos'
         run: |
-          ls dist/*.dmg
+          ls -la dist/
+        shell: bash
+
+      - name: List Linux dist
+        if: matrix.platform == 'linux'
+        run: |
+          ls -la dist/
         shell: bash
 
       - name: Upload Linux AppImage
         if: matrix.platform == 'linux'
-        run: |
-          ls dist/*.AppImage
-        shell: bash
+        uses: actions/upload-artifact@v7
+        with:
+          name: Control-Linux-AppImage
+          path: dist/Control.AppImage
 
       - name: Upload Linux deb
         if: matrix.platform == 'linux'
-        run: |
-          ls dist/*.deb
-        shell: bash
+        uses: actions/upload-artifact@v7
+        with:
+          name: Control-Linux-deb
+          path: dist/*.deb
 
       - name: Upload macOS unpacked
         if: matrix.platform == 'macos'
