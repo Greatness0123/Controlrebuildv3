@@ -86,34 +86,24 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: windows-build
-          path: |
-            dist/win-unpacked/
-            dist/*.exe
+          path: dist/win-unpacked/
           retention-days: 7
-          compression-level: 0
 
       - name: Upload macOS artifacts
         if: matrix.platform == 'macos'
         uses: actions/upload-artifact@v4
         with:
           name: macos-build
-          path: |
-            dist/mac/
-            dist/*.dmg
+          path: dist/mac/
           retention-days: 7
-          compression-level: 0
 
       - name: Upload Linux artifacts
         if: matrix.platform == 'linux'
         uses: actions/upload-artifact@v4
         with:
           name: linux-build
-          path: |
-            dist/linux-unpacked/
-            dist/*.AppImage
-            dist/*.deb
+          path: dist/linux-unpacked/
           retention-days: 7
-          compression-level: 0
 
   release:
     needs: build
