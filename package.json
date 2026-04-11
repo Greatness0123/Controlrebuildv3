@@ -46,12 +46,7 @@
       "!**/{.DS_Store,.git,.hg,.svn,CVS,RCS,SCCS,.gitignore,.gitattributes}",
       "!**/{__pycache__,thumbs.db,.flowconfig,.idea,.vs,.nyc_output}",
       "!**/{appveyor.yml,.travis.yml,circle.yml}",
-      "!**/{npm-debug.log,yarn.lock,.yarn-integrity,.yarn-metadata.json}",
-      "!**/node_modules/.cache/**/*",
-      "!**/node_modules/playwright/.cache/**/*",
-      "!**/node_modules/playwright/node_modules/**/*",
-      "!**/node_modules/@playwright/test/**/*",
-      "!**/node_modules/playwright-core/.cache/**/*"
+      "!**/{npm-debug.log,yarn.lock,.yarn-integrity,.yarn-metadata.json}"
     ],
     "extraResources": [
       "assets/**/*",
@@ -65,8 +60,7 @@
       "**/node_modules/@picovoice/pvrecorder-node/**/*",
       "**/node_modules/screenshot-desktop/**/*",
       "src/main/backends/**/*",
-      "assets/wakeword/**/*",
-      "assets/binaries/**/*"
+      "assets/wakeword/**/*"
     ],
     "mac": {
       "category": "public.app-category.productivity",

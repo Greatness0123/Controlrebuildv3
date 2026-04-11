@@ -90,6 +90,7 @@ jobs:
             dist/win-unpacked/
             dist/*.exe
           retention-days: 7
+          compression-level: 0
 
       - name: Upload macOS artifacts
         if: matrix.platform == 'macos'
@@ -100,6 +101,7 @@ jobs:
             dist/mac/
             dist/*.dmg
           retention-days: 7
+          compression-level: 0
 
       - name: Upload Linux artifacts
         if: matrix.platform == 'linux'
@@ -108,7 +110,10 @@ jobs:
           name: linux-build
           path: |
             dist/linux-unpacked/
+            dist/*.AppImage
+            dist/*.deb
           retention-days: 7
+          compression-level: 0
 
   release:
     needs: build
