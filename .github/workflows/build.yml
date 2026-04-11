@@ -190,6 +190,11 @@ jobs:
           echo "=== Listing all artifacts ==="
           find artifacts/ -type f \( -name "*.exe" -o -name "*.dmg" -o -name "*.AppImage" -o -name "*.deb" \)
           
+          echo "=== Windows NSIS ==="
+          ls -la artifacts/windows-nsis/ 2>/dev/null || echo "No windows-nsis"
+          echo "=== Windows Portable ==="
+          ls -la artifacts/windows-portable/ 2>/dev/null || echo "No windows-portable"
+          
           # Collect files into an array
           FILES=()
           
