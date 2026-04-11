@@ -161,7 +161,7 @@ jobs:
             --notes "Auto-built from GitHub Actions"
         shell: bash
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ github.token }}
 
       - name: Upload macOS unpacked
         if: matrix.platform == 'macos'
