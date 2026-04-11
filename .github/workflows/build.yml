@@ -81,21 +81,28 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Move portable exe to dist root
+      - name: Upload Windows artifacts
         if: matrix.platform == 'windows'
-        run: |
-          if [ -f "dist/win-unpacked/Control.exe" ]; then
-            cp "dist/win-unpacked/Control.exe" "dist/Control-portable.exe" 2>/dev/null || true
-          fi
-        shell: bash
-
-      - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.platform }}-build
-          path: |
-            dist/
-            !dist/**/*.map
+          name: windows-build
+          path: dist/win-unpacked/
+          retention-days: 7
+
+      - name: Upload macOS artifacts
+        if: matrix.platform == 'macos'
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-build
+          path: dist/mac/
+          retention-days: 7
+
+      - name: Upload Linux artifacts
+        if: matrix.platform == 'linux'
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-build
+          path: dist/linux-unpacked/
           retention-days: 7
 
   release:

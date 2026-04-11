@@ -46,14 +46,27 @@
       "!**/{.DS_Store,.git,.hg,.svn,CVS,RCS,SCCS,.gitignore,.gitattributes}",
       "!**/{__pycache__,thumbs.db,.flowconfig,.idea,.vs,.nyc_output}",
       "!**/{appveyor.yml,.travis.yml,circle.yml}",
-      "!**/{npm-debug.log,yarn.lock,.yarn-integrity,.yarn-metadata.json}"
+      "!**/{npm-debug.log,yarn.lock,.yarn-integrity,.yarn-metadata.json}",
+      "!**/node_modules/.cache/**/*",
+      "!**/node_modules/playwright/.cache/**/*",
+      "!**/node_modules/playwright/node_modules/**/*",
+      "!**/node_modules/@playwright/test/**/*",
+      "!**/node_modules/playwright-core/.cache/**/*"
     ],
     "extraResources": [
       "assets/**/*",
       "assets/binaries/**/*",
       "config/**/*",
-      "src/config/**/*",
-      "vosk_server_v2.py"
+      "src/config/**/*"
+    ],
+    "asar": true,
+    "asarUnpack": [
+      "**/node_modules/@picovoice/porcupine-node/**/*",
+      "**/node_modules/@picovoice/pvrecorder-node/**/*",
+      "**/node_modules/screenshot-desktop/**/*",
+      "src/main/backends/**/*",
+      "assets/wakeword/**/*",
+      "assets/binaries/**/*"
     ],
     "mac": {
       "category": "public.app-category.productivity",
