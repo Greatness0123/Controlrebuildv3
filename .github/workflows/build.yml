@@ -128,7 +128,7 @@ jobs:
           if-no-files-found: warn
 
       - name: Upload all installers to Release
-        if: matrix.platform == 'windows'
+        if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
           draft: true
