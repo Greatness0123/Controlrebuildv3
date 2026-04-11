@@ -178,3 +178,39 @@ jobs:
           name: linux-unpacked
           path: dist/linux-unpacked/
           retention-days: 7
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Create GitHub Release with all installers
+        run: |
+          # Get tag name
+          TAG_NAME=$(git describe --tags --always --abbrev=0 2>/dev/null || echo "latest")
+          
+          # Collect all installer files from all platforms
+          ls -la artifacts/
+          
+          # Find and upload all files
+          find artifacts/ -type f -name "*.exe" -o -name "*.dmg" -o -name "*.AppImage" -o -name "*.deb" | while read file; do
+            echo "Uploading: $file"
+          done
+          
+          # Create release with all files
+          gh release create "$TAG_NAME" \
+            artifacts/**/*.exe \
+            artifacts/**/*.dmg \
+            artifacts/**/*.AppImage \
+            artifacts/**/*.deb \
+            --draft \
+            --title "Control Desktop App ($TAG_NAME)" \
+            --notes "Auto-built from GitHub Actions"
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
