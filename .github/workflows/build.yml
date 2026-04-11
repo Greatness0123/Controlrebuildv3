@@ -115,6 +115,20 @@ jobs:
           ls -la dist/
         shell: bash
 
+      - name: Upload macOS DMG Intel
+        if: matrix.platform == 'macos'
+        uses: actions/upload-artifact@v7
+        with:
+          name: Control-Mac-Intel
+          path: dist/Control-1.0.0.dmg
+
+      - name: Upload macOS DMG Apple Silicon
+        if: matrix.platform == 'macos'
+        uses: actions/upload-artifact@v7
+        with:
+          name: Control-Mac-ARM64
+          path: dist/Control-1.0.0-arm64.dmg
+
       - name: List Linux dist
         if: matrix.platform == 'linux'
         run: |
