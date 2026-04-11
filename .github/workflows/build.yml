@@ -103,6 +103,8 @@ jobs:
         with:
           draft: true
           files: dist/Setup*.exe
+        env:
+          GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
 
       - name: Upload Windows Portable to Release
         if: matrix.platform == 'windows' && startsWith(github.ref, 'refs/tags/')
@@ -110,6 +112,8 @@ jobs:
         with:
           draft: true
           files: dist/*Portable*.exe
+        env:
+          GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
 
       - name: List macOS dist
         if: matrix.platform == 'macos'
@@ -123,6 +127,8 @@ jobs:
         with:
           draft: true
           files: dist/Control-1.0.0.dmg
+        env:
+          GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
 
       - name: Upload macOS ARM64 to Release
         if: matrix.platform == 'macos' && startsWith(github.ref, 'refs/tags/')
@@ -130,6 +136,8 @@ jobs:
         with:
           draft: true
           files: dist/Control-1.0.0-arm64.dmg
+        env:
+          GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
 
       - name: List Linux dist
         if: matrix.platform == 'linux'
@@ -143,6 +151,8 @@ jobs:
         with:
           draft: true
           files: dist/*.AppImage
+        env:
+          GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
 
       - name: Upload Linux deb to Release
         if: matrix.platform == 'linux' && startsWith(github.ref, 'refs/tags/')
@@ -150,6 +160,8 @@ jobs:
         with:
           draft: true
           files: dist/*.deb
+        env:
+          GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
 
       - name: Upload macOS unpacked
         if: matrix.platform == 'macos'
