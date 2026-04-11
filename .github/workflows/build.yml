@@ -92,10 +92,19 @@ jobs:
       - name: List Windows dist
         if: matrix.platform == 'windows'
         run: |
-          ls -la dist/*.exe || echo "No exe files"
+          echo "=== dist/ contents ==="
+          ls -la dist/
+          echo "=== Looking for exe files ==="
+          find dist/ -name "*.exe" -type f
         shell: bash
 
       - name: Upload Windows NSIS installer
+        if: matrix.platform == 'windows'
+        run: |
+          echo "=== Looking for Setup*.exe ==="
+          find dist/ -name "Setup*.exe" -type f
+
+      - name: Upload Windows NSIS artifact
         if: matrix.platform == 'windows'
         uses: actions/upload-artifact@v7
         with:
@@ -103,6 +112,12 @@ jobs:
           path: dist/Setup*.exe
 
       - name: Upload Windows Portable
+        if: matrix.platform == 'windows'
+        run: |
+          echo "=== Looking for Portable*.exe ==="
+          find dist/ -name "*Portable*.exe" -type f
+
+      - name: Upload Windows Portable artifact
         if: matrix.platform == 'windows'
         uses: actions/upload-artifact@v7
         with:
