@@ -182,17 +182,34 @@ jobs:
 
       - name: Create GitHub Release with all installers
         run: |
+          set -e
+          shopt -s nullglob
+          
           TAG_NAME=$(git describe --tags --always --abbrev=0 2>/dev/null || echo "latest")
           
-          ls -la artifacts/
+          echo "=== Listing all artifacts ==="
+          find artifacts/ -type f \( -name "*.exe" -o -name "*.dmg" -o -name "*.AppImage" -o -name "*.deb" \)
           
-          # Create release with all installer files (excluding unpacked apps)
+          # Collect files into an array
+          FILES=()
+          
+          # Windows installers
+          for f in artifacts/windows-nsis/*.exe; do FILES+=("$f"); done
+          for f in artifacts/windows-portable/*.exe; do FILES+=("$f"); done
+          
+          # macOS
+          for f in artifacts/macos-intel/*.dmg; do FILES+=("$f"); done
+          for f in artifacts/macos-arm64/*.dmg; do FILES+=("$f"); done
+          
+          # Linux
+          for f in artifacts/linux-appimage/*.AppImage; do FILES+=("$f"); done
+          for f in artifacts/linux-deb/*.deb; do FILES+=("$f"); done
+          
+          echo "Files to upload: ${#FILES[@]}"
+          
+          # Create release
           gh release create "$TAG_NAME" \
-            artifacts/windows-nsis/*.exe \
-            artifacts/macos-intel/*.dmg \
-            artifacts/macos-arm64/*.dmg \
-            artifacts/linux-appimage/*.AppImage \
-            artifacts/linux-deb/*.deb \
+            "${FILES[@]}" \
             --draft \
             --title "Control Desktop App ($TAG_NAME)" \
             --notes "Auto-built from GitHub Actions"
