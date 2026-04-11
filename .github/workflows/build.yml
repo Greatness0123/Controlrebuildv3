@@ -91,10 +91,27 @@ jobs:
 
       - name: Upload Windows installer
         if: matrix.platform == 'windows'
-        uses: actions/upload-artifact@v7
-        with:
-          path: dist/*.exe
-          archive: false
+        run: |
+          ls dist/*.exe
+        shell: bash
+
+      - name: Upload macOS installer
+        if: matrix.platform == 'macos'
+        run: |
+          ls dist/*.dmg
+        shell: bash
+
+      - name: Upload Linux AppImage
+        if: matrix.platform == 'linux'
+        run: |
+          ls dist/*.AppImage
+        shell: bash
+
+      - name: Upload Linux deb
+        if: matrix.platform == 'linux'
+        run: |
+          ls dist/*.deb
+        shell: bash
 
       - name: Upload macOS unpacked
         if: matrix.platform == 'macos'
