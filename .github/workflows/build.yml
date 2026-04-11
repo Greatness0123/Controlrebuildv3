@@ -87,6 +87,7 @@ jobs:
         run: |
           echo "=== dist/ contents ==="
           ls -la dist/
+        shell: bash
 
       - name: Upload Windows NSIS installer
         if: matrix.platform == 'windows'
