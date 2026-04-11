@@ -96,6 +96,7 @@ jobs:
           name: windows-installer
           path: dist/*.exe
           retention-days: 7
+          compression-level: 0
 
       - name: Upload macOS unpacked
         if: matrix.platform == 'macos'
@@ -112,6 +113,7 @@ jobs:
           name: macos-installer
           path: dist/*.dmg
           retention-days: 7
+          compression-level: 0
 
       - name: Upload Linux unpacked
         if: matrix.platform == 'linux'
@@ -128,6 +130,7 @@ jobs:
           name: linux-appimage
           path: dist/*.AppImage
           retention-days: 7
+          compression-level: 0
 
       - name: Upload Linux deb
         if: matrix.platform == 'linux'
@@ -136,6 +139,7 @@ jobs:
           name: linux-deb
           path: dist/*.deb
           retention-days: 7
+          compression-level: 0
 
   release:
     needs: build
