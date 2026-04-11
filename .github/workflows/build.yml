@@ -69,12 +69,15 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+        shell: bash
 
       - name: Post-install hook
         run: npm run postinstall
+        shell: bash
 
       - name: Build the Electron app
         run: npm run build
+        shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -84,6 +87,7 @@ jobs:
           if [ -f "dist/win-unpacked/Control.exe" ]; then
             cp "dist/win-unpacked/Control.exe" "dist/Control-portable.exe" 2>/dev/null || true
           fi
+        shell: bash
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
