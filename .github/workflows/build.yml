@@ -78,6 +78,8 @@ jobs:
       - name: Build the Electron app
         run: npm run dist
         shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Upload Windows unpacked
         if: matrix.platform == 'windows'
@@ -148,16 +150,17 @@ jobs:
           path: dist/*.deb
 
       - name: Create GitHub Release
-        if: matrix.platform == 'windows'
+        if: matrix.platform == 'windows' && github.event_name == 'push' && github.ref == 'refs/heads/main'
         run: |
-          TAG_NAME=$(git describe --tags --always --abbrev=0 2>/dev/null || echo "v1.0.0")
+          # Get latest tag or use default
+          TAG_NAME=$(git describe --tags --always --abbrev=0 2>/dev/null || echo "latest")
           
-          # Create release with just the exe files for now
+          # Create/update release with installers
           gh release create "$TAG_NAME" \
             dist/*.exe \
             --draft \
-            --title "Control Desktop App $TAG_NAME" \
-            --notes "Built from GitHub Actions"
+            --title "Control Desktop App ($TAG_NAME)" \
+            --notes "Auto-built from GitHub Actions"
         shell: bash
 
       - name: Upload macOS unpacked

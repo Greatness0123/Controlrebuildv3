@@ -26,7 +26,12 @@
   "build": {
     "appId": "com.computeruseagent.app",
     "productName": "Control",
-    "publish": null,
+    "publish": {
+      "provider": "github",
+      "owner": "Greatness0123",
+      "repo": "Controlrebuildv3",
+      "releaseType": "draft"
+    },
     "directories": {
       "output": "dist",
       "buildResources": "assets"
