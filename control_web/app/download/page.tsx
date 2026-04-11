@@ -88,13 +88,12 @@ export default function DownloadPage() {
                 transition={{ delay: 0.08 * i, duration: 0.45 }}
                 className="rounded-2xl border border-white/[0.1] bg-white/[0.02] p-6 sm:p-7 flex flex-col min-h-[280px]"
               >
-                <div className="w-11 h-11 rounded-xl border border-white/15 flex items-center justify-center mb-5 overflow-hidden bg-white/5">
+                <div className="w-11 h-11 rounded-xl border border-white/15 flex items-center justify-center mb-5 overflow-hidden bg-white/5 relative">
                   {logo && (
                     <Image
                       src={logo.src}
                       alt={logo.name}
-                      width={28}
-                      height={28}
+                      fill
                       className="object-contain"
                       unoptimized
                     />

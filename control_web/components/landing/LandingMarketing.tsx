@@ -420,63 +420,83 @@ export default function LandingMarketing() {
           </div>
         </section>
 
-        {/* Competitors - careful */}
+{/* Competitors */}
         <section id="compare" className="px-5 sm:px-8 py-16 sm:py-24">
           <div className="max-w-6xl mx-auto">
             <motion.div {...fadeUp} className="max-w-2xl mb-10 sm:mb-14">
               <p className="text-[10px] font-semibold uppercase tracking-[0.28em] text-neutral-500 mb-3">Landscape</p>
               <h2 className="font-landing text-2xl sm:text-3xl font-bold text-white tracking-tight">How Control differs</h2>
               <p className="mt-4 text-neutral-400 text-sm sm:text-base leading-relaxed">
-                The market mixes OS assistants, cloud research agents, classic RPA, and DIY stacks. Positioning below is
-                directional—evaluate against your own security and procurement requirements.
+                The desktop AI agent space is evolving fast. Here's how Control positions against the key players.
               </p>
             </motion.div>
             <motion.div {...fadeUp} className="overflow-x-auto rounded-xl border border-white/[0.08]">
-              <table className="w-full min-w-[640px] text-left text-sm">
+              <table className="w-full min-w-[800px] text-left text-sm">
                 <thead>
                   <tr className="border-b border-white/[0.08] text-[10px] uppercase tracking-[0.2em] text-neutral-500">
-                    <th className="px-4 py-4 font-semibold w-[28%]">Topic</th>
-                    <th className="px-4 py-4 font-semibold text-white w-[24%]">Control</th>
-                    <th className="px-4 py-4 font-semibold w-[24%]">OS-level assistants</th>
-                    <th className="px-4 py-4 font-semibold w-[24%]">Cloud / hosted agents</th>
-                    <th className="px-4 py-4 font-semibold">RPA suites</th>
+                    <th className="px-4 py-4 font-semibold w-[20%]">Topic</th>
+                    <th className="px-4 py-4 font-semibold text-white w-[16%]">Control</th>
+                    <th className="px-4 py-4 font-semibold w-[16%]">Claude Computer Use</th>
+                    <th className="px-4 py-4 font-semibold w-[16%]">OpenAI Operator</th>
+                    <th className="px-4 py-4 font-semibold w-[16%]">OpenClaw</th>
+                    <th className="px-4 py-4 font-semibold w-[16%]">Skyvern</th>
                   </tr>
                 </thead>
                 <tbody className="text-neutral-400">
                   <CompareRow
-                    topic="Primary surface"
-                    control="User-chosen desktop apps and browsers, local or streamed."
-                    os="Tight coupling to vendor OS and first-party experiences."
-                    cloud="Often remote browser or VM; workload may leave the device."
-                    rpa="Designer-built flows; strong in structured enterprise processes."
+                    topic="Architecture"
+                    control="Hybrid local + cloud (native app + remote VM streaming)"
+                    claude="Cloud sandboxed VMs"
+                    openai="Cloud browser-based agent"
+                    openclaw="Local / self-hosted only"
+                    skyvern="Browser-only automation"
                   />
                   <CompareRow
-                    topic="Setup for one-off tasks"
-                    control="Natural language goal; minimal per-app configuration."
-                    os="Varies; may prioritize vendor app ecosystems."
-                    cloud="Depends on product; may need environment provisioning."
-                    rpa="Typically analyst or developer configuration."
+                    topic="Voice control"
+                    control="Native wake word + offline voice (Picovoice + Vosk)"
+                    claude="Text/chat only"
+                    openai="Text/chat only"
+                    openclaw="Text/chat only"
+                    skyvern="Text/chat only"
                   />
                   <CompareRow
-                    topic="Latency-sensitive UI work"
-                    control="Local execution path for pointer and keyboard actions."
-                    os="Generally low latency within OS-supported scenarios."
-                    cloud="Network and hosting hops can add delay."
-                    rpa="Usually runs on managed robots; not always interactive desktop."
+                    topic="Target focus"
+                    control="Professional creative software (Blender, AutoCAD, Premiere, etc.)"
+                    claude="General desktop tasks"
+                    openai="Web automation"
+                    openclaw="General desktop tasks"
+                    skyvern="Web workflows"
                   />
                   <CompareRow
-                    topic="Open-source / self-hosted stacks"
-                    control="Productized app plus web dashboard; less DIY assembly."
-                    os="N/A"
-                    cloud="Some users assemble agents manually for full control."
-                    rpa="Less common in pure OSS for enterprise RPA."
+                    topic="Execution model"
+                    control="User's real machine or full VM — real apps, real files"
+                    claude="Sandboxed VMs with simulated environment"
+                    openai="Cloud browser sandbox"
+                    openclaw="Local desktop only"
+                    skyvern="Browser-based only"
+                  />
+                  <CompareRow
+                    topic="Offline capable"
+                    control="Yes — basic commands work fully offline"
+                    claude="No — requires cloud"
+                    openai="No — requires cloud"
+                    openclaw="Yes — self-hosted"
+                    skyvern="No — requires cloud"
+                  />
+                  <CompareRow
+                    topic="Cross-platform"
+                    control="Windows, macOS, Linux (native Electron)"
+                    claude="Web only"
+                    openai="Web only"
+                    openclaw="Self-hosted (OS agnostic)"
+                    skyvern="Web only"
                   />
                 </tbody>
               </table>
             </motion.div>
             <p className="mt-6 text-xs text-neutral-600 max-w-3xl leading-relaxed">
-              Trademarks belong to their owners. Compare features in your own pilot; assistant capabilities change frequently
-              across vendors.
+              Trademarks belong to their owners. Pricing and features change frequently — evaluate against your own security 
+              and procurement requirements. Control is the only hybrid local + cloud solution with native voice control.
             </p>
           </div>
         </section>
@@ -553,23 +573,26 @@ function Bento({
 function CompareRow({
   topic,
   control,
-  os,
-  cloud,
-  rpa,
+  claude,
+  openai,
+  openclaw,
+  skyvern,
 }: {
   topic: string;
   control: string;
-  os: string;
-  cloud: string;
-  rpa: string;
+  claude: string;
+  openai: string;
+  openclaw: string;
+  skyvern: string;
 }) {
   return (
     <tr className="border-b border-white/[0.06] last:border-0 align-top">
       <td className="px-4 py-4 font-medium text-neutral-300">{topic}</td>
       <td className="px-4 py-4 text-neutral-200">{control}</td>
-      <td className="px-4 py-4">{os}</td>
-      <td className="px-4 py-4">{cloud}</td>
-      <td className="px-4 py-4">{rpa}</td>
+      <td className="px-4 py-4">{claude}</td>
+      <td className="px-4 py-4">{openai}</td>
+      <td className="px-4 py-4">{openclaw}</td>
+      <td className="px-4 py-4">{skyvern}</td>
     </tr>
   );
 }
