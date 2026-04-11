@@ -4,7 +4,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { motion } from 'framer-motion';
 import { ArrowLeft, ArrowRight, Command, Download, ChevronDown } from 'lucide-react';
-import { DESKTOP_DOWNLOAD_URLS, PlatformDownloads, getReleaseUrl } from '@/lib/download-urls';
+import { DESKTOP_DOWNLOAD_URLS, PlatformDownloads } from '@/lib/download-urls';
 import { PlatformLogos, platformLogos } from '@/components/landing/SoftwareLogos';
 import { useState } from 'react';
 
