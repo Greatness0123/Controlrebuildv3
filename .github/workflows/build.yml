@@ -89,53 +89,69 @@ jobs:
           path: dist/win-unpacked/
           retention-days: 7
 
-      - name: Upload Windows installer
+      - name: List Windows dist
         if: matrix.platform == 'windows'
         run: |
-          for exe in dist/*.exe; do
-            if [ -f "$exe" ]; then
-              NAME=$(basename "$exe")
-              echo "Uploading $exe as $NAME"
-              actions/upload-artifact@v7 --name "windows-$NAME" --path "$exe" --archive false
-            fi
-          done
+          ls -la dist/*.exe || echo "No exe files"
         shell: bash
+
+      - name: Upload Windows NSIS installer
+        if: matrix.platform == 'windows'
+        uses: actions/upload-artifact@v7
+        with:
+          name: windows-nsis
+          path: dist/Setup*.exe
+          if-no-files-found: warn
+
+      - name: Upload Windows Portable
+        if: matrix.platform == 'windows'
+        uses: actions/upload-artifact@v7
+        with:
+          name: windows-portable
+          path: dist/*Portable*.exe
+          if-no-files-found: warn
 
       - name: List macOS dist
         if: matrix.platform == 'macos'
         run: |
-          ls -la dist/
+          ls -la dist/*.dmg || echo "No dmg files"
         shell: bash
 
-      - name: Upload macOS installer
+      - name: Upload macOS Intel
         if: matrix.platform == 'macos'
-        run: |
-          for dmg in dist/*.dmg; do
-            if [ -f "$dmg" ]; then
-              NAME=$(basename "$dmg")
-              echo "Uploading $dmg as $NAME"
-              actions/upload-artifact@v7 --name "macos-$NAME" --path "$dmg" --archive false
-            fi
-          done
-        shell: bash
+        uses: actions/upload-artifact@v7
+        with:
+          name: macos-intel
+          path: dist/Control-1.0.0.dmg
+
+      - name: Upload macOS ARM64
+        if: matrix.platform == 'macos'
+        uses: actions/upload-artifact@v7
+        with:
+          name: macos-arm64
+          path: dist/Control-1.0.0-arm64.dmg
 
       - name: List Linux dist
         if: matrix.platform == 'linux'
         run: |
-          ls -la dist/
+          ls -la dist/*.AppImage dist/*.deb || echo "No files"
         shell: bash
 
-      - name: Upload Linux installer
+      - name: Upload Linux AppImage
         if: matrix.platform == 'linux'
-        run: |
-          for file in dist/*.AppImage dist/*.deb; do
-            if [ -f "$file" ]; then
-              NAME=$(basename "$file")
-              echo "Uploading $file as $NAME"
-              actions/upload-artifact@v7 --name "linux-$NAME" --path "$file" --archive false
-            fi
-          done
-        shell: bash
+        uses: actions/upload-artifact@v7
+        with:
+          name: linux-appimage
+          path: dist/*.AppImage
+          if-no-files-found: warn
+
+      - name: Upload Linux deb
+        if: matrix.platform == 'linux'
+        uses: actions/upload-artifact@v7
+        with:
+          name: linux-deb
+          path: dist/*.deb
+          if-no-files-found: warn
 
       - name: Upload macOS unpacked
         if: matrix.platform == 'macos'
