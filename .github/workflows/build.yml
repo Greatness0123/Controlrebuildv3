@@ -157,13 +157,6 @@ jobs:
           path: dist/mac/
           retention-days: 7
 
-      - name: Upload macOS installer
-        if: matrix.platform == 'macos'
-        uses: actions/upload-artifact@v7
-        with:
-          path: dist/*.dmg
-          archive: false
-
       - name: Upload Linux unpacked
         if: matrix.platform == 'linux'
         uses: actions/upload-artifact@v4
@@ -171,20 +164,6 @@ jobs:
           name: linux-unpacked
           path: dist/linux-unpacked/
           retention-days: 7
-
-      - name: Upload Linux AppImage
-        if: matrix.platform == 'linux'
-        uses: actions/upload-artifact@v7
-        with:
-          path: dist/*.AppImage
-          archive: false
-
-      - name: Upload Linux deb
-        if: matrix.platform == 'linux'
-        uses: actions/upload-artifact@v7
-        with:
-          path: dist/*.deb
-          archive: false
 
   release:
     needs: build
