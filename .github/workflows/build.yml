@@ -91,11 +91,15 @@ jobs:
 
       - name: Upload Windows installer
         if: matrix.platform == 'windows'
-        uses: actions/upload-artifact@v7
-        with:
-          name: windows-installer
-          path: dist/*.exe
-          if-no-files-found: warn
+        run: |
+          for exe in dist/*.exe; do
+            if [ -f "$exe" ]; then
+              NAME=$(basename "$exe")
+              echo "Uploading $exe as $NAME"
+              actions/upload-artifact@v7 --name "windows-$NAME" --path "$exe" --archive false
+            fi
+          done
+        shell: bash
 
       - name: List macOS dist
         if: matrix.platform == 'macos'
@@ -105,11 +109,15 @@ jobs:
 
       - name: Upload macOS installer
         if: matrix.platform == 'macos'
-        uses: actions/upload-artifact@v7
-        with:
-          name: macos-installer
-          path: dist/*.dmg
-          if-no-files-found: warn
+        run: |
+          for dmg in dist/*.dmg; do
+            if [ -f "$dmg" ]; then
+              NAME=$(basename "$dmg")
+              echo "Uploading $dmg as $NAME"
+              actions/upload-artifact@v7 --name "macos-$NAME" --path "$dmg" --archive false
+            fi
+          done
+        shell: bash
 
       - name: List Linux dist
         if: matrix.platform == 'linux'
@@ -119,26 +127,15 @@ jobs:
 
       - name: Upload Linux installer
         if: matrix.platform == 'linux'
-        uses: actions/upload-artifact@v7
-        with:
-          name: linux-installer
-          path: |
-            dist/*.AppImage
-            dist/*.deb
-          if-no-files-found: warn
-
-      - name: Upload all installers to Release
-        if: startsWith(github.ref, 'refs/tags/')
-        uses: softprops/action-gh-release@v2
-        with:
-          draft: true
-          files: |
-            dist/*.exe
-            dist/*.dmg
-            dist/*.AppImage
-            dist/*.deb
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          for file in dist/*.AppImage dist/*.deb; do
+            if [ -f "$file" ]; then
+              NAME=$(basename "$file")
+              echo "Uploading $file as $NAME"
+              actions/upload-artifact@v7 --name "linux-$NAME" --path "$file" --archive false
+            fi
+          done
+        shell: bash
 
       - name: Upload macOS unpacked
         if: matrix.platform == 'macos'
