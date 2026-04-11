@@ -35,24 +35,27 @@ jobs:
           cache: 'npm'
           cache-dependency-path: package-lock.json
 
-      - name: Create assets directory
-        run: mkdir -p assets
+      - name: Setup assets directories
+        run: |
+          mkdir -p assets/binaries
+          mkdir -p assets/vosk
+        shell: bash
 
       - name: Download and extract Vosk model
         run: |
           curl -L -o vosk-model.zip "https://github.com/Greatness0123/Controlrebuildv3/releases/download/assets/vosk-model.zip"
           unzip -o vosk-model.zip -d assets/
           rm vosk-model.zip
+        shell: bash
 
       - name: Download and extract platform-specific Python binaries
         if: matrix.python_zip != ''
         run: |
+          mkdir -p assets/binaries
           curl -L -o python.zip "https://github.com/Greatness0123/Controlrebuildv3/releases/download/assets/${{ matrix.python_zip }}"
           unzip -o python.zip -d assets/binaries/
           rm python.zip
-
-      - name: Create binaries directory if not exists
-        run: mkdir -p assets/binaries
+        shell: bash
 
       - name: Verify assets structure
         run: |
@@ -62,6 +65,7 @@ jobs:
           ls -la assets/vosk-model* 2>/dev/null || echo "No vosk model found"
           echo "=== Binaries directory ==="
           ls -la assets/binaries/ 2>/dev/null || echo "No binaries found"
+        shell: bash
 
       - name: Install dependencies
         run: npm ci
