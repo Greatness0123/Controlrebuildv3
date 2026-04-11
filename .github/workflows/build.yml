@@ -150,21 +150,15 @@ jobs:
       - name: Create GitHub Release
         if: matrix.platform == 'windows'
         run: |
-          # Get the tag name from the current commit
           TAG_NAME=$(git describe --tags --always --abbrev=0 2>/dev/null || echo "v1.0.0")
           
-          # Upload all installers to release
+          # Create release with just the exe files for now
           gh release create "$TAG_NAME" \
             dist/*.exe \
-            dist/*.dmg \
-            dist/*.AppImage \
-            dist/*.deb \
             --draft \
             --title "Control Desktop App $TAG_NAME" \
             --notes "Built from GitHub Actions"
         shell: bash
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Upload macOS unpacked
         if: matrix.platform == 'macos'
