@@ -81,35 +81,60 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Upload Windows artifacts
+      - name: Upload Windows unpacked
         if: matrix.platform == 'windows'
         uses: actions/upload-artifact@v4
         with:
-          name: windows-build
-          path: |
-            dist/win-unpacked/
-            dist/*.exe
+          name: windows-unpacked
+          path: dist/win-unpacked/
           retention-days: 7
 
-      - name: Upload macOS artifacts
+      - name: Upload Windows installer
+        if: matrix.platform == 'windows'
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-installer
+          path: dist/*.exe
+          retention-days: 7
+
+      - name: Upload macOS unpacked
         if: matrix.platform == 'macos'
         uses: actions/upload-artifact@v4
         with:
-          name: macos-build
-          path: |
-            dist/mac/
-            dist/*.dmg
+          name: macos-unpacked
+          path: dist/mac/
           retention-days: 7
 
-      - name: Upload Linux artifacts
+      - name: Upload macOS installer
+        if: matrix.platform == 'macos'
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-installer
+          path: dist/*.dmg
+          retention-days: 7
+
+      - name: Upload Linux unpacked
         if: matrix.platform == 'linux'
         uses: actions/upload-artifact@v4
         with:
-          name: linux-build
-          path: |
-            dist/linux-unpacked/
-            dist/*.AppImage
-            dist/*.deb
+          name: linux-unpacked
+          path: dist/linux-unpacked/
+          retention-days: 7
+
+      - name: Upload Linux AppImage
+        if: matrix.platform == 'linux'
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-appimage
+          path: dist/*.AppImage
+          retention-days: 7
+
+      - name: Upload Linux deb
+        if: matrix.platform == 'linux'
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-deb
+          path: dist/*.deb
           retention-days: 7
 
   release:
