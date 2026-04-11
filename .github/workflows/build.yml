@@ -5,8 +5,6 @@ on:
     branches:
       - main
       - master
-    tags:
-      - 'v*'
   workflow_dispatch:
 
 jobs:
@@ -78,10 +76,8 @@ jobs:
         shell: bash
 
       - name: Build the Electron app
-        run: npm run build
+        run: npm run dist
         shell: bash
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Upload Windows unpacked
         if: matrix.platform == 'windows'
@@ -97,23 +93,19 @@ jobs:
           ls -la dist/*.exe || echo "No exe files"
         shell: bash
 
-      - name: Upload Windows NSIS installer to Release
-        if: matrix.platform == 'windows' && startsWith(github.ref, 'refs/tags/')
-        uses: softprops/action-gh-release@v2
+      - name: Upload Windows NSIS installer
+        if: matrix.platform == 'windows'
+        uses: actions/upload-artifact@v7
         with:
-          draft: true
-          files: dist/Setup*.exe
-        env:
-          GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+          name: windows-nsis
+          path: dist/Setup*.exe
 
-      - name: Upload Windows Portable to Release
-        if: matrix.platform == 'windows' && startsWith(github.ref, 'refs/tags/')
-        uses: softprops/action-gh-release@v2
+      - name: Upload Windows Portable
+        if: matrix.platform == 'windows'
+        uses: actions/upload-artifact@v7
         with:
-          draft: true
-          files: dist/*Portable*.exe
-        env:
-          GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+          name: windows-portable
+          path: dist/*Portable*.exe
 
       - name: List macOS dist
         if: matrix.platform == 'macos'
@@ -121,23 +113,19 @@ jobs:
           ls -la dist/*.dmg || echo "No dmg files"
         shell: bash
 
-      - name: Upload macOS Intel to Release
-        if: matrix.platform == 'macos' && startsWith(github.ref, 'refs/tags/')
-        uses: softprops/action-gh-release@v2
+      - name: Upload macOS Intel
+        if: matrix.platform == 'macos'
+        uses: actions/upload-artifact@v7
         with:
-          draft: true
-          files: dist/Control-1.0.0.dmg
-        env:
-          GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+          name: macos-intel
+          path: dist/Control-1.0.0.dmg
 
-      - name: Upload macOS ARM64 to Release
-        if: matrix.platform == 'macos' && startsWith(github.ref, 'refs/tags/')
-        uses: softprops/action-gh-release@v2
+      - name: Upload macOS ARM64
+        if: matrix.platform == 'macos'
+        uses: actions/upload-artifact@v7
         with:
-          draft: true
-          files: dist/Control-1.0.0-arm64.dmg
-        env:
-          GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+          name: macos-arm64
+          path: dist/Control-1.0.0-arm64.dmg
 
       - name: List Linux dist
         if: matrix.platform == 'linux'
@@ -145,23 +133,38 @@ jobs:
           ls -la dist/*.AppImage dist/*.deb || echo "No files"
         shell: bash
 
-      - name: Upload Linux AppImage to Release
-        if: matrix.platform == 'linux' && startsWith(github.ref, 'refs/tags/')
-        uses: softprops/action-gh-release@v2
+      - name: Upload Linux AppImage
+        if: matrix.platform == 'linux'
+        uses: actions/upload-artifact@v7
         with:
-          draft: true
-          files: dist/*.AppImage
-        env:
-          GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+          name: linux-appimage
+          path: dist/*.AppImage
 
-      - name: Upload Linux deb to Release
-        if: matrix.platform == 'linux' && startsWith(github.ref, 'refs/tags/')
-        uses: softprops/action-gh-release@v2
+      - name: Upload Linux deb
+        if: matrix.platform == 'linux'
+        uses: actions/upload-artifact@v7
         with:
-          draft: true
-          files: dist/*.deb
+          name: linux-deb
+          path: dist/*.deb
+
+      - name: Create GitHub Release
+        if: matrix.platform == 'windows'
+        run: |
+          # Get the tag name from the current commit
+          TAG_NAME=$(git describe --tags --always --abbrev=0 2>/dev/null || echo "v1.0.0")
+          
+          # Upload all installers to release
+          gh release create "$TAG_NAME" \
+            dist/*.exe \
+            dist/*.dmg \
+            dist/*.AppImage \
+            dist/*.deb \
+            --draft \
+            --title "Control Desktop App $TAG_NAME" \
+            --notes "Built from GitHub Actions"
+        shell: bash
         env:
-          GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Upload macOS unpacked
         if: matrix.platform == 'macos'

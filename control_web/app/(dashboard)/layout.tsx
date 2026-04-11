@@ -250,15 +250,13 @@ export default function WorkspaceLayout({ children }: { children: ReactNode }) {
       {!sidebarOpen && !isMobile && <div className="flex-1" />}
 
       <div className="flex-1 flex flex-col min-h-0 justify-between">
-        <div className="py-2 space-y-0.25 shrink-0">
+        <div className="flex-1" />
+        <div className="py-2 border-t border-border space-y-0.25 shrink-0">
           <NavLink href="/workspace" icon={<LayoutDashboard size={14} />} label="Workspace" active={pathname === '/workspace'} collapsed={isCollapsed && !isMobile} />
           <NavLink href="/machines" icon={<Cpu size={14} />} label="Machines" active={pathname === '/machines'} collapsed={isCollapsed && !isMobile} />
           <NavLink href="/files" icon={<FolderOpen size={14} />} label="File Manager" active={pathname === '/files'} collapsed={isCollapsed && !isMobile} />
           <NavLink href="/workflows" icon={<GitBranch size={14} />} label="Workflows" active={pathname === '/workflows'} collapsed={isCollapsed && !isMobile} />
           <NavLink href="/marketplace" icon={<ShoppingBag size={14} />} label="Marketplace" active={pathname === '/marketplace'} collapsed={isCollapsed && !isMobile} />
-        </div>
-        <div className="flex-1" />
-        <div className="py-2 border-t border-border space-y-0.25 shrink-0">
           <NavLink href="/pair" icon={<LinkIcon size={14} />} label="Pair Device" active={pathname === '/pair'} collapsed={isCollapsed && !isMobile} />
           <NavLink href="/vault" icon={<Shield size={14} />} label="Secure Vault" active={pathname === '/vault'} collapsed={isCollapsed && !isMobile} />
           <NavLink href="/pricing" icon={<Crown size={14} className="text-yellow-500/50" />} label="Pricing Plans" active={pathname === '/pricing'} collapsed={isCollapsed && !isMobile} />
