@@ -1,5 +1,6 @@
 "use client";
 
+import type { Metadata } from 'next';
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { marketplaceApi } from '@/lib/api';
@@ -11,6 +12,12 @@ import {
 } from 'lucide-react';
 import { useModal } from '@/lib/useModal';
 import { toast } from 'sonner';
+
+export const metadata: Metadata = {
+  title: 'Marketplace - Control',
+  description: 'Browse AI automation templates and workflows in the Control Marketplace.',
+  keywords: ['AI marketplace', 'automation templates', 'workflow marketplace', 'AI templates', 'automation scripts'],
+};
 
 function cn(...classes: (string | undefined | null | false)[]) {
   return classes.filter(Boolean).join(' ');

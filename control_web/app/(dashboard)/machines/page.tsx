@@ -1,5 +1,6 @@
 "use client";
 
+import type { Metadata } from 'next';
 import { useEffect, useState } from 'react';
 import { vmApi, pairApi } from '@/lib/api';
 import { useVMStore, useDeviceStore, useAuthStore } from '@/lib/store';
@@ -7,6 +8,12 @@ import VMCard from '@/components/VMCard';
 import { useModal } from '@/lib/useModal';
 import { Cpu, Loader2, AlertCircle, RefreshCw, Monitor, Link as LinkIcon, Plus } from 'lucide-react';
 import Link from 'next/link';
+
+export const metadata: Metadata = {
+  title: 'Machines - Control',
+  description: 'Manage your virtual machines and cloud compute resources for AI automation sessions.',
+  keywords: ['virtual machines', 'cloud compute', 'VM management', 'AI cloud', 'control machines'],
+};
 
 function cn(...classes: (string | boolean | undefined)[]) {
   return classes.filter(Boolean).join(' ');

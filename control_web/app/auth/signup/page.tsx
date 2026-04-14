@@ -1,10 +1,17 @@
 "use client";
 
+import type { Metadata } from 'next';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { signUp } from '@/lib/supabase';
 import { Command, ArrowRight, AlertCircle, CheckCircle2 } from 'lucide-react';
+
+export const metadata: Metadata = {
+  title: 'Sign Up - Control',
+  description: 'Create a Control account to start using AI computer use automation. Get started with voice-controlled desktop AI.',
+  keywords: ['Control sign up', 'create account', 'register', 'AI automation account'],
+};
 
 export default function SignupPage() {
   const [firstName, setFirstName] = useState('');

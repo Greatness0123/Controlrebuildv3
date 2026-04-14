@@ -1,8 +1,21 @@
 "use client";
 
+import type { Metadata } from 'next';
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+
+export const metadata: Metadata = {
+  title: 'Workspace - Control',
+  description: 'Your Control workspace. Manage AI sessions, machines, and paired devices. Start new AI automation sessions.',
+  keywords: [
+    'Control workspace',
+    'AI dashboard',
+    'computer use workspace',
+    'manage AI sessions',
+    'AI automation dashboard',
+  ],
+};
 import { chatApi, vmApi, pairApi } from '@/lib/api';
 import { useChatStore, useVMStore, useDeviceStore, useAuthStore } from '@/lib/store';
 import { useModal } from '@/lib/useModal';

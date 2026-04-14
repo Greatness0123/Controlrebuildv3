@@ -1,5 +1,6 @@
 "use client";
 
+import type { Metadata } from 'next';
 import { useEffect, useState, useMemo } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
@@ -8,6 +9,12 @@ import { useChatStore, useVMStore, useDeviceStore, useAuthStore } from '@/lib/st
 import { useModal } from '@/lib/useModal';
 import ChatPanel from '@/components/ChatPanel';
 import VNCViewer from '@/components/VNCViewer';
+
+export const metadata: Metadata = {
+  title: 'Session - Control',
+  description: 'AI computer use session. Interact with AI to automate desktop tasks.',
+  keywords: ['AI chat session', 'automation session', 'computer use chat', 'AI agent session'],
+};
 import RemoteDesktopViewer from '@/components/RemoteDesktopViewer';
 import {
   Loader2, Monitor, Trash2, Command, ChevronDown, Server, Laptop,
@@ -48,34 +55,38 @@ export default function ChatSessionPage() {
   }, [monitor]);
 
   useEffect(() => {
-    setActiveSession(chatId);
-
     const loadSession = async () => {
+      setLoading(true);
       try {
-        const found = sessions.find(s => s.id === chatId);
-        if (!found) {
+        let currentSession = sessions.find(s => s.id === chatId);
+        
+        if (!currentSession) {
           const chatRes = await chatApi.list();
-          const session = chatRes.sessions.find(s => s.id === chatId);
-          if (!session) { router.push('/workspace'); return; }
+          currentSession = chatRes.sessions.find(s => s.id === chatId);
+          if (!currentSession) { 
+            router.push('/workspace'); 
+            return; 
+          }
           setSessions(chatRes.sessions);
-          setActiveSession(session.id);
-        }
-
-        if (vms.length === 0 || devices.length === 0) {
-          const [vmRes, pairRes] = await Promise.all([
-            vmApi.list().catch(() => ({ vms: [] })),
-            pairApi.devices().catch(() => ({ devices: [] })),
-          ]);
-          setVMs(vmRes.vms);
-          setDevices(pairRes.devices);
         }
         
-        const currentSession = sessions.find(s => s.id === chatId) || found;
-        if (currentSession?.vm_id && vms.length > 0) {
-          setCurrentVm(vms.find(v => v.id === currentSession.vm_id));
+        setActiveSession(currentSession.id);
+
+        const [vmRes, pairRes] = await Promise.all([
+          vmApi.list().catch(() => ({ vms: [] })),
+          pairApi.devices().catch(() => ({ devices: [] })),
+        ]);
+        
+        if (vmRes.vms.length > 0) setVMs(vmRes.vms);
+        if (pairRes.devices.length > 0) setDevices(pairRes.devices);
+        
+        if (currentSession?.vm_id) {
+          const vm = vmRes.vms.find(v => v.id === currentSession.vm_id);
+          if (vm) setCurrentVm(vm);
         }
       } catch (err) {
-        console.error(err);
+        console.error('Error loading session:', err);
+        router.push('/workspace');
       } finally {
         setLoading(false);
       }

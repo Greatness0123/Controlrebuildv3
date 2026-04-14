@@ -1,9 +1,17 @@
 "use client";
 
+import type { Metadata } from 'next';
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
+
+export const metadata: Metadata = {
+  title: 'Dashboard - Control',
+  description: 'View statistics and usage metrics for your AI automation sessions.',
+  keywords: ['Control dashboard', 'AI statistics', 'usage metrics', 'automation dashboard'],
+};
+
 import {
   Monitor, Play, Square, Trash2, MoreVertical, Clock, AlertCircle,
   CheckCircle, Loader2, Globe, Terminal, MousePointer2, ScanLine,

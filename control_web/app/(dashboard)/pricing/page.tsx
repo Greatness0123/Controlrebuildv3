@@ -1,5 +1,6 @@
 "use client";
 
+import type { Metadata } from 'next';
 import { useAuthStore } from '@/lib/store';
 import { useEffect, useState } from 'react';
 import { Check, Shield, Crown, ArrowRight, X, ArrowLeft } from 'lucide-react';
@@ -8,6 +9,12 @@ import UpgradeButton from '@/components/UpgradeButton';
 import Modal from '@/components/Modal';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
+
+export const metadata: Metadata = {
+  title: 'Pricing - Control',
+  description: 'Control pricing plans. Choose the right plan for your AI automation needs.',
+  keywords: ['Control pricing', 'AI pricing', 'subscription plans', 'AI automation pricing', 'computer use pricing'],
+};
 
 function cn(...classes: (string | undefined | null | false)[]) {
   return classes.filter(Boolean).join(' ');
