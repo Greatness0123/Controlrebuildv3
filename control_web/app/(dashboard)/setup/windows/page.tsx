@@ -1,19 +1,7 @@
 "use client";
 
-import type { Metadata } from 'next';
 import { useState } from 'react';
 
-export const metadata: Metadata = {
-  title: 'Windows Setup Guide - Control Desktop App',
-  description: 'Step-by-step guide to install and set up Control on Windows 10 or 11. Voice setup, permissions, and troubleshooting.',
-  keywords: [
-    'Control Windows installation',
-    'Windows AI agent setup',
-    'Control desktop app Windows',
-    'AI software Windows 10',
-    'Windows automation setup',
-  ],
-};
 import Link from 'next/link';
 import { ArrowLeft, Check, Copy, Download, Terminal, Cpu, Mic, Monitor, Settings, Wifi, Zap } from 'lucide-react';
 import { toast } from 'sonner';

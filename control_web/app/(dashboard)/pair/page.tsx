@@ -1,6 +1,5 @@
 "use client";
 
-import type { Metadata } from 'next';
 import { useEffect, useState, useCallback } from 'react';
 import { pairApi } from '@/lib/api';
 import { useDeviceStore } from '@/lib/store';
@@ -9,12 +8,6 @@ import {
   Loader2, Laptop, Shield, Trash2,
   X, Monitor, RotateCcw
 } from 'lucide-react';
-
-export const metadata: Metadata = {
-  title: 'Pair Device - Control',
-  description: 'Pair your local device with Control for direct AI automation without cloud VMs.',
-  keywords: ['pair device', 'device pairing', 'local automation', 'pair desktop', 'Control pairing'],
-};
 
 function cn(...classes: (string | undefined | null | false)[]) {
   return classes.filter(Boolean).join(' ');

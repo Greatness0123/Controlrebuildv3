@@ -1,6 +1,5 @@
 "use client";
 
-import type { Metadata } from 'next';
 import { useState, useEffect } from 'react';
 import { workflowApi } from '@/lib/api';
 import WorkflowDesigner from '@/components/WorkflowDesigner';
@@ -11,12 +10,6 @@ import {
 } from 'lucide-react';
 import { useModal } from '@/lib/useModal';
 import { marketplaceApi } from '@/lib/api';
-
-export const metadata: Metadata = {
-  title: 'Workflows - Control',
-  description: 'Create and manage AI automation workflows. Build no-code AI workflows for repetitive tasks.',
-  keywords: ['AI workflows', 'automation workflows', 'no-code automation', 'workflow builder', 'AI workflow'],
-};
 
 function cn(...classes: (string | undefined | null | false)[]) {
   return classes.filter(Boolean).join(' ');

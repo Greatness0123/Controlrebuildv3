@@ -1,6 +1,5 @@
 "use client";
 
-import type { Metadata } from 'next';
 import { useState, useEffect } from 'react';
 import { 
   Key, Shield, Plus, Trash2, Eye, EyeOff, Search, 
@@ -10,11 +9,6 @@ import {
 import { vaultApi } from '@/lib/api';
 import { useModal } from '@/lib/useModal';
 
-export const metadata: Metadata = {
-  title: 'Secure Vault - Control',
-  description: 'Securely store and manage API keys, credentials, and sensitive data for AI automation.',
-  keywords: ['secure vault', 'API keys', 'credentials storage', 'secret manager', 'secure storage'],
-};
 import { SecretDialog } from './SecretDialog';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';

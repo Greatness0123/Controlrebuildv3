@@ -1,18 +1,11 @@
 'use client';
 
-import type { Metadata } from 'next';
 import { Suspense, useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { signIn, getSupabaseClient } from '@/lib/supabase';
 import { Command, ArrowRight, AlertCircle } from 'lucide-react';
 import { safeNextPath } from '@/lib/safe-next-path';
-
-export const metadata: Metadata = {
-  title: 'Sign In - Control',
-  description: 'Sign in to your Control account to access AI computer use sessions and automation features.',
-  keywords: ['Control sign in', 'login', 'AI account', 'sign in to automation'],
-};
 
 function LoginForm() {
   const [email, setEmail] = useState('');

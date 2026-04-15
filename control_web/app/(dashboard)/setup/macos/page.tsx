@@ -1,19 +1,7 @@
 "use client";
 
-import type { Metadata } from 'next';
 import { useState } from 'react';
 
-export const metadata: Metadata = {
-  title: 'macOS Setup Guide - Control Desktop App',
-  description: 'Step-by-step guide to install and set up Control on macOS 12+. Voice setup, permissions, and troubleshooting.',
-  keywords: [
-    'Control Mac installation',
-    'macOS AI agent setup',
-    'Control desktop app Mac',
-    'macOS automation',
-    'Apple Silicon Control',
-  ],
-};
 import Link from 'next/link';
 import { ArrowLeft, Check, Copy, Download, Terminal, Cpu, Mic, Monitor, Settings, Wifi, Zap, Apple } from 'lucide-react';
 import { toast } from 'sonner';

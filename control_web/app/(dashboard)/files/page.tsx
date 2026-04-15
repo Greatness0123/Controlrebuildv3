@@ -1,6 +1,5 @@
 "use client";
 
-import type { Metadata } from 'next';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { vmApi } from '@/lib/api';
@@ -11,12 +10,6 @@ import {
   Cpu, Loader2, FolderOpen, File, Download, ChevronRight, ChevronLeft, 
   Home, Trash2, Check, X, Archive
 } from 'lucide-react';
-
-export const metadata: Metadata = {
-  title: 'File Manager - Control',
-  description: 'Browse and manage files on your connected machines and cloud storage.',
-  keywords: ['file manager', 'cloud files', 'file browser', 'manage files', 'Control file manager'],
-};
 
 interface FileEntry {
   name: string;

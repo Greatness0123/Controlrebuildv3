@@ -1,26 +1,10 @@
 'use client';
 
-import type { Metadata } from 'next';
 import Link from 'next/link';
 import Image from 'next/image';
 import { motion } from 'framer-motion';
 import { ArrowLeft, ArrowRight, Command, Download, ChevronDown, BookOpen } from 'lucide-react';
 
-export const metadata: Metadata = {
-  title: 'Download Control - Desktop AI Agent App',
-  description: 'Download Control desktop app for Windows, macOS, and Linux. Run AI automation locally with voice control and desktop integration.',
-  keywords: [
-    'download control desktop app',
-    'AI agent desktop app',
-    'desktop automation software',
-    'download AI assistant',
-    'Control app for Windows',
-    'Control app for Mac',
-    'Control app for Linux',
-    'voice controlled AI',
-    'AI software download',
-  ],
-};
 import { DESKTOP_DOWNLOAD_URLS, PlatformDownloads } from '@/lib/download-urls';
 import { PlatformLogos, platformLogos } from '@/components/landing/SoftwareLogos';
 import { useState } from 'react';

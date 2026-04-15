@@ -1,20 +1,7 @@
 "use client";
 
-import type { Metadata } from 'next';
 import { useState } from 'react';
 
-export const metadata: Metadata = {
-  title: 'Linux Setup Guide - Control Desktop App',
-  description: 'Step-by-step guide to install and set up Control on Ubuntu, Debian, Fedora, or Arch Linux.',
-  keywords: [
-    'Control Linux installation',
-    'Linux AI agent setup',
-    'Control Ubuntu',
-    'Control Debian',
-    'Control Fedora',
-    'Control Arch Linux',
-  ],
-};
 import Link from 'next/link';
 import { ArrowLeft, Check, Copy, Download, Terminal, Cpu, Mic, Monitor, Settings, Wifi, Zap, Package } from 'lucide-react';
 import { toast } from 'sonner';

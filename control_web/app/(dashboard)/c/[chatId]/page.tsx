@@ -1,6 +1,5 @@
 "use client";
 
-import type { Metadata } from 'next';
 import { useEffect, useState, useMemo } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
@@ -10,11 +9,6 @@ import { useModal } from '@/lib/useModal';
 import ChatPanel from '@/components/ChatPanel';
 import VNCViewer from '@/components/VNCViewer';
 
-export const metadata: Metadata = {
-  title: 'Session - Control',
-  description: 'AI computer use session. Interact with AI to automate desktop tasks.',
-  keywords: ['AI chat session', 'automation session', 'computer use chat', 'AI agent session'],
-};
 import RemoteDesktopViewer from '@/components/RemoteDesktopViewer';
 import {
   Loader2, Monitor, Trash2, Command, ChevronDown, Server, Laptop,

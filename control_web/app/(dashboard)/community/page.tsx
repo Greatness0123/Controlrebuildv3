@@ -1,20 +1,7 @@
 "use client";
 
-import type { Metadata } from 'next';
 import { useState, useEffect } from 'react';
 
-export const metadata: Metadata = {
-  title: 'Community - Control Feedback Forum',
-  description: 'Join the Control community. Share feedback, discuss features, and connect with other AI computer use users.',
-  keywords: [
-    'Control community',
-    'AI feedback forum',
-    'computer use discussion',
-    'user feedback',
-    'community讨论',
-    'AI agent feedback',
-  ],
-};
 import { MessageSquare, Heart, Copy, Reply, Send, Loader2, CheckCircle2, MoreHorizontal, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuthStore, useChatStore } from '@/lib/store';
