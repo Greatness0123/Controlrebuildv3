@@ -18,6 +18,7 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
+import { CuaSectionRenderer } from './CuaSectionRenderer';
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -564,7 +565,7 @@ const existingMessages = useChatStore.getState().messages;
             </div>
           ) : (
             messages.map((msg) => (
-              <MessageBubble key={msg.id} msg={msg} />
+              <MessageBubble key={msg.id} msg={msg} mode={mode} />
             ))
           )}
           {isStreaming && (
@@ -802,7 +803,7 @@ function ActionLogRow({ msg }: { msg: any }) {
 }
 
 /* ─── Message Bubble ─── */
-function MessageBubble({ msg }: { msg: any }) {
+function MessageBubble({ msg, mode }: { msg: any; mode: 'ask' | 'act' }) {
   const isUser = msg.role === 'user';
   const isAction = msg.role === 'action' || (msg.role === 'assistant' && msg.action_type);
 
@@ -835,6 +836,18 @@ function MessageBubble({ msg }: { msg: any }) {
         </div>
         <div className="max-w-[92%] text-[11px] px-3.5 py-2.5 rounded-2xl rounded-tl-sm bg-gradient-to-br from-violet-500/[0.07] to-transparent border border-violet-500/15 text-text-secondary leading-relaxed shadow-sm">
           <div className="whitespace-pre-wrap">{msg.content}</div>
+        </div>
+      </div>
+    );
+  }
+
+  // Check for CUA sections in ACT mode
+  const hasCuaSections = msg.content && /<cua-section\s/.test(msg.content);
+  if (hasCuaSections && mode === 'act') {
+    return (
+      <div className="flex flex-col items-start my-1 px-1">
+        <div className="w-full text-[13px] break-words leading-relaxed text-foreground">
+          <CuaSectionRenderer content={msg.content} />
         </div>
       </div>
     );

@@ -1728,6 +1728,82 @@ class ChatWindow {
         return container;
     }
 
+    // Check if content contains CUA sections
+    hasCuaSections(text) {
+        if (!text) return false;
+        return /<cua-section\s/.test(text);
+    }
+
+    // Parse CUA sections from content
+    parseCuaSections(text) {
+        const sections = [];
+        const TAG_REGEX = /<cua-section\s+([^>]*)>([\s\S]*?)<\/cua-section>/g;
+        let match;
+        while ((match = TAG_REGEX.exec(text)) !== null) {
+            const attrs = {};
+            const attrString = match[1];
+            const attrMatch = /(\w[\w-]*)="([^"]*)"/g;
+            let attr;
+            while ((attr = attrMatch.exec(attrString)) !== null) {
+                attrs[attr[1]] = attr[2];
+            }
+            sections.push({
+                type: attrs.type || 'next-action',
+                content: match[2].trim(),
+                attrs
+            });
+        }
+        return sections;
+    }
+
+    // Render CUA section to HTML
+    renderCuaSectionHTML(text) {
+        const sections = this.parseCuaSections(text);
+        if (sections.length === 0) return this.parseMarkdown(text);
+
+        let html = '<div class="cua-timeline">';
+        
+        for (const section of sections) {
+            if (section.type === 'next-action') {
+                const status = section.attrs.status || 'pending';
+                html += `
+                    <div class="cua-step ${status}">
+                        <div class="cua-step-action">${this.parseMarkdown(section.content)}</div>
+                    </div>`;
+            } else if (section.type === 'action-result') {
+                const status = section.attrs.status || 'success';
+                html += `
+                    <div class="cua-result-badge ${status}">
+                        <span class="cua-status-dot"></span>${this.parseMarkdown(section.content)}
+                    </div>`;
+            } else if (section.type === 'status') {
+                const isComplete = section.attrs.status === 'completed';
+                html += `
+                    <div class="cua-status-complete ${isComplete ? '' : 'error'}">
+                        ${isComplete ? '✓' : '✗'} ${this.parseMarkdown(section.content)}
+                    </div>`;
+            } else if (section.type === 'verification' || section.type === 'analysis' || section.type === 'reflection') {
+                html += `
+                    <div class="cua-step-details">
+                        <button class="cua-detail-toggle" onclick="this.classList.toggle('open'); const c=this.nextElementSibling; if(c.style.display!=='block'){c.style.display='block'}else{c.style.display='none'}">
+                            ▼ ${section.type.charAt(0).toUpperCase() + section.type.slice(1)}
+                        </button>
+                        <div class="cua-detail-content" style="display:none">${this.parseMarkdown(section.content)}</div>
+                    </div>`;
+            }
+        }
+        
+        html += '</div>';
+        
+        // Also add any plain text before or after CUA sections
+        const plainMatch = text.split(/<cua-section\s/)[0].trim();
+        if (plainMatch) {
+            html = this.parseMarkdown(plainMatch) + html;
+        }
+        
+        return html;
+    }
+
     addMessage(text, sender, isAction = false, attachments = null, isFinal = false) {
         // Defensive check for undefined/null text
         let safeText = text || '';
@@ -1764,6 +1840,18 @@ class ChatWindow {
 
         if (sender === 'ai') {
             const container = this.getOrCreateAIResponseContainer();
+
+            // Check for CUA sections (ACT mode)
+            const isCua = this.hasCuaSections(safeText);
+            if (isCua) {
+                const div = document.createElement('div');
+                div.className = 'text-block cua-rendered';
+                div.innerHTML = this.renderCuaSectionHTML(safeText);
+                container.appendChild(div);
+                this.addMessageActions(container.closest('.message'), safeText, 'ai');
+                this.scrollToBottom();
+                return div;
+            }
 
             const isThought = !isFinal && (safeText.length < 300 || safeText.toLowerCase().includes('thinking'));
 

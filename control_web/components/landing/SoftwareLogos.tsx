@@ -110,8 +110,48 @@ export function SoftwareLogosWithHover({ className = '' }: { className?: string 
 }
 
 export function SoftwareLogosMarquee({ className = '' }: { className?: string }) {
-  const folderApps = ['Whatsapp', 'Telegram', 'Trash', 'File Explorer', 'Spotify', 'Gmail'];
-  const duplicatedLogos = [...softwareLogos, ...softwareLogos, ...softwareLogos];
+  const itemWidth = 48 + 24;
+  
+  const marqueeItems = [
+    { type: 'folder', apps: ['Whatsapp', 'Telegram', 'Trash'] },
+    ...softwareLogos,
+    { type: 'folder', apps: ['File Explorer', 'Spotify', 'Gmail'] },
+    ...softwareLogos,
+  ];
+  
+  const duplicatedItems = [...marqueeItems, ...marqueeItems, ...marqueeItems];
+  const totalWidth = marqueeItems.length * itemWidth;
+  
+  const FolderIcon = ({ apps }: { apps: string[] }) => (
+    <div className="relative w-12 h-12 rounded-xl bg-gradient-to-br from-[#3a3a3c] to-[#1c1c1e] border border-white/20 shadow-xl overflow-hidden">
+      <div className="absolute inset-0.5 bg-gradient-to-br from-[#2c2c2e] to-[#1c1c1e] rounded-lg">
+        <div className="absolute inset-0 flex flex-col items-center justify-center gap-0.5 p-0.5">
+          <div className="flex gap-0.5">
+            {apps.slice(0, 2).map((app) => {
+              const appData = softwareLogos.find(s => s.name.toLowerCase() === app.toLowerCase());
+              return appData ? (
+                <div key={app} className="relative w-4 h-4 rounded-sm overflow-hidden border border-white/20">
+                  <Image src={appData.src} alt={app} fill className="object-cover" unoptimized />
+                </div>
+              ) : null;
+            })}
+          </div>
+          {apps[2] && (
+            <div className="flex gap-0.5">
+              {(() => {
+                const appData = softwareLogos.find(s => s.name.toLowerCase() === apps[2].toLowerCase());
+                return appData ? (
+                  <div className="relative w-4 h-4 rounded-sm overflow-hidden border border-white/20">
+                    <Image src={appData.src} alt={apps[2]} fill className="object-cover" unoptimized />
+                  </div>
+                ) : null;
+              })()}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
   
   return (
     <div className={`relative overflow-hidden w-full ${className}`}>
@@ -120,7 +160,7 @@ export function SoftwareLogosMarquee({ className = '' }: { className?: string })
       
       <motion.div
         className="flex items-center gap-6 w-max"
-        animate={{ x: [0, -((softwareLogos.length + 1) * (48 + 24))] }}
+        animate={{ x: [0, -totalWidth] }}
         transition={{
           duration: 30,
           repeat: Infinity,
@@ -130,61 +170,24 @@ export function SoftwareLogosMarquee({ className = '' }: { className?: string })
           width: 'max-content',
         }}
       >
-        {/* Apple-style app folder with grouped apps */}
-        <div className="flex items-center gap-3">
-          {/* First folder - 3 apps */}
-          <div className="relative w-20 h-20 bg-gradient-to-br from-[#3a3a3c] to-[#1c1c1e] rounded-2xl border border-white/20 shadow-xl flex items-center justify-center">
-            <div className="absolute inset-1 bg-gradient-to-br from-[#2c2c2e] to-[#1c1c1e] rounded-xl border border-white/10">
-              <div className="absolute inset-0 flex items-center justify-center gap-1">
-                {['Whatsapp', 'Telegram', 'Trash'].map((app, i) => {
-                  const appData = softwareLogos.find(s => s.name.toLowerCase() === app.toLowerCase());
-                  return appData ? (
-                    <div key={app} className="relative w-6 h-6 rounded-md overflow-hidden border border-white/20">
-                      <Image src={appData.src} alt={app} fill className="object-cover" unoptimized />
-                    </div>
-                  ) : null;
-                })}
-              </div>
-            </div>
-            <div className="absolute -bottom-5 left-1/2 -translate-x-1/2 px-2 py-0.5 bg-black/80 text-white text-[8px] font-medium rounded whitespace-nowrap">
-              Apps
-            </div>
-          </div>
-          
-          {/* Second folder - 3 apps */}
-          <div className="relative w-20 h-20 bg-gradient-to-br from-[#3a3a3c] to-[#1c1c1e] rounded-2xl border border-white/20 shadow-xl flex items-center justify-center">
-            <div className="absolute inset-1 bg-gradient-to-br from-[#2c2c2e] to-[#1c1c1e] rounded-xl border border-white/10">
-              <div className="absolute inset-0 flex items-center justify-center gap-1">
-                {['File Explorer', 'Spotify', 'Gmail'].map((app, i) => {
-                  const appData = softwareLogos.find(s => s.name.toLowerCase() === app.toLowerCase());
-                  return appData ? (
-                    <div key={app} className="relative w-6 h-6 rounded-md overflow-hidden border border-white/20">
-                      <Image src={appData.src} alt={app} fill className="object-cover" unoptimized />
-                    </div>
-                  ) : null;
-                })}
-              </div>
-            </div>
-            <div className="absolute -bottom-5 left-1/2 -translate-x-1/2 px-2 py-0.5 bg-black/80 text-white text-[8px] font-medium rounded whitespace-nowrap">
-              Apps
-            </div>
-          </div>
-        </div>
-        
-        {duplicatedLogos.map((software, i) => (
+        {duplicatedItems.map((item: any, i: number) => (
           <div
-            key={`${software.name}-${i}`}
+            key={`${item.type === 'folder' ? 'folder-' + item.apps.join('-') : item.name}-${i}`}
             className="relative flex-shrink-0"
           >
-            <div className="relative w-12 h-12 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center overflow-hidden transition-all duration-300 hover:border-white/20 hover:bg-white/10">
-              <Image
-                src={software.src}
-                alt={software.name}
-                fill
-                className="object-cover transition-transform duration-300 hover:scale-110"
-                unoptimized
-              />
-            </div>
+            {item.type === 'folder' ? (
+              <FolderIcon apps={item.apps} />
+            ) : (
+              <div className="relative w-12 h-12 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center overflow-hidden transition-all duration-300 hover:border-white/20 hover:bg-white/10">
+                <Image
+                  src={item.src}
+                  alt={item.name}
+                  fill
+                  className="object-cover transition-transform duration-300 hover:scale-110"
+                  unoptimized
+                />
+              </div>
+            )}
           </div>
         ))}
       </motion.div>
