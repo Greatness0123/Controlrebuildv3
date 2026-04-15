@@ -114,16 +114,14 @@ export function SoftwareLogosMarquee({ className = '' }: { className?: string })
   
   const marqueeItems = [
     { type: 'folder', apps: ['Whatsapp', 'Telegram', 'Trash'] },
-    ...softwareLogos,
     { type: 'folder', apps: ['File Explorer', 'Spotify', 'Gmail'] },
-    ...softwareLogos,
   ];
   
   const duplicatedItems = [...marqueeItems, ...marqueeItems, ...marqueeItems];
   const totalWidth = marqueeItems.length * itemWidth;
   
-  const FolderIcon = ({ apps }: { apps: string[] }) => (
-    <div className="relative w-12 h-12 rounded-xl bg-gradient-to-br from-[#3a3a3c] to-[#1c1c1e] border border-white/20 shadow-xl overflow-hidden">
+  const FolderIcon = ({ apps, hoverContent }: { apps: string[]; hoverContent?: boolean }) => (
+    <div className="relative w-12 h-12 rounded-xl bg-gradient-to-br from-[#3a3a3c] to-[#1c1c1e] border border-white/20 shadow-xl overflow-hidden group">
       <div className="absolute inset-0.5 bg-gradient-to-br from-[#2c2c2e] to-[#1c1c1e] rounded-lg">
         <div className="absolute inset-0 flex flex-col items-center justify-center gap-0.5 p-0.5">
           <div className="flex gap-0.5">
@@ -150,6 +148,20 @@ export function SoftwareLogosMarquee({ className = '' }: { className?: string })
           )}
         </div>
       </div>
+      {hoverContent && (
+        <div className="absolute inset-0 bg-black/60 backdrop-blur-md rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center p-2">
+          <div className="grid grid-cols-3 gap-1">
+            {apps.map((app) => {
+              const appData = softwareLogos.find(s => s.name.toLowerCase() === app.toLowerCase());
+              return appData ? (
+                <div key={app} className="relative w-6 h-6 rounded-md overflow-hidden border border-white/30 shadow-sm">
+                  <Image src={appData.src} alt={app} fill className="object-cover" unoptimized />
+                </div>
+              ) : null;
+            })}
+          </div>
+        </div>
+      )}
     </div>
   );
   
@@ -172,22 +184,10 @@ export function SoftwareLogosMarquee({ className = '' }: { className?: string })
       >
         {duplicatedItems.map((item: any, i: number) => (
           <div
-            key={`${item.type === 'folder' ? 'folder-' + item.apps.join('-') : item.name}-${i}`}
+            key={`folder-${item.apps.join('-')}-${i}`}
             className="relative flex-shrink-0"
           >
-            {item.type === 'folder' ? (
-              <FolderIcon apps={item.apps} />
-            ) : (
-              <div className="relative w-12 h-12 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center overflow-hidden transition-all duration-300 hover:border-white/20 hover:bg-white/10">
-                <Image
-                  src={item.src}
-                  alt={item.name}
-                  fill
-                  className="object-cover transition-transform duration-300 hover:scale-110"
-                  unoptimized
-                />
-              </div>
-            )}
+            <FolderIcon apps={item.apps} hoverContent={true} />
           </div>
         ))}
       </motion.div>
