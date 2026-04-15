@@ -115,6 +115,7 @@ export function SoftwareLogosMarquee({ className = '' }: { className?: string })
   const marqueeItems = [
     { type: 'folder', apps: ['Whatsapp', 'Telegram', 'Trash'] },
     { type: 'folder', apps: ['File Explorer', 'Spotify', 'Gmail'] },
+    ...softwareLogos,
   ];
   
   const duplicatedItems = [...marqueeItems, ...marqueeItems, ...marqueeItems];
@@ -184,10 +185,22 @@ export function SoftwareLogosMarquee({ className = '' }: { className?: string })
       >
         {duplicatedItems.map((item: any, i: number) => (
           <div
-            key={`folder-${item.apps.join('-')}-${i}`}
+            key={item.type === 'folder' ? `folder-${item.apps.join('-')}-${i}` : `${item.name}-${i}`}
             className="relative flex-shrink-0"
           >
-            <FolderIcon apps={item.apps} hoverContent={true} />
+            {item.type === 'folder' ? (
+              <FolderIcon apps={item.apps} hoverContent={true} />
+            ) : (
+              <div className="relative w-12 h-12 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center overflow-hidden transition-all duration-300 hover:border-white/20 hover:bg-white/10">
+                <Image
+                  src={item.src}
+                  alt={item.name}
+                  fill
+                  className="object-cover transition-transform duration-300 hover:scale-110"
+                  unoptimized
+                />
+              </div>
+            )}
           </div>
         ))}
       </motion.div>
