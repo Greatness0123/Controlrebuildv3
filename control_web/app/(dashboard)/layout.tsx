@@ -252,7 +252,6 @@ export default function WorkspaceLayout({ children }: { children: ReactNode }) {
       <div className="flex-1 flex flex-col min-h-0 justify-between">
         <div className="flex-1" />
         <div className="py-2 border-t border-border space-y-0.25 shrink-0">
-          <NavLink href="/community" icon={<Users size={14} />} label="Community" active={pathname === '/community'} collapsed={isCollapsed && !isMobile} />
           <NavLink href="/workspace" icon={<LayoutDashboard size={14} />} label="Workspace" active={pathname === '/workspace'} collapsed={isCollapsed && !isMobile} />
           <NavLink href="/machines" icon={<Cpu size={14} />} label="Machines" active={pathname === '/machines'} collapsed={isCollapsed && !isMobile} />
           <NavLink href="/files" icon={<FolderOpen size={14} />} label="File Manager" active={pathname === '/files'} collapsed={isCollapsed && !isMobile} />
