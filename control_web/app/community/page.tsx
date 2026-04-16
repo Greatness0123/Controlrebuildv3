@@ -248,7 +248,7 @@ export default function CommunityPage() {
             )}
           </motion.div>
 
-          <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.45, delay: 0.2 }} className="lg:sticky lg:top-24 h-fit">
+          <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.45, delay: 0.2 }} className="hidden lg:sticky lg:top-24 lg:block h-fit">
             {user ? (
               <div className="bg-white/[0.03] border border-white/[0.1] rounded-2xl p-5 space-y-4">
                 <div className="flex items-center gap-2 pb-2">
@@ -287,6 +287,29 @@ export default function CommunityPage() {
           </motion.div>
         </div>
       </main>
+
+      {user && (
+        <div className="fixed bottom-0 left-0 right-0 p-4 bg-[#050505]/90 backdrop-blur-lg border-t border-white/[0.08] lg:hidden z-40">
+          <div className="bg-white/[0.03] border border-white/[0.1] rounded-xl p-4 space-y-3">
+            <textarea
+              placeholder="What&apos;s on your mind?"
+              value={newComment}
+              onChange={(e) => setNewComment(e.target.value)}
+              className="w-full bg-white/[0.02] border border-white/[0.1] rounded-lg p-3 text-sm text-white placeholder-neutral-500 outline-none focus:border-white/20 transition-all resize-none min-h-[80px]"
+            />
+            <div className="flex justify-end">
+              <button
+                onClick={handleSubmit}
+                disabled={submitting || !newComment.trim()}
+                className="flex items-center gap-2 px-4 py-2 bg-white text-black rounded-full text-xs font-semibold uppercase tracking-wider hover:bg-neutral-200 transition-all disabled:opacity-50"
+              >
+                {submitting ? <Loader2 size={12} className="animate-spin" /> : <Send size={12} />}
+                Post
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

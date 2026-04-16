@@ -344,18 +344,19 @@ Control is the answer. I built it so that anyone can use professional software â
               <Bento className="lg:col-span-4 min-h-[200px]" icon={Terminal} title="Shell when it is faster" desc="Uses the terminal for checks and batch work when that is more reliable than clicking through wizards." />
               <Bento className="lg:col-span-4 min-h-[200px]" icon={Layers} title="Workflows" desc="Save and trigger repeatable sequences on a schedule or when a keyword is spoken." />
               <Bento className="lg:col-span-4 min-h-[200px]" icon={Cpu} title="Cloud machines" desc="Isolate experiments or long jobs on provisioned desktops you control from the browser." />
-              <motion.div className="lg:col-span-12 min-h-[100px] rounded-2xl border border-white/[0.08] bg-white/[0.02] p-5 flex items-center gap-6">
+              <Bento className="lg:col-span-4 min-h-[200px]" icon={Zap} title="Reliable accuracy" desc="80% UI accuracy across professional software. The AI understands complex interfaces and completes multi-step tasks consistently." />
+              {/* <motion.div className="lg:col-span-12 min-h-[100px] rounded-2xl border border-white/[0.08] bg-white/[0.02] p-5 flex items-center gap-6">
                 <div className="flex-1">
                   <div className="flex items-center gap-2 mb-2">
                     <Zap className="w-4 h-4 text-neutral-400" strokeWidth={1.5} />
-                    <span className="text-xs font-semibold text-neutral-400 uppercase tracking-wider">Reliable accuracy</span>
+                    <span className="text-xs font-semibold text-neutral-400 uppercase tracking-wider"></span>
                   </div>
-                  <p className="text-sm text-neutral-300">80% UI accuracy across professional software. The AI understands complex interfaces and completes multi-step tasks consistently.</p>
+                  <p className="text-sm text-neutral-300"></p>
                 </div>
                 <div className="w-full sm:w-40 h-1.5 bg-neutral-800 rounded-full overflow-hidden shrink-0">
                   <div className="h-full bg-gradient-to-r from-neutral-500 to-neutral-400 rounded-full" style={{ width: '80%' }} />
                 </div>
-              </motion.div>
+              </motion.div> */}
               <Bento className="lg:col-span-12 min-h-[160px]" icon={Lock} title="Safety-minded design" desc="Sensitive steps can require explicit approval. You choose when the agent acts versus when it only advises. API traffic uses standard encrypted transport; pair desktop streaming only with accounts you trust." />
             </div>
           </div>
