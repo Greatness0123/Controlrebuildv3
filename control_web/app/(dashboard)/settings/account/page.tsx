@@ -1,9 +1,9 @@
 "use client";
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuthStore } from '@/lib/store';
 import { getSupabaseClient } from '@/lib/supabase';
-import { LogOut, Save, Loader2, Edit2, CreditCard, Wallet, Building } from 'lucide-react';
+import { LogOut, Save, Loader2, Edit2, CreditCard, Wallet, Building, Copy, Check } from 'lucide-react';
 import { toast } from 'sonner';
 
 function cn(...classes: (string | undefined | false | null)[]) {
@@ -16,6 +16,33 @@ export default function AccountPage() {
   const [isEditing, setIsEditing] = useState(false);
   const [firstName, setFirstName] = useState(user?.user_metadata?.first_name || '');
   const [lastName, setLastName] = useState(user?.user_metadata?.last_name || '');
+  const [internalUserId, setInternalUserId] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+  
+  useEffect(() => {
+    const fetchInternalId = async () => {
+      if (!user?.id) return;
+      const supabase = getSupabaseClient();
+      const { data } = await supabase
+        .from('users')
+        .select('id')
+        .eq('auth_id', user.id)
+        .single();
+      if (data) {
+        setInternalUserId(String(data.id));
+      }
+    };
+    fetchInternalId();
+  }, [user]);
+
+  const handleCopyId = () => {
+    if (internalUserId) {
+      navigator.clipboard.writeText(internalUserId);
+      setCopied(true);
+      toast.success('ID copied to clipboard');
+      setTimeout(() => setCopied(false), 2000);
+    }
+  };
   
   const [isEditingPayment, setIsEditingPayment] = useState(false);
   const [paymentDetails, setPaymentDetails] = useState({
@@ -142,12 +169,28 @@ export default function AccountPage() {
               </div>
             </div>
           </div>
-        ) : (
+) : (
           <>
             <SettingsRow label="First Name" value={user?.user_metadata?.first_name || '-'} />
             <SettingsRow label="Last Name" value={user?.user_metadata?.last_name || '-'} />
             <SettingsRow label="Email Address" value={user?.email || '-'} />
-            <SettingsRow label="User ID" value={user?.id?.substring(0, 12) + '...' || '-'} mono />
+            {internalUserId ? (
+              <div className="flex items-center justify-between py-2.5 px-3 bg-secondary/50 rounded-lg border border-border/50">
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] font-black text-text-muted uppercase tracking-widest">User ID</span>
+                  <span className="text-sm font-mono text-foreground">{internalUserId}</span>
+                </div>
+                <button
+                  onClick={handleCopyId}
+                  className="p-1.5 hover:bg-card-hover rounded-lg text-text-muted hover:text-foreground transition-colors"
+                  title="Copy ID"
+                >
+                  {copied ? <Check size={14} className="text-green-400" /> : <Copy size={14} />}
+                </button>
+              </div>
+            ) : (
+              <SettingsRow label="User ID" value={user?.id?.substring(0, 12) + '...' || '-'} mono />
+            )}
           </>
         )}
 

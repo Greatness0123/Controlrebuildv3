@@ -77,6 +77,19 @@ export async function signUp(email: string, password: string, firstName: string,
     },
   });
   if (error) throw error;
+  
+  if (data?.user) {
+    const numericId = Math.floor(100000000000 + Math.random() * 900000000000).toString();
+    await client.from('users').insert({
+      id: numericId,
+      auth_id: data.user.id,
+      email: email,
+      first_name: firstName,
+      last_name: lastName,
+      plan: 'free',
+    });
+  }
+  
   return data;
 }
 
