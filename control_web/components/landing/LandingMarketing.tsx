@@ -219,10 +219,11 @@ export default function LandingMarketing() {
                   what if an AI could just... use Blender the way I would, if I knew what I was doing?
                 </p>
                 <p className="mt-4 text-neutral-400 leading-relaxed text-base">
-                  Control is the answer. I built it so that anyone can use professional software — from Blender to AutoCAD to 
+Control is the answer. I built it so that anyone can use professional software — from Blender to AutoCAD to 
                   Premiere — without years of practice. No APIs, no plugins, no code. Just tell the AI what you want.
                 </p>
               </motion.div>
+              {/*}
               <motion.div {...fadeUp} transition={{ ...fadeUp.transition, delay: 0.1 }} className="relative">
                 <div className="rounded-2xl border border-white/[0.08] bg-white/[0.02] p-6 sm:p-8">
                   <div className="flex items-center gap-3 mb-4">
@@ -243,6 +244,7 @@ export default function LandingMarketing() {
                   </div>
                 </div>
               </motion.div>
+              */}
             </div>
           </div>
         </section>
@@ -338,19 +340,6 @@ export default function LandingMarketing() {
                 </ul>
               </motion.article>
             </div>
-            
-            <motion.div {...fadeUp} className="mt-10 p-6 rounded-2xl border border-white/[0.08] bg-white/[0.02] flex flex-col sm:flex-row items-center gap-6">
-              <div className="flex-1">
-                <div className="flex items-center gap-2 mb-2">
-                  <Zap className="w-5 h-5 text-yellow-400" strokeWidth={1.5} />
-                  <span className="text-sm font-semibold text-white">80% UI Accuracy</span>
-                </div>
-                <p className="text-sm text-neutral-400">Control achieves reliable 80% UI accuracy across professional software. The AI understands complex interfaces and completes multi-step tasks consistently.</p>
-              </div>
-              <div className="w-full sm:w-32 h-2 bg-neutral-800 rounded-full overflow-hidden">
-                <div className="h-full bg-gradient-to-r from-yellow-400 to-yellow-500 rounded-full" style={{ width: '80%' }} />
-              </div>
-            </motion.div>
           </div>
         </section>
 
@@ -361,12 +350,24 @@ export default function LandingMarketing() {
               <p className="text-[10px] font-semibold uppercase tracking-[0.28em] text-neutral-500 mb-3">Capabilities</p>
               <h2 className="font-landing text-2xl sm:text-3xl font-bold text-white tracking-tight">Built for real interfaces</h2>
             </motion.div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-4 sm:gap-5">
+<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-4 sm:gap-5">
               <Bento className="lg:col-span-7 min-h-[220px]" icon={Eye} title="Screen-grounded reasoning" desc="Understands layout and controls without a per-app integration list. Suited to creative suites, CAD, IDEs, and legacy enterprise UIs alike." />
               <Bento className="lg:col-span-5 min-h-[220px]" icon={Mic} title="Voice and text" desc="Hands-busy scenarios: speak a command or type while the agent keeps context across steps." />
               <Bento className="lg:col-span-4 min-h-[200px]" icon={Terminal} title="Shell when it is faster" desc="Uses the terminal for checks and batch work when that is more reliable than clicking through wizards." />
               <Bento className="lg:col-span-4 min-h-[200px]" icon={Layers} title="Workflows" desc="Save and trigger repeatable sequences on a schedule or when a keyword is spoken." />
               <Bento className="lg:col-span-4 min-h-[200px]" icon={Cpu} title="Cloud machines" desc="Isolate experiments or long jobs on provisioned desktops you control from the browser." />
+              <motion.div className="lg:col-span-12 min-h-[100px] rounded-2xl border border-white/[0.08] bg-white/[0.02] p-5 flex items-center gap-6">
+                <div className="flex-1">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Zap className="w-4 h-4 text-neutral-400" strokeWidth={1.5} />
+                    <span className="text-xs font-semibold text-neutral-400 uppercase tracking-wider">Reliable accuracy</span>
+                  </div>
+                  <p className="text-sm text-neutral-300">80% UI accuracy across professional software. The AI understands complex interfaces and completes multi-step tasks consistently.</p>
+                </div>
+                <div className="w-full sm:w-40 h-1.5 bg-neutral-800 rounded-full overflow-hidden shrink-0">
+                  <div className="h-full bg-gradient-to-r from-neutral-500 to-neutral-400 rounded-full" style={{ width: '80%' }} />
+                </div>
+              </motion.div>
               <Bento className="lg:col-span-12 min-h-[160px]" icon={Lock} title="Safety-minded design" desc="Sensitive steps can require explicit approval. You choose when the agent acts versus when it only advises. API traffic uses standard encrypted transport; pair desktop streaming only with accounts you trust." />
             </div>
           </div>
