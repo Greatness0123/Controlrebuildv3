@@ -223,28 +223,16 @@ Control is the answer. I built it so that anyone can use professional software �
                   Premiere — without years of practice. No APIs, no plugins, no code. Just tell the AI what you want.
                 </p>
               </motion.div>
-              {/*}
-              <motion.div {...fadeUp} transition={{ ...fadeUp.transition, delay: 0.1 }} className="relative">
-                <div className="rounded-2xl border border-white/[0.08] bg-white/[0.02] p-6 sm:p-8">
-                  <div className="flex items-center gap-3 mb-4">
-                    <Bot className="w-5 h-5 text-neutral-400" strokeWidth={1.5} />
-                    <span className="text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500">Example</span>
-                  </div>
-                  <div className="space-y-4">
-                    <div className="p-3 rounded-lg bg-white/[0.04] border border-white/[0.06]">
-                      <p className="text-sm text-neutral-300">"Create a beveled cube with a metallic blue material and render it with studio lighting"</p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <ArrowRight className="w-4 h-4 text-neutral-600" strokeWidth={2} />
-                      <span className="text-xs text-neutral-500">Control creates scene, applies material, sets up lights, renders</span>
-                    </div>
-                    <div className="p-3 rounded-lg bg-green-900/20 border border-green-500/20">
-                      <p className="text-sm text-green-400">✓ Render completed in 47 seconds</p>
-                    </div>
-                  </div>
-                </div>
+              <motion.div {...fadeUp} transition={{ ...fadeUp.transition, delay: 0.1 }} className="relative aspect-[4/5] lg:aspect-[3/4] rounded-2xl overflow-hidden border border-white/[0.08]">
+                <Image
+                  src="https://t3.ftcdn.net/jpg/06/03/31/10/360_F_603311014_qyxMDIjJkgknDYSqdLO5GahBoeW5l3i6.jpg"
+                  alt="3D workspace"
+                  fill
+                  className="object-cover grayscale hover:grayscale-0 transition-all duration-500"
+                  sizes="(max-width: 1024px) 100vw, 50vw"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-[#050505]/60 via-transparent to-transparent" />
               </motion.div>
-              */}
             </div>
           </div>
         </section>
