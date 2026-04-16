@@ -223,7 +223,7 @@ Control is the answer. I built it so that anyone can use professional software â
                   Premiere â€” without years of practice. No APIs, no plugins, no code. Just tell the AI what you want.
                 </p>
               </motion.div>
-              <motion.div {...fadeUp} transition={{ ...fadeUp.transition, delay: 0.1 }} className="relative aspect-[4/5] lg:aspect-[3/4] rounded-2xl overflow-hidden border border-white/[0.08]">
+              <motion.div {...fadeUp} transition={{ ...fadeUp.transition, delay: 0.1 }} className="relative lg:h-[280px] xl:h-[320px] rounded-2xl overflow-hidden border border-white/[0.08]">
                 <Image
                   src="https://t3.ftcdn.net/jpg/06/03/31/10/360_F_603311014_qyxMDIjJkgknDYSqdLO5GahBoeW5l3i6.jpg"
                   alt="3D workspace"
