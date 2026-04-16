@@ -608,7 +608,7 @@ function LandingNav() {
           </span>
           <span className="font-landing text-sm font-bold tracking-tight text-white">Control</span>
         </Link>
-        <nav className="hidden md:flex items-center gap-10 text-[11px] font-semibold uppercase tracking-[0.2em] text-neutral-500">
+<nav className="hidden md:flex items-center gap-8 lg:gap-10 text-[11px] font-semibold uppercase tracking-[0.2em] text-neutral-500">
           <a href="#how" className="hover:text-white transition-colors">
             How it works
           </a>
@@ -618,6 +618,9 @@ function LandingNav() {
           <a href="#capabilities" className="hover:text-white transition-colors">
             Capabilities
           </a>
+          <Link href="/community" className="hover:text-white transition-colors">
+            Community
+          </Link>
           <a href="#compare" className="hover:text-white transition-colors">
             Compare
           </a>
@@ -650,10 +653,11 @@ function LandingNav() {
       </div>
       {open && (
         <div className="md:hidden border-t border-white/[0.06] bg-[#050505] px-5 py-6 flex flex-col gap-4">
-          {[
+{[
             ['How it works', '#how'],
             ['Product', '#product'],
             ['Capabilities', '#capabilities'],
+            ['Community', '/community'],
             ['Compare', '#compare'],
           ].map(([l, h]) => (
             <a key={h} href={h} className="text-sm font-medium text-neutral-300 py-2 border-b border-white/[0.06]" onClick={() => setOpen(false)}>

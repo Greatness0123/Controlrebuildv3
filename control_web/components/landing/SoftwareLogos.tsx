@@ -1,6 +1,7 @@
 'use client';
 
-import { motion } from 'framer-motion';
+import { motion, useAnimation, useMotionValue, useTransform } from 'framer-motion';
+import { useState, useEffect, useRef } from 'react';
 import Image from 'next/image';
 
 const fadeTransition = { duration: 0.55, ease: [0.22, 1, 0.36, 1] as const };
@@ -35,6 +36,12 @@ export const platformLogos = [
   { name: 'macOS', src: 'data:image/png;base64,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' },
   { name: 'Linux', src: 'data:image/png;base64,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' },
 ];
+
+const folderAppNames = ['whatsapp', 'telegram', 'trash', 'file explorer', 'spotify', 'gmail'];
+
+const filteredSoftwareLogos = softwareLogos.filter(
+  logo => !folderAppNames.includes(logo.name.toLowerCase())
+);
 
 export function SoftwareLogos({ className = '', showLabels = false }: { className?: string; showLabels?: boolean }) {
   return (
@@ -110,21 +117,42 @@ export function SoftwareLogosWithHover({ className = '' }: { className?: string 
 }
 
 export function SoftwareLogosMarquee({ className = '' }: { className?: string }) {
+  const controls = useAnimation();
+  const [isHovered, setIsHovered] = useState(false);
   const itemWidth = 48 + 24;
   
   const marqueeItems = [
     { type: 'folder', apps: ['Whatsapp', 'Telegram', 'Trash'] },
     { type: 'folder', apps: ['File Explorer', 'Spotify', 'Gmail'] },
-    ...softwareLogos,
+    ...filteredSoftwareLogos,
   ];
   
   const duplicatedItems = [...marqueeItems, ...marqueeItems, ...marqueeItems];
   const totalWidth = marqueeItems.length * itemWidth;
+
+  useEffect(() => {
+    if (isHovered) {
+      controls.stop();
+    } else {
+      controls.start({
+        x: [0, -totalWidth],
+        transition: {
+          duration: 30,
+          repeat: Infinity,
+          ease: 'linear',
+        },
+      });
+    }
+  }, [isHovered, controls, totalWidth]);
   
-  const FolderIcon = ({ apps, hoverContent }: { apps: string[]; hoverContent?: boolean }) => (
-    <div className="relative w-12 h-12 rounded-xl bg-gradient-to-br from-[#3a3a3c] to-[#1c1c1e] border border-white/20 shadow-xl overflow-hidden group">
+  const FolderIcon = ({ apps }: { apps: string[] }) => (
+    <div 
+      className="relative w-12 h-12 rounded-xl bg-gradient-to-br from-[#3a3a3c] to-[#1c1c1e] border border-white/20 shadow-xl overflow-hidden group transition-all duration-300 group-hover:w-24 group-hover:h-24"
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+    >
       <div className="absolute inset-0.5 bg-gradient-to-br from-[#2c2c2e] to-[#1c1c1e] rounded-lg">
-        <div className="absolute inset-0 flex flex-col items-center justify-center gap-0.5 p-0.5">
+        <div className="absolute inset-0 flex flex-col items-start justify-start gap-0.5 p-0.5">
           <div className="flex gap-0.5">
             {apps.slice(0, 2).map((app) => {
               const appData = folderLogos.find(f => f.name.toLowerCase() === app.toLowerCase());
@@ -149,20 +177,18 @@ export function SoftwareLogosMarquee({ className = '' }: { className?: string })
           )}
         </div>
       </div>
-      {hoverContent && (
-        <div className="absolute inset-0 bg-black/60 backdrop-blur-md rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center p-2">
-          <div className="grid grid-cols-3 gap-1">
-            {apps.map((app) => {
-              const appData = folderLogos.find(f => f.name.toLowerCase() === app.toLowerCase());
-              return appData ? (
-                <div key={app} className="relative w-6 h-6 rounded-md overflow-hidden border border-white/30 shadow-sm">
-                  <Image src={appData.src} alt={app} fill className="object-cover" unoptimized />
-                </div>
-              ) : null;
-            })}
-          </div>
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-md rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center p-2">
+        <div className="grid grid-cols-2 grid-rows-2 gap-1">
+          {apps.slice(0, 3).map((app, idx) => {
+            const appData = folderLogos.find(f => f.name.toLowerCase() === app.toLowerCase());
+            return appData ? (
+              <div key={app} className={`relative w-8 h-8 rounded-md overflow-hidden border border-white/30 shadow-sm ${idx === 2 ? 'row-start-2 col-start-1' : ''}`}>
+                <Image src={appData.src} alt={app} fill className="object-cover" unoptimized />
+              </div>
+            ) : null;
+          })}
         </div>
-      )}
+      </div>
     </div>
   );
   
@@ -173,12 +199,7 @@ export function SoftwareLogosMarquee({ className = '' }: { className?: string })
       
       <motion.div
         className="flex items-center gap-6 w-max"
-        animate={{ x: [0, -totalWidth] }}
-        transition={{
-          duration: 30,
-          repeat: Infinity,
-          ease: 'linear',
-        }}
+        animate={controls}
         style={{
           width: 'max-content',
         }}
@@ -189,7 +210,7 @@ export function SoftwareLogosMarquee({ className = '' }: { className?: string })
             className="relative flex-shrink-0"
           >
             {item.type === 'folder' ? (
-              <FolderIcon apps={item.apps} hoverContent={true} />
+              <FolderIcon apps={item.apps} />
             ) : (
               <div className="relative w-12 h-12 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center overflow-hidden transition-all duration-300 hover:border-white/20 hover:bg-white/10">
                 <Image

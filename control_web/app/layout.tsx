@@ -18,18 +18,17 @@ const fontBody = Manrope({
 })
 
 export const metadata: Metadata = {
-  title: 'Control — AI Computer Use That Drives Your Desktop',
+  title: 'Control — AI Software Use That Drives Your Desktop',
   description:
-    'Control is AI-powered computer use software that drives your desktop apps like you would—using voice commands, automation, and AI agents. Local execution or cloud machines. Try Control today.',
+    'Control is AI-powered software that drives your desktop apps like you would—using voice commands, automation, and AI agents. Local execution or cloud machines. Try Control today.',
   keywords: [
-    'AI computer use',
-    'computer use',
+    'AI software use',
+    'software use',
     'desktop automation',
     'AI assistant',
     'voice control',
     'AI agent',
     'software automation',
-    'computer use software',
     'AI desktop assistant',
     'automate desktop',
     'Windows automation',
@@ -42,8 +41,8 @@ export const metadata: Metadata = {
     icon: '/favicon.ico',
   },
   openGraph: {
-    title: 'Control — AI Computer Use Software',
-    description: 'AI computer use that drives your desktop apps using voice commands and automation.',
+    title: 'Control — AI Software Use',
+    description: 'AI software use that drives your desktop apps using voice commands and automation.',
     type: 'website',
     siteName: 'Control',
   },

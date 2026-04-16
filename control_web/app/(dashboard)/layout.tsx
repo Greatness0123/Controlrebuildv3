@@ -378,11 +378,10 @@ function NavLink({
     <Link
       href={href}
       className={cn(
-        "flex items-center h-8 px-3 rounded-lg text-xs transition-all relative group",
+        "flex items-center h-8 rounded-lg text-xs transition-all relative group",
         active ? 'bg-card-hover text-foreground font-bold' : 'text-text-secondary hover:bg-card hover:text-foreground',
-        "gap-3"
+        collapsed ? "justify-center px-0" : "gap-3 px-3"
       )}
-
     >
       <div className="w-5 flex items-center justify-center shrink-0">
         {icon}
