@@ -249,11 +249,14 @@ export default function WorkspaceLayout({ children }: { children: ReactNode }) {
 
       {!sidebarOpen && !isMobile && <div className="flex-1" />}
 
-      <div className="flex-1 flex flex-col min-h-0 justify-between">
+      <div className={cn(
+          "flex flex-col",
+          isCollapsed && !isMobile ? "gap-0" : "min-h-0 justify-between"
+        )}>
         {(sidebarOpen || isMobile) && <div className="flex-1" />}
         <div className={cn(
           "shrink-0",
-          isCollapsed && !isMobile ? "space-y-0.5" : "border-t border-border py-2 space-y-0.25"
+          isCollapsed && !isMobile ? "flex flex-col gap-0" : "border-t border-border py-2 space-y-0.25"
         )}>
           <NavLink href="/workspace" icon={<LayoutDashboard size={14} />} label="Workspace" active={pathname === '/workspace'} collapsed={isCollapsed && !isMobile} />
           <NavLink href="/machines" icon={<Cpu size={14} />} label="Machines" active={pathname === '/machines'} collapsed={isCollapsed && !isMobile} />
@@ -268,15 +271,15 @@ export default function WorkspaceLayout({ children }: { children: ReactNode }) {
       </div>
 
       <div className={cn(
-        "shrink-0",
-        isCollapsed && !isMobile ? "mt-1 mb-1 gap-0.5" : "p-2 border-t border-border space-y-0.5"
-      )}>
+          "flex flex-col",
+          isCollapsed && !isMobile ? "gap-0" : "shrink-0 p-2 border-t border-border space-y-0.5"
+        )}>
         <button
           onClick={toggleTheme}
           className={cn(
             "w-full flex items-center gap-2 rounded-lg text-xs text-text-secondary hover:bg-card-hover hover:text-foreground transition-all",
             (sidebarOpen || isMobile) ? "px-3 py-2" : "justify-center px-0 py-1",
-            isCollapsed && !isMobile ? "h-6" : ""
+            isCollapsed && !isMobile ? "h-5" : ""
           )}
           title={nextTheme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
         >
@@ -299,7 +302,7 @@ export default function WorkspaceLayout({ children }: { children: ReactNode }) {
           className={cn(
             "w-full flex items-center gap-2 rounded-lg text-xs text-text-muted hover:bg-red-500/10 hover:text-red-400 transition-all",
             (sidebarOpen || isMobile) ? "px-3 py-2" : "justify-center px-0 py-1",
-            isCollapsed && !isMobile ? "h-6" : ""
+            isCollapsed && !isMobile ? "h-5" : ""
           )}
           title="Sign Out"
         >
@@ -387,7 +390,7 @@ function NavLink({
       className={cn(
         "flex items-center rounded-lg text-xs transition-all relative group",
         active ? 'bg-card-hover text-foreground font-bold' : 'text-text-secondary hover:bg-card hover:text-foreground',
-        collapsed ? "justify-center px-0 h-6" : "gap-3 px-3 h-8"
+        collapsed ? "justify-center px-0 h-5" : "gap-3 px-3 h-8"
       )}
     >
       <div className="w-5 flex items-center justify-center shrink-0">
