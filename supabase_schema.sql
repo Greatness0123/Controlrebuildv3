@@ -47,6 +47,18 @@ VALUES ('api_keys', '{
 }'::jsonb)
 ON CONFLICT (key) DO NOTHING;
 
+-- Initial AI Models config
+INSERT INTO public.app_config (key, value)
+VALUES ('ai_models', '{
+    "selectedModel": "gemini-2.5-flash",
+    "cloudModel": "gemini-2.0-flash",
+    "openrouterModel": "anthropic/claude-3.5-sonnet",
+    "openrouterCustomModel": "",
+    "anthropicModel": "claude-3-5-sonnet-20240620",
+    "universalModel": "gemini-2.5-flash"
+}'::jsonb)
+ON CONFLICT (key) DO NOTHING;
+
 -- RLS Policies
 
 -- Users: Authenticated users can read/update their own data

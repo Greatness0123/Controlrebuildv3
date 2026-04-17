@@ -286,7 +286,22 @@ class ComputerUseAgent {
         try {
             console.log('[Main] Control starting (High Concurrency Mode)...');
 
-            const dbKeysPromise = dbService.fetchAndCacheKeys().catch(e => console.warn('[Main] Key fetch error:', e.message));
+const dbKeysPromise = dbService.fetchAndCacheKeys().catch(e => console.warn('[Main] Key fetch error:', e.message));
+            
+            // Load AI model settings from Supabase
+            const modelSettings = dbService.getModelSettings();
+            if (modelSettings) {
+                console.log('[Main] Loaded AI model settings from cache:', modelSettings);
+                this.settingsManager.updateSettings({
+                    selectedModel: modelSettings.selectedModel || modelSettings.gemini_model || 'gemini-2.5-flash',
+                    cloudModel: modelSettings.cloudModel,
+                    openrouterModel: modelSettings.openrouterModel,
+                    openrouterCustomModel: modelSettings.openrouterCustomModel,
+                    anthropicModel: modelSettings.anthropicModel,
+                    universalModel: modelSettings.universalModel
+                });
+            }
+            
             const backendStartPromise = this.backendManager.startBackend();
             const voskStartPromise = this.voskServerManager.start();
             const windowInitPromise = this.windowManager.initializeWindows();

@@ -1406,6 +1406,7 @@ class ChatWindow {
                         const separator = this.baseText ? " " : "";
                         this.chatInput.value = this.baseText + separator + result.partial + "...";
                         this.autoResizeTextarea();
+                        this.syncInputBackdrop(); // Sync backdrop during transcription
 
                         // Activity detected: Reset silence timeout if auto-send is enabled
                         if (this.autoSendEnabled) this.resetSpeechTimeout();
@@ -1419,6 +1420,7 @@ class ChatWindow {
                         this.chatInput.value = this.baseText;
                         this.autoResizeTextarea();
                         this.updateSendButton();
+                        this.syncInputBackdrop(); // Sync backdrop after final transcription
                         if (this.autoSendEnabled) this.resetSpeechTimeout();
                     }
                     // Ignore empty responses (silence detection)

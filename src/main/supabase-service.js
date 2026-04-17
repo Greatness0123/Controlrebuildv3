@@ -23,8 +23,15 @@ let supabase = null;
 const initSupabase = () => {
     if (supabase) return true;
     try {
-        const supabaseUrl = process.env.SUPABASE_URL;
-        const supabaseKey = process.env.SUPABASE_ANON_KEY;
+        let supabaseUrl = process.env.SUPABASE_URL;
+        let supabaseKey = process.env.SUPABASE_ANON_KEY;
+        
+        // Fallback to hardcoded credentials if not in environment
+        if (!supabaseUrl || !supabaseKey) {
+            supabaseUrl = 'https://gdvitudsmqktiutyyndv.supabase.co';
+            supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imdkdml0dWRzbXFrdGl1dHl5bmR2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMzNDIxNjAsImV4cCI6MjA4ODkxODE2MH0.uxN2Obtx2EeErFK8sNMW15xpOMf8FSToiozX0vT_f1Q';
+            console.log('[Supabase] Using fallback hardcoded credentials');
+        }
 
         if (supabaseUrl && supabaseKey) {
             console.log(`[Supabase] Initializing with URL: ${supabaseUrl}`);
@@ -187,9 +194,11 @@ module.exports = {
         return null;
     },
 
-    async fetchAndCacheKeys() {
+async fetchAndCacheKeys() {
         try {
             if (!supabase) return null;
+            
+            // Fetch API keys
             const { data, error } = await supabase
                 .from('app_config')
                 .select('value')
@@ -198,8 +207,21 @@ module.exports = {
 
             if (data) {
                 fs.writeFileSync(getKeysCacheFile(), JSON.stringify(data.value));
-                return data.value;
             }
+            
+            // Also fetch AI model settings
+            const { data: modelData } = await supabase
+                .from('app_config')
+                .select('value')
+                .eq('key', 'ai_models')
+                .single();
+            
+            if (modelData) {
+                const modelCacheFile = path.join(require('electron').app.getPath('userData'), 'ai_models.json');
+                fs.writeFileSync(modelCacheFile, JSON.stringify(modelData.value));
+            }
+            
+            return data?.value || null;
         } catch (e) { }
         return null;
     },
@@ -208,6 +230,17 @@ module.exports = {
         try {
             if (fs.existsSync(getKeysCacheFile())) {
                 return JSON.parse(fs.readFileSync(getKeysCacheFile(), 'utf8'));
+            }
+        } catch (e) { }
+        return null;
+    },
+    
+    getModelSettings() {
+        try {
+            const { app } = require('electron');
+            const modelCacheFile = path.join(app.getPath('userData'), 'ai_models.json');
+            if (fs.existsSync(modelCacheFile)) {
+                return JSON.parse(fs.readFileSync(modelCacheFile, 'utf8'));
             }
         } catch (e) { }
         return null;

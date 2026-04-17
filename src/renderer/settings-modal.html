@@ -102,7 +102,8 @@
             height: 50px;
             display: flex;
             align-items: center;
-            padding: 0 23px;
+            justify-content: center;
+            padding: 0;
             cursor: pointer;
             color: var(--text-secondary);
             transition: all 0.2s ease;
@@ -160,18 +161,7 @@
         }
 
         .sidebar-label {
-            margin-left: 20px;
-            font-size: 14px;
-            font-weight: 500;
-            white-space: nowrap;
-            opacity: 0;
-            transition: opacity 0.2s;
-            pointer-events: none;
-        }
-
-        .sidebar:hover .sidebar-label {
-            opacity: 1;
-            pointer-events: auto;
+            display: none;
         }
 
         /* Main Content */

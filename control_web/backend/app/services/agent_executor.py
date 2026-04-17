@@ -674,10 +674,12 @@ class AgentExecutor:
 
     async def _get_provider_config(self, db: Client, user_id: str) -> Dict:
         try:
+            # First try user-specific config
             res = db.table("app_config").select("value").eq("key", f"api_keys_{user_id}").execute()
             if res.data:
                 return res.data[0].get("value", {})
 
+            # Fallback to global config
             res = db.table("app_config").select("value").eq("key", "api_keys").execute()
             if res.data:
                 return res.data[0].get("value", {})
@@ -685,6 +687,23 @@ class AgentExecutor:
             logger.error(f"Error fetching provider config: {e}")
 
         return {"provider": "gemini", "gemini_model": "gemini-2.5-flash"}
+
+    async def _get_model_config(self, db: Client, user_id: str) -> Dict:
+        """Get AI model settings from app_config"""
+        try:
+            # First try user-specific models
+            res = db.table("app_config").select("value").eq("key", f"ai_models_{user_id}").execute()
+            if res.data:
+                return res.data[0].get("value", {})
+
+            # Fallback to global models
+            res = db.table("app_config").select("value").eq("key", "ai_models").execute()
+            if res.data:
+                return res.data[0].get("value", {})
+        except Exception as e:
+            logger.error(f"Error fetching model config: {e}")
+
+        return {}
 
     async def _call_ai(
         self, config: Dict, messages: list, image_b64: Optional[str] = None, stream: bool = False
@@ -898,6 +917,11 @@ class AgentExecutor:
             
             # Provider config
             provider_config = await self._get_provider_config(db, user_id)
+            
+            # Also get model settings and merge them
+            model_config = await self._get_model_config(db, user_id)
+            if model_config:
+                provider_config = {**provider_config, **model_config}
             
             max_steps = 30
             step = 0
