@@ -901,11 +901,11 @@ class ChatWindow {
             if (mode === 'act') {
                 this.modeAct.classList.add('active');
                 this.modeAsk.classList.remove('active');
-                this.chatInput.placeholder = "Describe a task for Control to perform...";
+                this.chatInput.placeholder = "Give a task";
             } else {
                 this.modeAsk.classList.add('active');
                 this.modeAct.classList.remove('active');
-                this.chatInput.placeholder = "Ask Control a question...";
+                this.chatInput.placeholder = "Ask a question...";
             }
         }
 
