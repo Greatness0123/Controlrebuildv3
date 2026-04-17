@@ -398,7 +398,7 @@ class SettingsModal {
             }
         });
 
-        document.getElementById('deleteAllDataBtn')?.addEventListener('click', async () => {
+document.getElementById('deleteAllDataBtn')?.addEventListener('click', async () => {
             const confirmed = await window.settingsAPI?.showConfirmModal({
                 title: 'Delete All Data?',
                 message: 'DANGER: This will permanently delete ALL your local settings, sessions, and workflows. This action CANNOT be undone.',
@@ -414,6 +414,13 @@ class SettingsModal {
                         setTimeout(() => window.settingsAPI.restartApp(), 1500);
                     }
                 }
+            }
+        });
+
+        // Close settings button (X in header)
+        document.getElementById('closeSettingsBtn')?.addEventListener('click', () => {
+            if (window.settingsAPI) {
+                window.settingsAPI.closeSettings();
             }
         });
 

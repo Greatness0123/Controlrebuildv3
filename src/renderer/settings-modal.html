@@ -91,15 +91,12 @@
             flex-direction: column;
             align-items: center;
             padding: 20px 0;
-            transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
             position: relative;
             z-index: 10;
         }
 
-        .sidebar:hover {
-            width: var(--sidebar-expanded);
-        }
-
+        /* REMOVED: Sidebar hover expansion - now shows tooltips instead */
+        
         .sidebar-item {
             width: 100%;
             height: 50px;
@@ -135,6 +132,31 @@
             display: flex;
             justify-content: center;
             font-size: 18px;
+            position: relative;
+        }
+
+        /* Custom tooltip on hover */
+        .sidebar-item .sidebar-tooltip {
+            position: absolute;
+            left: 60px;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 500;
+            white-space: nowrap;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.2s, visibility 0.2s;
+            z-index: 100;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+            border: 1px solid var(--border-color);
+        }
+
+        .sidebar-item:hover .sidebar-tooltip {
+            opacity: 1;
+            visibility: visible;
         }
 
         .sidebar-label {
@@ -165,11 +187,35 @@
             padding: 30px 40px;
             border-bottom: 1px solid var(--border-color);
             -webkit-app-region: drag;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
         }
 
         .content-header h1 {
             font-size: 24px;
             font-weight: 700;
+            color: var(--text-primary);
+        }
+
+        .close-settings-btn {
+            background: transparent;
+            border: none;
+            color: var(--text-secondary);
+            cursor: pointer;
+            width: 36px;
+            height: 36px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            transition: all 0.2s;
+            -webkit-app-region: no-drag;
+        }
+
+        .close-settings-btn:hover {
+            background: var(--bg-tertiary);
             color: var(--text-primary);
         }
 
@@ -686,39 +732,39 @@
     <div class="settings-window">
         <aside class="sidebar">
             <div class="sidebar-item active" data-tab="account">
-                <div class="sidebar-icon"><i class="fas fa-user-circle"></i></div>
+                <div class="sidebar-icon"><i class="fas fa-user-circle"></i><span class="sidebar-tooltip">Account</span></div>
                 <div class="sidebar-label">Account</div>
             </div>
             <div class="sidebar-item" data-tab="appearance">
-                <div class="sidebar-icon"><i class="fas fa-palette"></i></div>
+                <div class="sidebar-icon"><i class="fas fa-palette"></i><span class="sidebar-tooltip">Appearance</span></div>
                 <div class="sidebar-label">Appearance</div>
             </div>
             <div class="sidebar-item" data-tab="providers">
-                <div class="sidebar-icon"><i class="fas fa-brain"></i></div>
+                <div class="sidebar-icon"><i class="fas fa-brain"></i><span class="sidebar-tooltip">AI Providers</span></div>
                 <div class="sidebar-label">AI Providers</div>
             </div>
             <div class="sidebar-item" data-tab="voice">
-                <div class="sidebar-icon"><i class="fas fa-microphone"></i></div>
+                <div class="sidebar-icon"><i class="fas fa-microphone"></i><span class="sidebar-tooltip">Voice & Audio</span></div>
                 <div class="sidebar-label">Voice & Audio</div>
             </div>
             <div class="sidebar-item" data-tab="security">
-                <div class="sidebar-icon"><i class="fas fa-shield-alt"></i></div>
+                <div class="sidebar-icon"><i class="fas fa-shield-alt"></i><span class="sidebar-tooltip">Security</span></div>
                 <div class="sidebar-label">Security</div>
             </div>
             <div class="sidebar-item" data-tab="remote">
-                <div class="sidebar-icon"><i class="fas fa-desktop"></i></div>
+                <div class="sidebar-icon"><i class="fas fa-desktop"></i><span class="sidebar-tooltip">Remote Access</span></div>
                 <div class="sidebar-label">Remote Access</div>
             </div>
             <div class="sidebar-item" data-tab="shortcuts">
-                <div class="sidebar-icon"><i class="fas fa-keyboard"></i></div>
+                <div class="sidebar-icon"><i class="fas fa-keyboard"></i><span class="sidebar-tooltip">Shortcuts</span></div>
                 <div class="sidebar-label">Shortcuts</div>
             </div>
             <div class="sidebar-item" data-tab="skills">
-                <div class="sidebar-icon"><i class="fas fa-book"></i></div>
+                <div class="sidebar-icon"><i class="fas fa-book"></i><span class="sidebar-tooltip">Skills</span></div>
                 <div class="sidebar-label">Skills</div>
             </div>
             <div class="sidebar-item" data-tab="system">
-                <div class="sidebar-icon"><i class="fas fa-cog"></i></div>
+                <div class="sidebar-icon"><i class="fas fa-cog"></i><span class="sidebar-tooltip">System</span></div>
                 <div class="sidebar-label">System</div>
             </div>
         </aside>
@@ -726,6 +772,9 @@
         <main class="main-content">
             <header class="content-header">
                 <h1 id="tabTitle">Account</h1>
+                <button class="close-settings-btn" id="closeSettingsBtn" title="Close Settings">
+                    <i class="fas fa-times"></i>
+                </button>
             </header>
 
             <!-- Account Tab -->

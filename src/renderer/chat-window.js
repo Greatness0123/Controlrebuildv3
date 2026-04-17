@@ -351,6 +351,21 @@ class ChatWindow {
         }
     }
 
+    // Sync input backdrop for plain text (e.g., from transcription)
+    syncInputBackdrop() {
+        if (this.inputBackdrop) {
+            const value = this.chatInput.value;
+            const escapedValue = this.escapeHtml(value);
+            // For plain text (non-slash commands), just show the text as-is
+            let highlightedText = escapedValue.replace(/^(\/[^\s]*)/, '<span class="highlight">$1</span>');
+            if (value.endsWith('\n')) {
+                highlightedText += ' ';
+            }
+            this.inputBackdrop.innerHTML = highlightedText;
+            this.inputBackdrop.scrollTop = this.chatInput.scrollTop;
+        }
+    }
+
     showCommandSuggestions(query) {
         if (!this.commandSuggestions) return;
 
@@ -643,7 +658,7 @@ class ChatWindow {
                     this.chatInput.value = data.text;
                     this.autoResizeTextarea();
                     this.updateSendButton();
-                    this.handleSlashCommandInput();
+                    this.syncInputBackdrop(); // Sync backdrop for plain text transcription
                     if (this.autoSendEnabled && this.isRecording) {
                         this.resetSpeechTimeout();
                     }
