@@ -131,7 +131,7 @@ class BackendManager extends EventEmitter {
         return this.readyPromise;
     }
 
-    async startBackend() {
+async startBackend() {
         if (this.isRunning) return { success: true };
 
         try {
@@ -139,8 +139,21 @@ class BackendManager extends EventEmitter {
             this.logToFile('Starting JS Act and Ask Backends...');
 
             this.isReady = false;
+            
+            // Get model settings from Supabase cache
+            const supabaseService = require('./supabase-service');
+            const modelSettings = supabaseService.getModelSettings();
+            const cachedKeys = supabaseService.getKeys();
+            
+            const defaultModel = modelSettings?.selectedModel || 'gemini-2.0-flash';
+            const apiKey = cachedKeys?.gemini || process.env.GEMINI_API_KEY;
+            
             this.actBackend = new ActBackend();
             this.askBackend = new AskBackend();
+            
+            // Initialize with correct model at startup
+            this.actBackend.setupGeminiAPI(apiKey, defaultModel);
+            this.askBackend.setupGeminiAPI(apiKey, defaultModel);
 
             this.isRunning = true;
             this.isReady = true;
@@ -231,7 +244,19 @@ class BackendManager extends EventEmitter {
                 this.handleFrontendMessage({ type, data }, targetLabel);
             };
 
-            this.currentTask = task.text;
+this.currentTask = task.text;
+
+            // Pass task context including step plan
+            const taskContext = {
+                text: task.text,
+                taskPlan: task.taskPlan || null,
+                workflowName: task.workflowName || null,
+                workflowId: task.workflowId || null
+            };
+            
+            if (task.taskPlan && backend.setTaskPlan) {
+                backend.setTaskPlan(task.taskPlan, { workflowName: task.workflowName });
+            }
 
             await backend.processRequest(task.text, processedAttachments, (typeOrData, data) => {
                 if (typeof typeOrData === 'string') {

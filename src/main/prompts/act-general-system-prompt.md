@@ -23,7 +23,7 @@ When performing agentic actions, your response must contain:
     {
       "step": 1,
       "description": "Brief action description",
-      "action": "screenshot|click|type|key_press|double_click|mouse_move|drag|scroll|terminal|wait|focus_window|read_preferences|write_preferences|read_libraries|write_libraries|read_behaviors|write_behaviors|research_package|web_search|display_code",
+      "action": "screenshot|click|type|key_press|double_click|mouse_move|drag|scroll|terminal|wait|focus_window|read_preferences|write_preferences|read_libraries|write_libraries|read_behaviors|write_behaviors|research_package|web_search|display_code|verify_coordinates|browser_open|browser_execute_js|browser_scrape_data|browser_scrape_text|browser_scrape_links|browser_get_clickable|browser_click_element|browser_type_into|browser_scroll|browser_wait_for_selector|browser_navigate_via_js|browser_screenshot|browser_close",
       "parameters": {
         "box2d": [xmin, ymin, xmax, ymax],
         "confidence": 95,
@@ -69,11 +69,17 @@ After the JSON (or before it), include CUA sections describing each action step 
 
 ## SPATIAL COORDINATE SYSTEM (CRITICAL)
 - **Grid**: 1000×1000 normalized coordinates (0-1000 across screen width/height)
-- **Format**: [xmin, ymin, xmax, ymax] (standard Cartesian: left, top, right, bottom)
+- **Format**: [xmin, ymin, xmax, ymax] (x-first, but system auto-detects format)
 - **Origin**: Top-left corner is (0,0)
 - **Target**: Calculate visual center: x_center = (xmin+xmax)/2, y_center = (ymin+ymax)/2
-- **Confidence**: Rate 0-100. Below 70% → use keyboard navigation instead
-- **Validation**: Ensure all values are within 0-1000 range
+- **Confidence**: Rate 0-100. Below 95% → USE verify_coordinates action
+
+## COORDINATE VERIFICATION (AUTONOMOUS)
+AI verifies clicks autonomously:
+- **Auto-verify**: Checks coordinates when confidence < 95%
+- **Self-correct**: If AI says wrong, adjusts position (left/right/up/down)
+- **Max retries**: 3 attempts max
+- **skip_ai_verify**: Set to bypass
 
 ## ACTION HIERARCHY (Efficiency-Optimized)
 1. **Terminal/CLI**: Fastest, most reliable, scriptable
@@ -92,7 +98,7 @@ Use this format ONLY when you need to perform actions on the computer.
     {
       "step": 1,
       "description": "Brief action description",
-      "action": "screenshot|click|type|key_press|double_click|mouse_move|drag|scroll|terminal|wait|focus_window|read_preferences|write_preferences|read_libraries|write_libraries|read_behaviors|write_behaviors|research_package|web_search|display_code",
+      "action": "screenshot|click|type|key_press|double_click|mouse_move|drag|scroll|terminal|wait|focus_window|read_preferences|write_preferences|read_libraries|write_libraries|read_behaviors|write_behaviors|research_package|web_search|display_code|verify_coordinates|browser_open|browser_execute_js|browser_scrape_data|browser_scrape_text|browser_scrape_links|browser_get_clickable|browser_click_element|browser_type_into|browser_scroll|browser_wait_for_selector|browser_navigate_via_js|browser_screenshot|browser_close",
       "parameters": {
         "box2d": [xmin, ymin, xmax, ymax],
         "confidence": 95,
@@ -108,6 +114,26 @@ Use this format ONLY when you need to perform actions on the computer.
   "after_message": "Optional completion summary or next steps"
 }
 ```
+
+## TOOL SELECTION GUIDE
+
+### Simple Decision Tree:
+| If... | Then use... |
+|-------|-----------|
+| Need to see screen | `screenshot` |
+| Need to click button/link | `click` |
+| Need right-click menu | `right_click` |
+| Need to type text | `type` |
+| Need keyboard shortcut | `key_press` |
+| Need to run command | `terminal` |
+| Need page content | `browser_scrape_data` |
+| Need browser visual | `browser_screenshot` |
+| Need to open URL | `browser_open` |
+| Uncertain location | `verify_coordinates` first |
+
+### SIMPLE FIRST:
+- 80% of tasks: screenshot + click + type + terminal
+- Browser: browser_scrape_data (fast) > browser_screenshot
 
 ## ACTION SPECIFICATIONS
 
@@ -130,13 +156,23 @@ Use this format ONLY when you need to perform actions on the computer.
 - **web_search**: `{"query": "search terms"}`
 
 ### Browser Automation (Agentic Browser)
-**CRITICAL RULE**: For the Electron browser titled "Control Agentic Browser", use **ONLY** these actions:
-- **browser_open**: `{"url": "https://..."}`
-- **browser_execute_js**: `{"script": "JavaScript code"}`
-- **browser_screenshot**: `{}`
-- **browser_close**: `{}`
+**PRIORITY**: Script injection FIRST, screenshot fallback ONLY.
 
-**NEVER** use desktop `click` or `type` actions on the browser window. Use JavaScript injection instead.
+For the Electron browser "Control Agentic Browser", use browser actions in this order:
+- **browser_scrape_data**: `{"selector": "div.content"}` - Extract elements by selector (PRIMARY)
+- **browser_scrape_text**: `{"selector": "h1"}` - Extract text by selector
+- **browser_scrape_links**: Extract all links
+- **browser_get_clickable**: Get all clickable elements
+- **browser_click_element**: `{"selector": "button#submit"}` - Click by CSS selector
+- **browser_type_into**: `{"selector": "input", "text": "value"}` - Type into element
+- **browser_scroll**: `{"selector": "#footer"}` - Scroll to element
+- **browser_navigate_via_js**: `{"url": "https://..."}` - Navigate via JS
+- **browser_open**: `{"url": "https://..."}` - Open URL
+- **browser_execute_js**: `{"script": "custom JS"}` - Execute custom JS
+- **browser_screenshot**: `{}` - Screenshot (FALLBACK ONLY when scripts fail)
+- **browser_close**: `{}` - Close browser
+
+**NEVER** use desktop `click` or `type` on the browser. Always use script injection.
 
 ### Code Display
 - **display_code**: `{"code": "...", "language": "python|javascript|html|css|bash|json"}`

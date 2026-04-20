@@ -14,7 +14,7 @@ class AskBackend {
     this.model = null;
     this.currentApiKey = null;
     this.stopRequested = false;
-    this.setupGeminiAPI();
+    // Don't call setupGeminiAPI here - it will be called from BackendManager with correct model
 
     this.conversationHistory = [];
     this.maxHistoryLength = 20;
@@ -72,11 +72,16 @@ class AskBackend {
 
   parseAIResponse(responseText) {
 
-    const screenshotMatch = /\[REQUEST_SCREENSHOT\]/.exec(responseText);
+const screenshotMatch = /\[REQUEST_SCREENSHOT\]/.exec(responseText);
     const commandMatch = /\[REQUEST_COMMAND:\s*(.+?)\]/.exec(responseText);
     const browserOpenMatch = /\[BROWSER_OPEN:\s*(.+?)\]/.exec(responseText);
     const browserJsMatch = /\[BROWSER_EXECUTE_JS:\s*([\s\S]+?)\]/.exec(responseText);
     const browserScreenshotMatch = /\[BROWSER_SCREENSHOT\]/.exec(responseText);
+    const browserScrapeMatch = /\[BROWSER_SCRAPE\]/.exec(responseText);
+    const browserLinksMatch = /\[BROWSER_LINKS\]/.exec(responseText);
+    const browserClickMatch = /\[BROWSER_CLICK:\s*(.+?)\]/.exec(responseText);
+    const browserTypeMatch = /\[BROWSER_TYPE:\s*(.+?)\]/.exec(responseText);
+    const browserElementsMatch = /\[BROWSER_GET_ELEMENTS\]/.exec(responseText);
     const readBehaviorsMatch = /\[READ_BEHAVIORS\]/.exec(responseText);
     const writeBehaviorMatch = /\[WRITE_BEHAVIOR:\s*([\s\S]+?)\]/.exec(responseText);
 
@@ -98,8 +103,20 @@ class AskBackend {
     } else if (browserJsMatch) {
       requestType = "browser_js";
       requestData = browserJsMatch[1].trim();
-    } else if (browserScreenshotMatch) {
+} else if (browserScreenshotMatch) {
       requestType = "browser_screenshot";
+    } else if (browserScrapeMatch) {
+      requestType = "browser_scrape";
+    } else if (browserLinksMatch) {
+      requestType = "browser_links";
+    } else if (browserClickMatch) {
+      requestType = "browser_click";
+      requestData = browserClickMatch[1].trim();
+    } else if (browserTypeMatch) {
+      requestType = "browser_type";
+      requestData = browserTypeMatch[1].trim();
+    } else if (browserElementsMatch) {
+      requestType = "browser_get_elements";
     } else if (readBehaviorsMatch) {
       requestType = "read_behaviors";
     } else if (writeBehaviorMatch) {
@@ -401,9 +418,10 @@ class AskBackend {
       effectiveProvider = "gemini";
     }
 
-    const supabaseService = require("../supabase-service");
+const supabaseService = require("../supabase-service");
     const cachedKeys = supabaseService.getKeys();
-    const defaultGeminiModel = cachedKeys ? cachedKeys.gemini_model : "gemini-2.5-flash";
+    const modelSettings = supabaseService.getModelSettings();
+    const defaultGeminiModel = modelSettings?.selectedModel || modelSettings?.gemini_model || cachedKeys?.gemini_model || "gemini-2.5-flash";
     const geminiModel = settings.selectedModel || defaultGeminiModel;
 
     if (effectiveProvider === "gemini") {
@@ -500,12 +518,53 @@ class AskBackend {
           const status = await electronBrowserManager.getStatus();
           conversationParts.push(`Assistant: ${cleanText}`, `System: JS output: ${output}. Current Browser URL: ${status.url}`);
           continue;
-        } else if (requestType === "browser_screenshot") {
+} else if (requestType === "browser_screenshot") {
           try {
             const buffer = await electronBrowserManager.takeScreenshot();
             conversationParts.push(`Assistant: ${cleanText}`, { inlineData: { mimeType: "image/png", data: buffer.toString("base64") } }, "System: Here is the browser screenshot.");
           } catch (e) {
             conversationParts.push(`Assistant: ${cleanText}`, `System: Browser screenshot error: ${e.message}`);
+          }
+          continue;
+        } else if (requestType === "browser_scrape") {
+          try {
+            const data = await electronBrowserManager.scrapeAllText();
+            conversationParts.push(`Assistant: ${cleanText}`, `System: Page scraped via script injection:\nTitle: ${data.title}\nURL: ${data.url}\nHeadings: ${(data.headings || []).join(", ")}\nContent: ${(data.paragraphs || []).slice(0, 5).join(" | ").substring(0, 500)}`);
+          } catch (e) {
+            conversationParts.push(`Assistant: ${cleanText}`, `System: Scrape error: ${e.message}`);
+          }
+          continue;
+        } else if (requestType === "browser_links") {
+          try {
+            const links = await electronBrowserManager.scrapeLinks();
+            conversationParts.push(`Assistant: ${cleanText}`, `System: Found ${links.length} links:\n${links.slice(0, 20).map(l => "- " + (l.text || l.href)).join("\n")}`);
+          } catch (e) {
+            conversationParts.push(`Assistant: ${cleanText}`, `System: Scrape links error: ${e.message}`);
+          }
+          continue;
+        } else if (requestType === "browser_click") {
+          try {
+            const result = await electronBrowserManager.clickElement(requestData);
+            conversationParts.push(`Assistant: ${cleanText}`, `System: ${result.message}`);
+          } catch (e) {
+            conversationParts.push(`Assistant: ${cleanText}`, `System: Click error: ${e.message}`);
+          }
+          continue;
+        } else if (requestType === "browser_type") {
+          try {
+            const parts = requestData.split("|||");
+            const result = await electronBrowserManager.typeInto(parts[0], parts[1] || "");
+            conversationParts.push(`Assistant: ${cleanText}`, `System: ${result.message}`);
+          } catch (e) {
+            conversationParts.push(`Assistant: ${cleanText}`, `System: Type error: ${e.message}`);
+          }
+          continue;
+        } else if (requestType === "browser_get_elements") {
+          try {
+            const elements = await electronBrowserManager.getClickableElements();
+            conversationParts.push(`Assistant: ${cleanText}`, `System: Found ${elements.length} clickable elements:\n${elements.slice(0, 10).map(e => `- [${e.tag}] "${e.text.substring(0, 50)}" at (${e.rect ? e.rect.x + "," + e.rect.y : "N/A"})`).join("\n")}`);
+          } catch (e) {
+            conversationParts.push(`Assistant: ${cleanText}`, `System: Get elements error: ${e.message}`);
           }
           continue;
         } else if (requestType === "read_behaviors") {

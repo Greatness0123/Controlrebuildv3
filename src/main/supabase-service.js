@@ -493,12 +493,13 @@ async updateTokenUsage(userId, mode, usage) {
             const totalUsage = (user.total_token_usage || 0) + (totalTokenCount || 0);
             console.log(`[Supabase] Updating tokens: total=${totalUsage}`);
 
-            const { error: updateError } = await supabase.from('users').update({ 
+            const updateData = { 
                 token_usage: currentUsage,
                 daily_token_usage: dailyUsage,
-                total_token_usage: totalUsage,
-                last_token_update: new Date().toISOString()
-            }).eq('id', userId);
+                total_token_usage: totalUsage
+            };
+            
+            const { error: updateError } = await supabase.from('users').update(updateData).eq('id', userId);
             if (updateError) {
                 console.error('[Supabase] Error updating token usage:', updateError);
             } else {

@@ -1841,13 +1841,25 @@ class ChatWindow {
             safeText = safeText.replace(/^[\s,.]+/, '').trim();
         }
 
+        // Immediately hide welcome screen when adding any message
+        this.hideWelcomeScreen();
+
+        // In ASK mode: Check if streaming already created a container with same content - reuse it
+        if (sender === 'ai' && this.currentAIResponseContainer) {
+            const existingContainer = this.currentAIResponseContainer;
+            // Check if streaming already added this exact content
+            if (this.currentAIStreamingText && safeText.startsWith(this.currentAIStreamingText)) {
+                // Final response is continuation of streaming - just finalize, don't add new message
+                this.currentAIStreamingText = ''; // Clear to prevent further streaming logic
+                return;
+            }
+        }
+
+        // Check for exact duplicate before setting lastAddedMessage
         if (this.lastAddedMessage === safeText && this.lastAddedSender === sender && !attachments) {
             console.log('[ChatWindow] Skipping duplicate message:', safeText);
             return;
         }
-
-        // Immediately hide welcome screen when adding any message
-        this.hideWelcomeScreen();
 
         this.lastAddedMessage = safeText;
         this.lastAddedSender = sender;
@@ -1875,8 +1887,25 @@ class ChatWindow {
             if (isThought) {
                 const section = this.getSectionContent(container, 'thinking');
                 const div = document.createElement('div');
-                div.className = 'thought-block';
-                div.innerHTML = this.parseMarkdown(safeText);
+                div.className = 'thought-block collapsed';
+                
+                const header = document.createElement('div');
+                header.className = 'thought-block-header';
+                header.innerHTML = '<span>Thinking</span><span class="thought-block-toggle">+ Show</span>';
+                header.onclick = () => {
+                    div.classList.toggle('collapsed');
+                    const toggle = div.querySelector('.thought-block-toggle');
+                    if (toggle) {
+                        toggle.textContent = div.classList.contains('collapsed') ? '+ Show' : '- Hide';
+                    }
+                };
+                
+                const content = document.createElement('div');
+                content.className = 'thought-block-content';
+                content.innerHTML = this.parseMarkdown(safeText);
+                
+                div.appendChild(header);
+                div.appendChild(content);
                 section.appendChild(div);
                 this.scrollToBottom();
                 return div;
@@ -1936,6 +1965,11 @@ class ChatWindow {
         this.messagesContainer.appendChild(messageDiv);
         this.scrollToBottom();
         this.checkAndShowWelcomeScreen();
+        
+        if (sender === 'ai' || sender === 'user') {
+            setTimeout(() => this.saveCurrentSession(), 100);
+        }
+        
         return messageDiv;
     }
 
@@ -2151,7 +2185,29 @@ class ChatWindow {
         if (!text) return '';
 
         // Ensure text is a string
-        const safeText = String(text);
+        let safeText = String(text);
+
+        // Hide system commands from display in Ask mode (but keep for AI processing)
+        // These patterns will be removed from display but AI still sees them
+        const hiddenPatterns = [
+            /\[REQUEST_COMMAND:[^\]]+\]/gi,
+            /\[BROWSER_OPEN:[^\]]+\]/gi,
+            /\[BROWSER_EXECUTE_JS:[^\]]+\]/gi,
+            /\[BROWSER_SCREENSHOT\]/gi,
+            /\[BROWSER_SCRAPE\]/gi,
+            /\[BROWSER_LINKS\]/gi,
+            /\[BROWSER_GET_ELEMENTS\]/gi,
+            /\[REQUEST_SCREENSHOT\]/gi,
+            /\[DISPLAY_CODE:[^\]]+\]/gi,
+            /\[READ_BEHAVIORS\]/gi,
+            /\[WRITE_BEHAVIOR:[^\]]+\]/gi
+        ];
+        hiddenPatterns.forEach(pattern => {
+            safeText = safeText.replace(pattern, '');
+        });
+
+        // Clean up multiple empty lines left by removed patterns
+        safeText = safeText.replace(/\n{3,}/g, '\n\n').trim();
 
         try {
             if (typeof marked !== 'undefined') {

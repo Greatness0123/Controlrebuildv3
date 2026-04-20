@@ -23,10 +23,48 @@ function generateEntryId() {
 window.SupabaseService = class SupabaseService {
   constructor() {
     this.client = createSupabaseClient();
+    this.currentUser = null;
   }
 
   generateUserId() {
     return generateEntryId();
+  }
+
+  async getCurrentUser() {
+    try {
+      const { data: { user }, error: authError } = await this.client.auth.getUser();
+      if (authError || !user) {
+        return null;
+      }
+
+      const { data: profile, error: profileError } = await this.client
+        .from('users')
+        .select('*')
+        .eq('auth_id', user.id)
+        .single();
+      
+      if (profileError || !profile) {
+        return null;
+      }
+
+      this.currentUser = {
+        id: profile.id,
+        name: profile.name,
+        email: profile.email,
+        plan: profile.plan,
+        tasksCompleted: profile.tasks_completed,
+        hoursSaved: profile.hours_saved,
+        successRate: profile.success_rate,
+        askCount: profile.ask_count,
+        actCount: profile.act_count,
+        totalTokens: profile.total_token_usage
+      };
+
+      return this.currentUser;
+    } catch (e) {
+      console.error('getCurrentUser error:', e);
+      return null;
+    }
   }
 
   async signUpWithEmailPassword(email, password) {

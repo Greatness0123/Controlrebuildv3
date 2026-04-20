@@ -282,18 +282,19 @@ class ComputerUseAgent {
         }, 500);
     }
 
-    async init() {
+async init() {
         try {
             console.log('[Main] Control starting (High Concurrency Mode)...');
 
-const dbKeysPromise = dbService.fetchAndCacheKeys().catch(e => console.warn('[Main] Key fetch error:', e.message));
+            // First fetch keys and wait for model settings to be loaded
+            await dbService.fetchAndCacheKeys().catch(e => console.warn('[Main] Key fetch error:', e.message));
             
-            // Load AI model settings from Supabase
+            // Load AI model settings from Supabase cache after keys are fetched
             const modelSettings = dbService.getModelSettings();
             if (modelSettings) {
                 console.log('[Main] Loaded AI model settings from cache:', modelSettings);
                 this.settingsManager.updateSettings({
-                    selectedModel: modelSettings.selectedModel || modelSettings.gemini_model || 'gemini-2.5-flash',
+                    selectedModel: modelSettings.selectedModel || modelSettings.gemini_model || 'gemini-2.0-flash',
                     cloudModel: modelSettings.cloudModel,
                     openrouterModel: modelSettings.openrouterModel,
                     openrouterCustomModel: modelSettings.openrouterCustomModel,
@@ -302,6 +303,7 @@ const dbKeysPromise = dbService.fetchAndCacheKeys().catch(e => console.warn('[Ma
                 });
             }
             
+            // Now start backends AFTER settings are loaded
             const backendStartPromise = this.backendManager.startBackend();
             const voskStartPromise = this.voskServerManager.start();
             const windowInitPromise = this.windowManager.initializeWindows();
@@ -355,7 +357,10 @@ const dbKeysPromise = dbService.fetchAndCacheKeys().catch(e => console.warn('[Ma
 
             this.hotkeyManager.setupHotkeys(this.appSettings.hotkeys);
             this.updateWindowVisibility(this.appSettings.windowVisibility);
-            this.startWorkflowScheduler();
+this.startWorkflowScheduler();
+
+            // Create promise reference for later use
+            const dbKeysPromise = dbService.fetchAndCacheKeys().catch(e => console.warn('[Main] Key fetch error:', e.message));
 
             const wakewordStartPromise = (async () => {
 
@@ -1119,12 +1124,13 @@ const dbKeysPromise = dbService.fetchAndCacheKeys().catch(e => console.warn('[Ma
         ipcMain.handle('execute-task', async (event, task, mode) => {
             console.log('[Main] [IPC] execute-task:', mode, task);
 
-            if (this.appSettings.workflowTriggersEnabled !== false && task.text && !task.skipWorkflowCheck) {
+if (this.appSettings.workflowTriggersEnabled !== false && task.text && !task.skipWorkflowCheck) {
                 const workflows = workflowManager.getAllWorkflows();
                 const matchedWorkflow = workflows.find(wf => {
                     if (!wf.enabled || wf.trigger.type !== 'keyword') return false;
                     const keyword = wf.trigger.value.toLowerCase();
-                    return task.text.toLowerCase().includes(keyword);
+                    const taskText = task.text.toLowerCase().trim();
+                    return taskText === keyword || taskText.startsWith(keyword + ' ');
                 });
 
                 if (matchedWorkflow) {
@@ -1492,12 +1498,13 @@ const dbKeysPromise = dbService.fetchAndCacheKeys().catch(e => console.warn('[Ma
         settings.lastMode = this.appSettings.lastMode || 'act';
         settings.windowVisibility = this.appSettings.windowVisibility !== undefined ? this.appSettings.windowVisibility : true;
         settings.wakeWordToggleChat = this.appSettings.wakeWordToggleChat || false;
-        settings.edgeGlowEnabled = this.appSettings.edgeGlowEnabled !== false;
+settings.edgeGlowEnabled = this.appSettings.edgeGlowEnabled !== false;
         settings.borderStreakEnabled = this.appSettings.borderStreakEnabled !== false;
         settings.workflowTriggersEnabled = this.appSettings.workflowTriggersEnabled !== false;
         settings.theme = this.appSettings.theme || 'light';
         settings.chatVisible = this.windowManager.chatVisible;
         settings.modelProvider = this.appSettings.modelProvider || 'gemini';
+        settings.selectedModel = this.appSettings.selectedModel || 'gemini-2.0-flash';
         settings.openrouterModel = this.appSettings.openrouterModel || 'anthropic/claude-3.5-sonnet';
         settings.openrouterCustomModel = this.appSettings.openrouterCustomModel || '';
         settings.openrouterApiKey = this.appSettings.openrouterApiKey || '';
@@ -1573,12 +1580,17 @@ const dbKeysPromise = dbService.fetchAndCacheKeys().catch(e => console.warn('[Ma
             else if (step.type === 'browser_search') detail = `Search for "${step.value}" using the agentic browser. Open the browser to a search engine, perform the search, and extract relevant data using JS injection if needed.`;
             else if (step.type === 'nl_task') detail = step.value;
 
-            taskDescription += `${index + 1}. ${detail}\n`;
+taskDescription += `${index + 1}. ${detail}\n`;
         });
+        taskDescription += `\nIMPORTANT: Complete each step SEQUENTIALLY. Do NOT repeat steps. Track your progress.\n`;
+        taskDescription += `You are on step 1 of ${workflow.steps.length}. Start with step 1.\n`;
 
         const task = {
             text: taskDescription,
-            attachments: []
+            attachments: [],
+            taskPlan: workflow.steps.map((s, i) => ({ step: i + 1, type: s.type, value: s.value })),
+            workflowName: workflow.name,
+            workflowId: workflow.id
         };
 
         const mode = 'act';

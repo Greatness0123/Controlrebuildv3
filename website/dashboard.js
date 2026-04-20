@@ -65,12 +65,21 @@ class Dashboard {
             document.getElementById('profileEmail').textContent = this.currentUser.email || '';
             document.getElementById('userId').textContent = this.currentUser.app_id || 'Not Linked';
 
-            const stats = document.querySelectorAll('.stat-value');
+const stats = document.querySelectorAll('.stat-value');
             if (stats.length >= 3) {
                 stats[0].textContent = this.currentUser.tasksCompleted || 0;
                 stats[1].textContent = this.currentUser.hoursSaved || 0;
                 stats[2].textContent = (this.currentUser.successRate || 0) + '%';
             }
+
+            // Update usage stats
+            const askCount = document.getElementById('askCount');
+            const actCount = document.getElementById('actCount');
+            const totalTokens = document.getElementById('totalTokens');
+            
+            if (askCount) askCount.textContent = this.currentUser.askCount || 0;
+            if (actCount) actCount.textContent = this.currentUser.actCount || 0;
+            if (totalTokens) totalTokens.textContent = this.formatNumber(this.currentUser.totalTokens || 0);
 
             const lastChanged = this.currentUser.passwordLastChanged ? new Date(this.currentUser.passwordLastChanged) : new Date();
             const monthsAgo = Math.floor((new Date() - lastChanged) / (1000 * 60 * 60 * 24 * 30));
@@ -160,7 +169,7 @@ class Dashboard {
         }
     }
 
-    showToast(message, type = 'success') {
+showToast(message, type = 'success') {
         const toast = document.getElementById('toast');
         if (!toast) return;
         toast.textContent = message;
@@ -170,6 +179,12 @@ class Dashboard {
         setTimeout(() => {
             toast.classList.remove('show');
         }, 3000);
+    }
+
+    formatNumber(num) {
+        if (num >= 1000000) return (num / 1000000).toFixed(1) + 'M';
+        if (num >= 1000) return (num / 1000).toFixed(1) + 'K';
+        return num.toString();
     }
 }
 

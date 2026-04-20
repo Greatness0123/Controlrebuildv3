@@ -22,18 +22,427 @@ class ActBackend {
     if (!fs.existsSync(this.screenshotDir)) fs.mkdirSync(this.screenshotDir);
 
     this.maxActionRetries = 3;
-    this.verificationWait = 1000;
+this.verificationWait = 1000;
     this.model = null;
     this.currentApiKey = null;
-    this.setupGeminiAPI();
+    // Don't call setupGeminiAPI here - it will be called from BackendManager with correct model
 
-    this.stopRequested = false;
+this.stopRequested = false;
     this.screenSize = { width: 1920, height: 1080 };
+    this.imageSize = { width: 1920, height: 1080 };
 
-    this.conversationHistory = [];
+this.conversationHistory = [];
     this.maxHistoryLength = 20;
     this.currentBlueprint = [];
     this.currentProvider = 'gemini';
+    
+    // Task state tracking
+    this.currentTaskSteps = [];
+    this.currentStepIndex = 0;
+    this.stepHistory = [];
+    this.taskContext = {};
+  }
+
+  setTaskPlan(steps, context = {}) {
+    this.currentTaskSteps = Array.isArray(steps) ? steps : [];
+    this.currentStepIndex = 0;
+    this.stepHistory = [];
+    this.taskContext = { ...context, startTime: Date.now() };
+    console.log(`[ACT JS] Task plan set: ${this.currentTaskSteps.length} steps`);
+  }
+
+  getCurrentStep() {
+    if (this.currentStepIndex >= this.currentTaskSteps.length) {
+      return null;
+    }
+    return {
+      step: this.currentTaskSteps[this.currentStepIndex],
+      stepNumber: this.currentStepIndex + 1,
+      totalSteps: this.currentTaskSteps.length,
+      progress: `${this.currentStepIndex + 1}/${this.currentTaskSteps.length}`,
+      percentComplete: Math.round((this.currentStepIndex / this.currentTaskSteps.length) * 100)
+    };
+  }
+
+  advanceStep(completedAction, result) {
+    this.stepHistory.push({
+      step: this.currentStepIndex,
+      action: completedAction,
+      result: result,
+      time: Date.now()
+    });
+    this.currentStepIndex++;
+    console.log(`[ACT JS] Step ${this.currentStepIndex} completed, now at step ${this.currentStepIndex + 1}/${this.currentTaskSteps.length}`);
+  }
+
+  getTaskProgress() {
+    const elapsed = Date.now() - (this.taskContext.startTime || Date.now());
+    return {
+      currentStep: this.currentStepIndex + 1,
+      totalSteps: this.currentTaskSteps.length,
+      percentComplete: Math.round((this.currentStepIndex / Math.max(1, this.currentTaskSteps.length)) * 100),
+      elapsedMs: elapsed,
+      estimatedRemaining: this.estimateRemainingTime(elapsed),
+      history: this.stepHistory
+    };
+  }
+
+  estimateRemainingTime(elapsed) {
+    if (this.currentStepIndex === 0) return null;
+    const avgTimePerStep = elapsed / this.currentStepIndex;
+    const remainingSteps = this.currentTaskSteps.length - this.currentStepIndex;
+    return Math.round(avgTimePerStep * remainingSteps);
+  }
+
+  isOnTrack() {
+    if (this.stepHistory.length < 3) return true;
+    
+    const recent = this.stepHistory.slice(-4);
+    const now = Date.now();
+    
+    let repeatCount = 0;
+    let lastSameAction = null;
+    
+    for (let i = recent.length - 1; i >= 0; i--) {
+      const h = recent[i];
+      const timeDiff = now - h.time;
+      
+      // Allow repeats if > 5 seconds apart (probably intentional)
+      if (timeDiff > 5000) {
+        lastSameAction = null;
+        continue;
+      }
+      
+      // Same action within 5 seconds = potential loop
+      if (h.action === lastSameAction) {
+        repeatCount++;
+        if (repeatCount >= 2) {
+          console.log(`[ACT JS] ALERT: Repeating action "${h.action}" ${repeatCount + 1} times`);
+          return false;
+        }
+      } else {
+        repeatCount = 0;
+      }
+      lastSameAction = h.action;
+    }
+    return true;
+  }
+
+  shouldLogAction(action) {
+    // Actions that are OK to repeat (legitimate use cases)
+    const repeatableOnce = ['refresh', 'clear', 'reset', 'back'];
+    const actionLower = action.toLowerCase();
+    
+    // If contains refresh/clear/reset/back, allow max 2
+    for (const ok of repeatableOnce) {
+      if (actionLower.includes(ok)) {
+        return this.stepHistory.filter(h => h.action.toLowerCase().includes(ok)).length < 2;
+      }
+    }
+    return true;
+  }
+
+  resetTaskState() {
+    this.currentTaskSteps = [];
+    this.currentStepIndex = 0;
+    this.stepHistory = [];
+    this.taskContext = {};
+  }
+
+  async verifyCoordinates(inputX, inputY, attempts = 3) {
+    const results = [];
+    const tolerance = 15;
+    
+    for (let i = 0; i < attempts; i++) {
+      const shot = await this.takeScreenshot();
+      if (!shot) {
+        results.push({ attempt: i + 1, error: 'Screenshot failed' });
+        continue;
+      }
+      
+      const img = await Jimp.read(shot.buffer);
+      const imgW = img.bitmap.width;
+      const imgH = img.bitmap.height;
+      
+      const searchRadius = 25;
+      const checkX = Math.min(Math.max(Math.round(inputX * imgW / this.screenSize.width), searchRadius), imgW - searchRadius - 1);
+      const checkY = Math.min(Math.max(Math.round(inputY * imgH / this.screenSize.height), searchRadius), imgH - searchRadius - 1);
+      
+      const pixelColors = [];
+      for (let dy = -searchRadius; dy <= searchRadius; dy += 5) {
+        for (let dx = -searchRadius; dx <= searchRadius; dx += 5) {
+          try {
+            const color = img.getPixelColor(checkX + dx, checkY + dy);
+            const rgba = Jimp.intToRGBA(color);
+            pixelColors.push({ r: rgba.r, g: rgba.g, b: rgba.b });
+          } catch (e) {}
+        }
+      }
+      
+      if (pixelColors.length > 0) {
+        const avgR = Math.round(pixelColors.reduce((s, c) => s + c.r, 0) / pixelColors.length);
+        const avgG = Math.round(pixelColors.reduce((s, c) => s + c.g, 0) / pixelColors.length);
+        const avgB = Math.round(pixelColors.reduce((s, c) => s + c.b, 0) / pixelColors.length);
+        
+        results.push({
+          attempt: i + 1,
+          inputX: inputX,
+          inputY: inputY,
+          checkX: checkX,
+          checkY: checkY,
+          avgColor: { r: avgR, g: avgG, b: avgB },
+          matched: true
+        });
+      } else {
+        results.push({ attempt: i + 1, error: 'No pixels sampled' });
+      }
+      
+      if (i < attempts - 1) {
+        await new Promise(r => setTimeout(r, 150));
+      }
+    }
+    
+    const validResults = results.filter(r => r.matched && !r.error);
+    
+    if (validResults.length < 2) {
+      return {
+        verified: false,
+        finalX: inputX,
+        finalY: inputY,
+        source: 'original',
+        confidence: 'low',
+        error: 'Insufficient verification data',
+        attempts: attempts
+      };
+    }
+    
+    const colorArrays = validResults.map(r => r.avgColor);
+    const avgR = colorArrays.reduce((s, c) => s + c.r, 0) / colorArrays.length;
+    const avgG = colorArrays.reduce((s, c) => s + c.g, 0) / colorArrays.length;
+    const avgB = colorArrays.reduce((s, c) => s + c.b, 0) / colorArrays.length;
+    
+    const colorVariance = colorArrays.reduce((s, c) => {
+      const dr = c.r - avgR;
+      const dg = c.g - avgG;
+      const db = c.b - avgB;
+      return s + Math.sqrt(dr * dr + dg * dg + db * db);
+    }, 0) / colorArrays.length;
+    
+    const converged = colorVariance < tolerance;
+    
+    const xCoords = validResults.map(r => r.checkX);
+    const yCoords = validResults.map(r => r.checkY);
+    const meanX = xCoords.reduce((a, b) => a + b, 0) / xCoords.length;
+    const meanY = yCoords.reduce((a, b) => a + b, 0) / yCoords.length;
+    
+    const xDev = Math.sqrt(xCoords.reduce((s, x) => s + Math.pow(x - meanX, 2), 0) / xCoords.length);
+    const yDev = Math.sqrt(yCoords.reduce((s, y) => s + Math.pow(y - meanY, 2), 0) / yCoords.length);
+    
+    const positionConverged = xDev < 5 && yDev < 5;
+    
+    const finalX = Math.round(meanX * this.screenSize.width / imgW);
+    const finalY = Math.round(meanY * this.screenSize.height / imgH);
+    
+    let confidence = 'low';
+    let message = '';
+    
+    if (converged && positionConverged) {
+      confidence = 'high';
+      message = 'Coordinates verified - color and position converged';
+    } else if (colorVariance < tolerance * 1.5) {
+      confidence = 'medium';
+      message = 'Coordinates partially verified - color converged';
+    } else {
+      message = 'Coordinates verification inconsistent - using average';
+    }
+    
+    return {
+      verified: converged || colorVariance < tolerance * 2,
+      finalX: finalX,
+      finalY: finalY,
+      source: converged ? 'verified_average' : 'input',
+      confidence: confidence,
+      colorVariance: Math.round(colorVariance),
+      attempts: attempts,
+      validAttempts: validResults.length,
+      positionDeviation: { x: Math.round(xDev), y: Math.round(yDev) },
+      message: message,
+      details: results
+    };
+  }
+
+  async verifyCoordinatesViaAI(pixelX, pixelY, label = 'target') {
+    const shot = await this.takeScreenshot();
+    if (!shot) return { verified: false, error: 'Screenshot failed' };
+    
+    const shotData = fs.readFileSync(shot.filepath).toString('base64');
+    
+    const prompt = `verify click location. Target: (${pixelX}, ${pixelY}) for "${label}". 
+Is there a clickable element (button, link, icon, input field) at/near this pixel location?
+Look for visual indicators of interactiveness (hover effects, borders, icon shapes, text fields).
+Respond ONLY with JSON: {"verified": true/false, "reason": "...", "element_type": "button|input|link|icon|none"}`;
+    
+    try {
+      const result = await this.model.generateContent([
+        { inlineData: { mimeType: 'image/png', data: shotData } },
+        prompt
+      ]);
+      const text = (await result.response).text();
+      const jsonMatch = /\{[\s\S]*\}/.exec(text);
+      if (jsonMatch) {
+        return JSON.parse(jsonMatch[0]);
+      }
+      return { verified: false, error: 'Parse failed' };
+    } catch (e) {
+      return { verified: false, error: e.message };
+    }
+  }
+
+  async aiVerifyClick(pixelX, pixelY, label = 'target') {
+    const shot = await this.takeScreenshot();
+    if (!shot) return { verified: false, message: 'Screenshot failed' };
+    
+    const shotData = fs.readFileSync(shot.filepath).toString('base64');
+    
+    const prompt = `VERIFICATION: Check if click location is correct.
+Target coordinates: (${pixelX}, ${pixelY}) for element "${label}"
+Look at the screenshot and answer: Is there a clickable element at these coordinates?
+Look for: buttons, links, icons, input fields, menu items, checkboxes.
+If wrong location, note what IS at that location.
+Respond ONLY with JSON: {"correct": true/false, "what_element": "...", "suggestion": "..."}`;
+    
+    try {
+      const content = [
+        { inlineData: { mimeType: 'image/png', data: shotData } },
+        prompt
+      ];
+      const result = await this.model.generateContent(content);
+      const text = (await result.response).text();
+      const jsonMatch = /\{[\s\S]*\}/.exec(text);
+      if (jsonMatch) {
+        return JSON.parse(jsonMatch[0]);
+      }
+      return { correct: false, message: 'Could not parse AI response - using original coordinates' };
+    } catch (e) {
+      return { correct: false, message: 'AI verification failed: ' + e.message };
+    }
+  }
+
+  verifyBox2dCoordinates(box2d) {
+    if (!box2d || !Array.isArray(box2d) || box2d.length !== 4) {
+      return { valid: false, error: 'Invalid box2d format' };
+    }
+    
+    let [a, b, c, d] = box2d;
+    const isGEMINIFormat = (a >= 0 && a <= 1000 && c >= 0 && c <= 1000);
+    
+    let xmin, ymin, xmax, ymax;
+    if (isGEMINIFormat || this.currentProvider === 'gemini') {
+      [ymin, xmin, ymax, xmax] = box2d;
+    } else {
+      [xmin, ymin, xmax, ymax] = box2d;
+    }
+    
+    if (xmin < 0 || ymin < 0 || xmax > 1000 || ymax > 1000 || xmax <= xmin || ymax <= ymin) {
+      return { valid: false, error: 'Invalid coordinate values', box: box2d, parsed: { xmin, ymin, xmax, ymax } };
+    }
+    
+    const centerX = Math.round((xmin + (xmax - xmin) / 2) * this.screenSize.width / 1000) + this.screenSize.x;
+    const centerY = Math.round((ymin + (ymax - ymin) / 2) * this.screenSize.height / 1000) + this.screenSize.y;
+    
+    return {
+      valid: true,
+      original: box2d,
+      provider: this.currentProvider,
+      formatDetected: isGEMINIFormat ? 'gemini' : 'standard',
+      calculated: { xmin, ymin, xmax, ymax },
+      pixelCenter: { x: centerX, y: centerY },
+      normalizedCenter: {
+        x: Math.round(((centerX - this.screenSize.x) / this.screenSize.width) * 1000),
+        y: Math.round(((centerY - this.screenSize.y) / this.screenSize.height) * 1000)
+      }
+    };
+  }
+
+  async checkLibraryInstalled(library, packageManager) {
+    try {
+      const checkCmd = packageManager === 'pip' 
+        ? `pip show ${library} 2>/dev/null | head -1`
+        : packageManager === 'npm'
+        ? `npm list ${library} --depth=0 2>/dev/null`
+        : `which ${library}`;
+      
+      const output = await new Promise(resolve => {
+        exec(checkCmd, (err, stdout) => {
+          resolve(stdout || '');
+        });
+      });
+      return output.includes(library) || output.length > 0;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  async installLibrary(library, packageManager) {
+    const startTime = Date.now();
+    try {
+      const installCmd = packageManager === 'pip'
+        ? `pip install ${library} --quiet`
+        : packageManager === 'npm'
+        ? `npm install --no-save ${library}`
+        : `pip install ${library}`;
+      
+      const output = await new Promise((resolve, reject) => {
+        exec(installCmd, { timeout: 60000 }, (err, stdout, stderr) => {
+          if (err) {
+            reject(err);
+          } else {
+            resolve(stdout || 'Success');
+          }
+        });
+      });
+      
+      const installTime = Date.now() - startTime;
+      console.log(`[ACT JS] Installed ${library} in ${installTime}ms`);
+      return { success: true, message: `Installed ${library} in ${installTime}ms`, installTime };
+    } catch (e) {
+      return { success: false, message: `Install failed: ${e.message}` };
+    }
+  }
+
+  async runScript(script, language, args = []) {
+    const tempDir = os.tmpdir();
+    const timestamp = Date.now();
+    const ext = language === 'python' ? 'py' : 'js';
+    const tempFile = path.join(tempDir, `act_script_${timestamp}.${ext}`);
+    
+    let fullScript = script;
+    if (language === 'python' && args.length > 0) {
+      fullScript = script.replace(/sys\.argv\s*=\s*\[[^\]]*\]/, `sys.argv = ${JSON.stringify(['script', ...args])}`);
+    }
+    
+    fs.writeFileSync(tempFile, fullScript);
+    
+    const runCmd = language === 'python'
+      ? `python "${tempFile}"`
+      : `node "${tempFile}"`;
+    
+    try {
+      const output = await new Promise((resolve, reject) => {
+        exec(runCmd, { timeout: 60000 }, (err, stdout, stderr) => {
+          fs.unlinkSync(tempFile);
+          if (err) {
+            reject(err);
+          } else {
+            resolve(stdout || stderr || 'Success (no output)');
+          }
+        });
+      });
+      return { success: true, output: output.substring(0, 5000) };
+    } catch (e) {
+      try { fs.unlinkSync(tempFile); } catch {}
+      return { success: false, output: `Error: ${e.message}` };
+    }
   }
 
   setupGeminiAPI(apiKey, modelName) {
@@ -74,17 +483,25 @@ class ActBackend {
         imgBuffer = await screenshot({ format: "png" });
       }
 
-      const image = await Jimp.read(imgBuffer);
+const image = await Jimp.read(imgBuffer);
+
+const thumbBuffer = await image.getBufferAsync(Jimp.MIME_PNG);
 
       const primaryDisplay = screen.getPrimaryDisplay();
-      this.screenSize = {
+      const actualScreen = {
         width: primaryDisplay.bounds.width,
         height: primaryDisplay.bounds.height,
         x: primaryDisplay.bounds.x,
-        y: primaryDisplay.bounds.y,
-        pixelWidth: image.bitmap.width,
-        pixelHeight: image.bitmap.height
+        y: primaryDisplay.bounds.y
       };
+      
+      this.imageSize = {
+        width: image.bitmap.width,
+        height: image.bitmap.height
+      };
+
+      this.screenSize = actualScreen;
+      this.actualScreen = actualScreen;
 
       let cursorX = 0, cursorY = 0;
       try {
@@ -108,13 +525,24 @@ class ActBackend {
           markY = Math.round(cursorY * (image.bitmap.height / logicalHeight));
         }
 
-        for (let i = -radius; i <= radius; i++) {
+for (let i = -radius; i <= radius; i++) {
           if (markX + i >= 0 && markX + i < image.bitmap.width) image.setPixelColor(color, markX + i, markY);
           if (markY + i >= 0 && markY + i < image.bitmap.height) image.setPixelColor(color, markX, markY + i);
         }
       }
       await image.writeAsync(filepath);
-      return { filepath, metadata: { screen_width: this.screenSize.width, screen_height: this.screenSize.height, cursor_x: cursorX, cursor_y: cursorY, timestamp } };
+      const outputPath = filepath;
+      return { 
+        filepath: outputPath, 
+        buffer: thumbBuffer,
+        metadata: { 
+          screen_width: this.screenSize.width, 
+          screen_height: this.screenSize.height, 
+          cursor_x: cursorX, 
+          cursor_y: cursorY, 
+          timestamp 
+        } 
+      };
     } catch (err) {
       console.error("[ACT JS] Screenshot error:", err);
       return null;
@@ -126,7 +554,7 @@ class ActBackend {
     const params = action.parameters || {};
     const result = { success: false, message: "", action: actionType };
 
-    if (params.confidence !== undefined) {
+if (params.confidence !== undefined) {
       console.log(`[ACT JS] Action: ${actionType}, Confidence: ${params.confidence}%`);
     }
 
@@ -138,57 +566,133 @@ class ActBackend {
           result.screenshot = shot.filepath;
           break;
 
-        case "click":
+case "click":
+        case "right_click":
         case "double_click":
         case "mouse_move":
+          let targetX, targetY;
+          let coordSource = 'direct';
+          let coordConfidence = 'low';
+          
           if (params.box2d && Array.isArray(params.box2d) && params.box2d.length === 4) {
             let xmin, ymin, xmax, ymax;
+            const box = params.box2d;
+            
             if (this.currentProvider === 'gemini') {
-              [ymin, xmin, ymax, xmax] = params.box2d;
+              [ymin, xmin, ymax, xmax] = box;
             } else {
-              [xmin, ymin, xmax, ymax] = params.box2d;
+              [xmin, ymin, xmax, ymax] = box;
             }
-            const centerX = xmin + (xmax - xmin) / 2;
-            const centerY = ymin + (ymax - ymin) / 2;
-
-            const x = Math.round((centerX / 1000) * this.screenSize.width) + this.screenSize.x;
-            const y = Math.round((centerY / 1000) * this.screenSize.height) + this.screenSize.y;
-
-            console.log(`[ACT JS] Action: ${actionType}, Normalized Box: [${params.box2d}], Target: (${x}, ${y}) [${params.label || 'unlabeled'}]`);
-
-            await mouse.setPosition(new Point(x, y));
-            if (actionType === "click") await mouse.leftClick();
-            if (actionType === "double_click") await mouse.doubleClick(Button.LEFT);
-            result.success = true;
-            result.message = `${actionType} at (${x}, ${y}) [${params.label || 'unlabeled'}] with ${params.confidence}% confidence`;
+            
+            const centerNormX = xmin + (xmax - xmin) / 2;
+            const centerNormY = ymin + (ymax - ymin) / 2;
+            
+            const scaleX = this.screenSize.width / 1000;
+            const scaleY = this.screenSize.height / 1000;
+            
+            targetX = Math.round(centerNormX * scaleX) + this.screenSize.x;
+            targetY = Math.round(centerNormY * scaleY) + this.screenSize.y;
+            
+            console.log(`[ACT JS] Coords: box=[${box}] center=(${centerNormX},${centerNormY}) screen=${this.screenSize.width}x${this.screenSize.height} final=(${targetX},${targetY})`);
           } else if (params.x !== undefined && params.y !== undefined) {
-            const x = Math.round((params.x / 1000) * this.screenSize.width) + this.screenSize.x;
-            const y = Math.round((params.y / 1000) * this.screenSize.height) + this.screenSize.y;
-
-            await mouse.setPosition(new Point(x, y));
+            targetX = Math.round((params.x / 1000) * this.screenSize.width) + this.screenSize.x;
+            targetY = Math.round((params.y / 1000) * this.screenSize.height) + this.screenSize.y;
+            console.log(`[ACT JS] DEBUG coords: params.xy=(${params.x},${params.y}) final=(${targetX},${targetY})`);
+          }
+          
+          if (targetX !== undefined && targetY !== undefined) {
+            console.log(`[ACT JS] Action: ${actionType}, Target: (${targetX}, ${targetY}) [${params.label || 'unlabeled'}]`);
+            
+            if (params.confidence < 95 && this.model && !params.skip_ai_verify) {
+              for (let attempt = 0; attempt < 3; attempt++) {
+                const preCheck = await this.aiVerifyClick(targetX, targetY, params.label || 'target');
+                console.log(`[ACT JS] AI verify attempt ${attempt + 1}: correct=${preCheck.correct}`);
+                
+                if (preCheck.correct === true || attempt >= 2) {
+                  if (preCheck.correct === false) {
+                    console.log(`[ACT JS] AI says wrong but max retries, proceeding anyway`);
+                  }
+                  result.ai_precheck = preCheck;
+                  break;
+                }
+                
+                if (preCheck.suggestion && (preCheck.suggestion.includes('left') || preCheck.suggestion.includes('right') || 
+                    preCheck.suggestion.includes('above') || preCheck.suggestion.includes('below') ||
+                    preCheck.suggestion.includes('move') || preCheck.suggestion.includes('shift'))) {
+                  let newX = targetX, newY = targetY;
+                  if (preCheck.suggestion.includes('left')) newX = targetX - 30;
+                  if (preCheck.suggestion.includes('right')) newX = targetX + 30;
+                  if (preCheck.suggestion.includes('above')) newY = targetY - 30;
+                  if (preCheck.suggestion.includes('below')) newY = targetY + 30;
+                  console.log(`[ACT JS] Auto-correcting from (${targetX},${targetY}) to (${newX},${newY})`);
+                  targetX = Math.max(0, newX);
+                  targetY = Math.max(0, newY);
+                  result.ai_precheck = preCheck;
+                } else {
+                  break;
+                }
+              }
+            }
+            
+            await mouse.setPosition(new Point(targetX, targetY));
             if (actionType === "click") await mouse.leftClick();
+            if (actionType === "right_click") await mouse.rightClick();
             if (actionType === "double_click") await mouse.doubleClick(Button.LEFT);
+            
             result.success = true;
-            result.message = `${actionType} at (${x}, ${y}) with ${params.confidence}% confidence`;
+            result.message = `${actionType} at (${targetX}, ${targetY}) [${params.label || 'unlabeled'}] confidence ${params.confidence}%`;
           }
           break;
-
-        case "type":
-          if (params.text) {
-            if (params.box2d && Array.isArray(params.box2d) && params.box2d.length === 4) {
+        
+        case "verify_coordinates":
+          if ((params.box2d && Array.isArray(params.box2d) && params.box2d.length === 4) || (params.x !== undefined && params.y !== undefined)) {
+            let checkX, checkY;
+            if (params.box2d) {
               let xmin, ymin, xmax, ymax;
               if (this.currentProvider === 'gemini') {
                 [ymin, xmin, ymax, xmax] = params.box2d;
               } else {
                 [xmin, ymin, xmax, ymax] = params.box2d;
               }
-              const centerX = xmin + (xmax - xmin) / 2;
-              const centerY = ymin + (ymax - ymin) / 2;
+              checkX = Math.round((xmin + (xmax - xmin) / 2) * this.screenSize.width / 1000) + this.screenSize.x;
+              checkY = Math.round((ymin + (ymax - ymin) / 2) * this.screenSize.height / 1000) + this.screenSize.y;
+            } else {
+              checkX = Math.round((params.x / 1000) * this.screenSize.width) + this.screenSize.x;
+              checkY = Math.round((params.y / 1000) * this.screenSize.height) + this.screenSize.y;
+            }
+            
+            const verified = await this.aiVerifyClick(checkX, checkY, params.label || 'target');
+            result.success = true;
+            result.message = verified.message || (verified.correct ? "Coordinates verified by AI" : "AI suggests coordinates may be incorrect");
+            result.coordinates = { x: checkX, y: checkY };
+            result.ai_verification = verified;
+            result.suggestion = verified.suggestion || null;
+          } else {
+            result.message = "No box2d or x/y coordinates provided";
+          }
+          break;
 
-              const x = Math.round((centerX / 1000) * this.screenSize.width) + this.screenSize.x;
-              const y = Math.round((centerY / 1000) * this.screenSize.height) + this.screenSize.y;
+case "type":
+          if (params.text) {
+            let typeTargetX, typeTargetY, coordSource = 'direct';
+            
+            if (params.box2d && Array.isArray(params.box2d) && params.box2d.length === 4) {
+              let xmin, ymin, xmax, ymax;
+              const box = params.box2d;
+              
+              if (this.currentProvider === 'gemini') {
+                [ymin, xmin, ymax, xmax] = box;
+              } else {
+                [xmin, ymin, xmax, ymax] = box;
+              }
+              
+              const centerNormX = xmin + (xmax - xmin) / 2;
+              const centerNormY = ymin + (ymax - ymin) / 2;
 
-              await mouse.setPosition(new Point(x, y));
+              typeTargetX = Math.round((centerNormX / 1000) * this.screenSize.width) + this.screenSize.x;
+              typeTargetY = Math.round((centerNormY / 1000) * this.screenSize.height) + this.screenSize.y;
+
+              await mouse.setPosition(new Point(typeTargetX, typeTargetY));
               await mouse.leftClick();
               await new Promise(r => setTimeout(r, 200));
             } else if (params.x !== undefined && params.y !== undefined) {
@@ -312,7 +816,7 @@ class ActBackend {
           }
           break;
 
-        case "terminal":
+case "terminal":
           if (params.command) {
             const output = await new Promise(resolve => {
               exec(params.command, (err, stdout, stderr) => {
@@ -321,6 +825,123 @@ class ActBackend {
             });
             result.success = output.success;
             result.message = output.out.substring(0, 200);
+          }
+          break;
+
+        case "install_library":
+          if (params.library && params.package_manager) {
+            const lib = params.library;
+            const pm = params.package_manager;
+            const hasLib = await this.checkLibraryInstalled(lib, pm);
+            if (hasLib) {
+              result.success = true;
+              result.message = `Library ${lib} already installed - using existing`;
+            } else if (params.user_confirmed) {
+              const installResult = await this.installLibrary(lib, pm);
+              result.success = installResult.success;
+              result.message = installResult.message;
+              result.library = lib;
+            } else {
+              result.success = false;
+              result.message = `Library ${lib} not installed. Add "user_confirmed": true to install.`;
+              result.requires_confirmation = true;
+              result.confirmation_prompt = `Install lightweight ${lib} via ${pm}? Required for task.`;
+            }
+          } else {
+            result.message = "Missing library or package_manager (pip/npm)";
+          }
+          break;
+
+        case "run_script":
+          if (params.script && params.language) {
+            let missingDeps = [];
+            if (params.dependencies) {
+              for (const dep of params.dependencies) {
+                const hasDep = await this.checkLibraryInstalled(dep, params.language === 'python' ? 'pip' : 'npm');
+                if (!hasDep) {
+                  if (params.user_confirmed) {
+                    await this.installLibrary(dep, params.language === 'python' ? 'pip' : 'npm');
+                    console.log(`[ACT JS] Installed dependency: ${dep}`);
+                  } else {
+                    missingDeps.push(dep);
+                  }
+                }
+              }
+            }
+            if (missingDeps.length > 0) {
+              result.success = false;
+              result.message = `Missing dependencies: ${missingDeps.join(', ')}. Add "user_confirmed": true to install.`;
+              result.requires_confirmation = true;
+              result.confirmation_prompt = `Install ${missingDeps.join(', ')}? Required for script.`;
+              break;
+            }
+            const runResult = await this.runScript(params.script, params.language, params.args);
+            result.success = runResult.success;
+            result.message = runResult.output;
+            result.script_output = runResult.output;
+          } else {
+            result.message = "Missing script or language (python/javascript)";
+          }
+          break;
+
+        case "run_script_on_file":
+          if (params.script && params.file && params.language) {
+            const fsExists = fs.existsSync(params.file);
+            if (!fsExists) {
+              result.success = false;
+              result.message = `File not found: ${params.file}`;
+              break;
+            }
+            let missingDeps = [];
+            if (params.dependencies) {
+              for (const dep of params.dependencies) {
+                const hasDep = await this.checkLibraryInstalled(dep, params.language === 'python' ? 'pip' : 'npm');
+                if (!hasDep) {
+                  if (params.user_confirmed) {
+                    await this.installLibrary(dep, params.language === 'python' ? 'pip' : 'npm');
+                    console.log(`[ACT JS] Installed dependency: ${dep} for file script`);
+                  } else {
+                    missingDeps.push(dep);
+                  }
+                }
+              }
+            }
+            if (missingDeps.length > 0) {
+              result.success = false;
+              result.message = `Missing: ${missingDeps.join(', ')}. Add "user_confirmed": true.`;
+              result.requires_confirmation = true;
+              break;
+            }
+            const runResult = await this.runScript(params.script, params.language, [params.file]);
+            result.success = runResult.success;
+            result.message = runResult.output;
+            result.script_output = runResult.output;
+          } else {
+            result.message = "Missing script, file, or language";
+          }
+          break;
+
+        case "execute_task":
+          if (params.task_type && params.target) {
+            if (params.task_type === 'image_resize') {
+              const script = `from PIL import Image; img = Image.open('${params.target}'); img.resize(${params.size || (800, 600)}).save('${params.output || params.target}')`;
+              const result1 = await this.runScript(script, 'python', []);
+              result.success = result1.success;
+              result.message = result1.output;
+            } else if (params.task_type === 'pdf_extract') {
+              const script = `import PyPDF2; reader = PyPDF2.PdfReader('${params.target}'); text = ''.join([p.extract_text() for p in reader.pages]); print(text[:1000])`;
+              const result1 = await this.runScript(script, 'python', []);
+              result.success = result1.success;
+              result.message = result1.output;
+            } else if (params.task_type === 'video_thumbnail') {
+              const script = `import cv2; cap = cv2.VideoCapture('${params.target}'); cap.set(1, ${params.frame || 0}); ret, frame = cap.read(); cv2.imwrite('${params.output || 'thumb.jpg'}', frame)`;
+              const result1 = await this.runScript(script, 'python', []);
+              result.success = result1.success;
+              result.message = result1.output;
+            }
+            result.task_completed = true;
+          } else {
+            result.message = "Missing task_type or target";
           }
           break;
 
@@ -408,11 +1029,22 @@ class ActBackend {
           }
           break;
 
-        case "browser_open":
+case "browser_open":
           if (params.url) {
-            await electronBrowserManager.open(params.url);
-            result.success = true;
-            result.message = `Agentic browser opened to ${params.url}`;
+            try {
+              await electronBrowserManager.navigateViaJs(params.url);
+              const status = await electronBrowserManager.getStatus();
+              result.success = true;
+              result.message = `Agentic browser opened to ${status.url} via script injection`;
+              result.url = status.url;
+            } catch (e) {
+              console.log("[ACT JS] Script injection navigate failed, falling back to standard open:", e.message);
+              await electronBrowserManager.open(params.url);
+              const status = await electronBrowserManager.getStatus();
+              result.success = true;
+              result.message = `Agentic browser opened to ${params.url} (fallback)`;
+              result.url = status.url;
+            }
           } else {
             result.message = "No URL provided for browser_open";
           }
@@ -454,10 +1086,210 @@ class ActBackend {
           }
           break;
 
-        case "browser_close":
+case "browser_close":
           await electronBrowserManager.close();
           result.success = true;
           result.message = "Agentic browser closed";
+          break;
+
+        case "browser_scrape_data":
+          if (params.selector) {
+            try {
+              const scraped = await electronBrowserManager.scrapePage(params.selector);
+              result.success = true;
+              result.message = `Scraped ${scraped.length} elements matching selector "${params.selector}"`;
+              result.data = scraped;
+            } catch (e) {
+              result.message = `Scrape error: ${e.message}`;
+            }
+          } else {
+            try {
+              const scraped = await electronBrowserManager.scrapeAllText();
+              result.success = true;
+              result.message = "Scraped all page text content via script injection";
+              result.data = scraped;
+            } catch (e) {
+              result.message = `Scrape error: ${e.message}`;
+            }
+          }
+          break;
+
+        case "browser_scrape_text":
+          if (params.selector) {
+            try {
+              const texts = await electronBrowserManager.scrapeText(params.selector);
+              result.success = true;
+              result.message = `Scraped ${texts.length} text elements via script injection`;
+              result.texts = texts;
+            } catch (e) {
+              result.message = `Scrape error: ${e.message}`;
+            }
+          } else {
+            result.message = "No selector provided for browser_scrape_text";
+          }
+          break;
+
+        case "browser_scrape_links":
+          try {
+            const links = await electronBrowserManager.scrapeLinks();
+            result.success = true;
+            result.message = `Scraped ${links.length} links via script injection`;
+            result.links = links;
+          } catch (e) {
+            result.message = `Scrape links error: ${e.message}`;
+          }
+          break;
+
+        case "browser_navigate_via_js":
+          if (params.url) {
+            try {
+              await electronBrowserManager.navigateViaJs(params.url);
+              const status = await electronBrowserManager.getStatus();
+              result.success = true;
+              result.message = `Navigated via JS to ${status.url}`;
+              result.url = status.url;
+              result.title = status.title;
+            } catch (e) {
+              result.message = `Navigate error: ${e.message}`;
+            }
+          } else {
+            result.message = "No URL provided for browser_navigate_via_js";
+          }
+          break;
+
+        case "browser_click_element":
+          if (params.selector) {
+            try {
+              const clickResult = await electronBrowserManager.clickElement(params.selector);
+              result.success = clickResult.success;
+              result.message = clickResult.message;
+            } catch (e) {
+              result.message = `Click error: ${e.message}`;
+            }
+          } else {
+            result.message = "No selector provided for browser_click_element";
+          }
+          break;
+
+        case "browser_type_into":
+          if (params.selector && params.text) {
+            try {
+              const typeResult = await electronBrowserManager.typeInto(params.selector, params.text);
+              result.success = typeResult.success;
+              result.message = typeResult.message;
+            } catch (e) {
+              result.message = `Type error: ${e.message}`;
+            }
+          } else {
+            result.message = "Missing selector or text for browser_type_into";
+          }
+          break;
+
+        case "browser_scroll":
+          if (params.selector) {
+            try {
+              await electronBrowserManager.scrollTo(params.selector);
+              result.success = true;
+              result.message = `Scrolled to ${params.selector}`;
+            } catch (e) {
+              result.message = `Scroll error: ${e.message}`;
+            }
+          } else if (params.position) {
+            try {
+              await electronBrowserManager.scrollTo(params.position);
+              result.success = true;
+              result.message = `Scrolled to position ${params.position}`;
+            } catch (e) {
+              result.message = `Scroll error: ${e.message}`;
+            }
+          } else {
+            result.message = "No selector or position provided for browser_scroll";
+          }
+          break;
+
+        case "browser_get_clickable":
+          try {
+            const elements = await electronBrowserManager.getClickableElements();
+            result.success = true;
+            result.message = `Found ${elements.length} clickable elements via script injection`;
+            result.elements = elements;
+          } catch (e) {
+            result.message = `Get clickable error: ${e.message}`;
+          }
+          break;
+
+        case "browser_get_element":
+          if (params.x !== undefined && params.y !== undefined) {
+            try {
+              const element = await electronBrowserManager.getElementAtPosition(params.x, params.y);
+              result.success = true;
+              result.message = `Element at (${params.x}, ${params.y}): ${element ? element.tag : 'none'}`;
+              result.element = element;
+            } catch (e) {
+              result.message = `Get element error: ${e.message}`;
+            }
+          } else {
+            result.message = "No x,y coordinates provided for browser_get_element";
+          }
+          break;
+
+        case "browser_wait_for_selector":
+          if (params.selector) {
+            try {
+              const waitResult = await electronBrowserManager.waitForSelector(params.selector, params.timeout || 10000);
+              result.success = waitResult.found;
+              result.message = waitResult.found ? `Selector ${params.selector} found` : waitResult.message;
+            } catch (e) {
+              result.message = `Wait error: ${e.message}`;
+            }
+          } else {
+            result.message = "No selector provided for browser_wait_for_selector";
+          }
+          break;
+
+        case "browser_extract_forms":
+          try {
+            const forms = await electronBrowserManager.extractFormFields();
+            result.success = true;
+            result.message = `Extracted ${forms.length} forms via script injection`;
+            result.forms = forms;
+          } catch (e) {
+            result.message = `Extract forms error: ${e.message}`;
+          }
+          break;
+
+        case "browser_scrape_screenshot":
+          if (params.selector) {
+            try {
+              const scraped = await electronBrowserManager.scrapePage(params.selector);
+              if (scraped.length > 0) {
+                result.success = true;
+                result.message = `Scrape succeeded (fallback from screenshot to script injection)`;
+                result.data = scraped;
+              } else {
+                throw new Error("No elements found, falling back to screenshot");
+              }
+            } catch (e) {
+              console.log("[ACT JS] Script scrape failed, falling back to screenshot:", e.message);
+              const buffer = await electronBrowserManager.takeScreenshot();
+              const timestamp = Date.now();
+              const filename = `browser_shot_${timestamp}.png`;
+              const filepath = path.join(this.screenshotDir, filename);
+              fs.writeFileSync(filepath, buffer);
+              result.success = true;
+              result.screenshot = filepath;
+              result.message = "Fallback: screenshot captured since script scrape failed";
+            }
+          } else {
+            const buffer = await electronBrowserManager.takeScreenshot();
+            const timestamp = Date.now();
+            const filename = `browser_shot_${timestamp}.png`;
+            const filepath = path.join(this.screenshotDir, filename);
+            fs.writeFileSync(filepath, buffer);
+            result.success = true;
+            result.screenshot = filepath;
+            result.message = "Browser screenshot captured";
+          }
           break;
 
         case "display_code":
@@ -499,22 +1331,46 @@ class ActBackend {
       }
     }
 
-    const isBrowserAction = action.action.startsWith('browser_');
+const isBrowserAction = action.action.startsWith('browser_');
     let shotData;
     let mimeType = "image/png";
+    let scrapeData = null;
 
     if (isBrowserAction && method === "visual") {
       try {
-        const buffer = await electronBrowserManager.takeScreenshot();
-        shotData = buffer.toString("base64");
+        scrapeData = await electronBrowserManager.scrapeAllText();
+        console.log("[ACT JS] Verified via script injection:", scrapeData ? "Got data" : "empty");
       } catch (e) {
-        console.error("[ACT JS] Browser screenshot for verification failed, falling back to desktop:", e);
-        const shot = await this.takeScreenshot();
-        shotData = fs.readFileSync(shot.filepath).toString("base64");
+        console.log("[ACT JS] Script scrape for verification failed:", e.message);
+      }
+      if (!scrapeData || !scrapeData.title) {
+        try {
+          const buffer = await electronBrowserManager.takeScreenshot();
+          shotData = buffer.toString("base64");
+          console.log("[ACT JS] Verification fell back to browser screenshot");
+        } catch (e) {
+          console.error("[ACT JS] Browser screenshot for verification failed, falling back to desktop:", e);
+          const shot = await this.takeScreenshot();
+          shotData = fs.readFileSync(shot.filepath).toString("base64");
+        }
       }
     } else {
       const shot = await this.takeScreenshot();
       shotData = fs.readFileSync(shot.filepath).toString("base64");
+    }
+
+let scrapeInfo = "";
+    if (scrapeData && scrapeData.title) {
+      scrapeInfo = `\nPAGE CONTENT (via script injection):\n- Title: ${scrapeData.title}\n- URL: ${scrapeData.url}\n`;
+      if (scrapeData.headings && scrapeData.headings.length > 0) {
+        scrapeInfo += `- Headings: ${scrapeData.headings.slice(0, 5).join(", ")}\n`;
+      }
+      if (scrapeData.paragraphs && scrapeData.paragraphs.length > 0) {
+        scrapeInfo += `- Content preview: ${scrapeData.paragraphs.slice(0, 3).join(" | ").substring(0, 300)}\n`;
+      }
+      if (scrapeData.links && scrapeData.links.length > 0) {
+        scrapeInfo += `- Links: ${scrapeData.links.slice(0, 10).map(l => l.text || l.href).join(", ")}\n`;
+      }
     }
 
     const prompt = `VERIFICATION TASK:
@@ -523,7 +1379,7 @@ Description: ${action.description}
 Expected outcome: ${verificationInfo.expected_outcome}
 Execution result: ${executionResult.message}
 Verification method: ${method}
-${isBrowserAction ? "NOTE: This is a screenshot of the Control Agentic Browser." : ""}
+${scrapeInfo ? scrapeInfo : (isBrowserAction ? "NOTE: This is a screenshot of the Control Agentic Browser." : "")}
 ${terminalContext ? terminalContext : ""}
 
 Analyze the state and determine if the action was successful. Respond ONLY with JSON: {"verification_status": "success|failure", "observations": "..."}`;
@@ -532,12 +1388,17 @@ Analyze the state and determine if the action was successful. Respond ONLY with 
       { inlineData: { mimeType, data: shotData } },
       prompt
     ];
-    try {
+try {
       const result = await this.model.generateContent(content);
       const text = (await result.response).text();
       const jsonMatch = /\{[\s\S]*\}/.exec(text);
       if (!jsonMatch) throw new Error("No JSON found in verification response");
-      const data = JSON.parse(jsonMatch[0]);
+      let data;
+      try {
+        data = JSON.parse(jsonMatch[0]);
+      } catch (e) {
+        data = { verification_status: "failure", observations: "Parse error - defaulting to failure" };
+      }
       return { verified: data.verification_status === "success", message: data.observations };
     } catch (err) {
       return { verified: false, message: "Verification error: " + err.message };
@@ -795,11 +1656,12 @@ Analyze the state and determine if the action was successful. Respond ONLY with 
     let effectiveProvider = provider;
     if (provider === 'openrouter' && (settings.openrouterModel === 'google/gemini-flash-1.5-sdk' || settings.openrouterModel === 'gemini-native')) {
       effectiveProvider = 'gemini';
-    }
+}
     this.currentProvider = effectiveProvider;
 
     const cachedKeys = supabaseService.getKeys();
-    const defaultGeminiModel = cachedKeys ? cachedKeys.gemini_model : "gemini-2.5-flash";
+    const modelSettings = supabaseService.getModelSettings();
+    const defaultGeminiModel = modelSettings?.selectedModel || modelSettings?.gemini_model || cachedKeys?.gemini_model || "gemini-2.5-flash";
     const geminiModel = settings.selectedModel || defaultGeminiModel;
 
     if (effectiveProvider === 'gemini') {
@@ -833,18 +1695,19 @@ Analyze the state and determine if the action was successful. Respond ONLY with 
           }
         } catch (e) { }
 
-        const prompt = `User Request: ${userRequest}
+const prompt = `User Request: ${userRequest}
 User Preferences: ${JSON.stringify(prefs)}
 Installed Libraries: ${JSON.stringify(libs)}
 Learned Behaviors: ${JSON.stringify(behaviors)}
 Last Action Result: ${lastResultContext}${browserStatus}
-OS: ${process.platform}, Screen: ${this.screenSize.width}x${this.screenSize.height}
+OS: ${process.platform}, Native Screen: ${this.actualScreen.width}x${this.actualScreen.height}, Image Size: ${this.imageSize.width}x${this.imageSize.height}
 ${effectiveProvider !== 'gemini' ? 'NOTE: Native web search tool (googleSearch) is NOT available for this provider. Use browser_open, browser_execute_js, and standard spatial actions to perform web searches manually via a search engine.' : ''}
 
 Analyze screen and provide IMMEDIATE ACTIONS. Respond with JSON.`;
 
+        const screenshotData = shot.buffer || fs.readFileSync(shot.filepath);
         const content = [
-          { inlineData: { mimeType: "image/png", data: fs.readFileSync(shot.filepath).toString("base64") } }
+          { inlineData: { mimeType: "image/png", data: screenshotData.toString("base64") } }
         ];
 
         if (attachments && attachments.length > 0) {
@@ -912,17 +1775,38 @@ Analyze screen and provide IMMEDIATE ACTIONS. Respond with JSON.`;
           fullText = await this.anthropicGenerate(prompt, sysPrompt, settings, allImages, onChunkCallback);
         } else if (['openai', 'deepseek', 'xai', 'moonshot', 'zai', 'openrouter', 'lmstudio', 'litellm', 'minimax', 'azure', 'aws', 'vertex'].includes(effectiveProvider)) {
           fullText = await this.universalGenerate(prompt, sysPrompt, settings, allImages, onChunkCallback);
-        } else if (effectiveProvider === 'gemini') {
-          const result = await this.model.generateContentStream(content);
-          for await (const chunk of result.stream) {
-            const chunkText = chunk.text();
-            if (chunkText) {
-              fullText += chunkText;
-              onChunkCallback(chunkText);
+} else if (effectiveProvider === 'gemini') {
+          let geminiRetry = 0;
+          const maxRetries = 2;
+          
+          while (geminiRetry <= maxRetries) {
+            try {
+              const result = await this.model.generateContentStream(content);
+              for await (const chunk of result.stream) {
+                const chunkText = chunk.text();
+                if (chunkText) {
+                  fullText += chunkText;
+                  onChunkCallback(chunkText);
+                }
+              }
+              const response = await result.response;
+              if (response.usageMetadata && cachedUser) supabaseService.updateTokenUsage(cachedUser.id, 'act', response.usageMetadata);
+              break;
+            } catch (streamErr) {
+              geminiRetry++;
+              console.error(`[ACT JS] Stream error (attempt ${geminiRetry}):`, streamErr.message);
+              
+              if (geminiRetry > maxRetries || !streamErr.message.includes('500')) {
+                if (fullText) {
+                  console.log('[ACT JS] Using partial response after retries');
+                  break;
+                }
+                throw new Error(`AI stream failed after ${maxRetries} retries: ${streamErr.message}`);
+              }
+              
+              await new Promise(r => setTimeout(r, 1000 * geminiRetry));
             }
           }
-          const response = await result.response;
-          if (response.usageMetadata && cachedUser) supabaseService.updateTokenUsage(cachedUser.id, 'act', response.usageMetadata);
         } else {
           throw new Error(`Provider ${effectiveProvider} is not yet fully integrated in this mode. Please use LiteLLM or OpenRouter as a gateway.`);
         }
@@ -934,12 +1818,41 @@ Analyze screen and provide IMMEDIATE ACTIONS. Respond with JSON.`;
             onEvent("ai_response", { text: cleanMarkdown, is_action: false });
           }
 
-          if (loopCount >= maxLoops) break;
+if (loopCount >= maxLoops) break;
 
           continue;
         }
 
-        const plan = JSON.parse(jsonMatch[0]);
+        let plan;
+        let parseFailed = false;
+        try {
+          plan = JSON.parse(jsonMatch[0]);
+        } catch (jsonErr) {
+          console.error('[ACT JS] JSON parse error:', jsonErr.message, 'Attempting recovery...');
+          parseFailed = true;
+          
+          try {
+            const fixedJson = '{' + jsonMatch[0].split('{')[1];
+            plan = JSON.parse(fixedJson);
+            parseFailed = false;
+          } catch (fixErr) {
+            console.error('[ACT JS] JSON recovery failed');
+          }
+        }
+        
+        if (parseFailed) {
+          const cleanMarkdown = fullText.replace(/\{[\s\S]*\}/, "").trim();
+          if (cleanMarkdown && cleanMarkdown.length > 10) {
+            onEvent("ai_response", { text: cleanMarkdown, is_action: false });
+            onEvent("task_complete", { task: userRequest, success: true });
+            break;
+          } else {
+            onEvent("ai_response", { text: "I couldn't parse the response. Trying again.", is_action: false });
+            loopCount++;
+            if (loopCount >= maxLoops) break;
+            continue;
+          }
+        }
 
         const cleanMarkdown = fullText.replace(/\{[\s\S]*\}/, "").trim();
 
