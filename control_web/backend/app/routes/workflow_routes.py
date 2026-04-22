@@ -119,6 +119,39 @@ async def execute_workflow(
             raise HTTPException(status_code=403, detail="Unauthorized: Target VM does not belong to user.")
         channel_name = f"vm_control:{req.target_id}"
 
+    # Estimate tokens based on workflow steps complexity
+    steps = workflow.get("steps", [])
+    estimated_tokens = 500 + (len(steps) * 200)  # Base tokens + per-step estimate
+
+    # Log billing for workflow execution
+    try:
+        billing_data = {
+            "user_id": user["id"],
+            "mode": "workflow",
+            "tokens": estimated_tokens,
+            "created_at": "NOW()",
+            "workflow_id": workflow_id,
+            "workflow_name": workflow.get("name", "Unknown")
+        }
+        db.table("billing_metrics").insert(billing_data).execute()
+
+        # Update user usage stats
+        user_res = db.table("users").select("daily_token_usage").eq("id", user["id"]).execute()
+        if user_res.data:
+            from datetime import datetime, timezone
+            daily_stats = user_res.data[0].get("daily_token_usage", {})
+            today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+
+            if today not in daily_stats:
+                daily_stats[today] = {"workflow": 0, "total": 0}
+
+            daily_stats[today]["workflow"] = daily_stats[today].get("workflow", 0) + 1
+            daily_stats[today]["total"] = daily_stats[today].get("total", 0) + estimated_tokens
+
+            db.table("users").update({"daily_token_usage": daily_stats}).eq("id", user["id"]).execute()
+    except Exception as billing_err:
+        print(f"Billing logging error (non-fatal): {billing_err}")
+
     # Store execution request in the database to trigger Realtime listener on the desktop app
     execution_request = {
         "target_id": req.target_id,

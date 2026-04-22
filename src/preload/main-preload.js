@@ -41,3 +41,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
 });
 
 contextBridge.exposeInMainWorld('openEntryWindow', () => ipcRenderer.invoke('show-window', 'entry'));
+
+contextBridge.exposeInMainWorld('toolAPI', {
+    getToolSchemas: () => ipcRenderer.invoke('get-tool-schemas'),
+    getToolNames: () => ipcRenderer.invoke('get-tool-names'),
+    executeTool: (toolName, params) => ipcRenderer.invoke('execute-tool', toolName, params),
+    validateParams: (toolName, params) => ipcRenderer.invoke('validate-tool-params', toolName, params)
+});

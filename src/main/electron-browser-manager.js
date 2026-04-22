@@ -9,6 +9,16 @@ class ElectronBrowserManager {
         this.defaultUrl = 'https://www.google.com';
     }
 
+    logActivity(message) {
+        if (this.browserWindow && !this.browserWindow.isDestroyed()) {
+            try {
+                this.browserWindow.webContents.executeJavaScript(
+                    `if (window.__controlUpdateActivity) window.__controlUpdateActivity('${message.replace(/'/g, "\\'")}')`
+                );
+            } catch (e) {}
+        }
+    }
+
     async ensureBrowser() {
         if (!this.browserWindow || this.browserWindow.isDestroyed()) {
             console.log('[ElectronBrowserManager] Launching browser window...');
@@ -55,6 +65,7 @@ class ElectronBrowserManager {
     async open(url) {
         const win = await this.ensureBrowser();
         console.log(`[ElectronBrowserManager] Navigating to: ${url}`);
+        this.logActivity('Navigating to: ' + url.substring(0, 40));
 
         if (!/^https?:\/\//i.test(url)) {
             url = 'https://' + url;
@@ -62,6 +73,7 @@ class ElectronBrowserManager {
 
         await win.loadURL(url);
         await this.injectBanner();
+        this.logActivity('Page loaded');
         return { success: true, url: win.webContents.getURL() };
     }
 
@@ -70,8 +82,15 @@ async executeJs(script) {
             throw new Error('Browser not open');
         }
         console.log('[ElectronBrowserManager] Executing JS');
-        const result = await this.browserWindow.webContents.executeJavaScript(script);
-        return result;
+        this.logActivity('Executing JavaScript');
+        try {
+            const result = await this.browserWindow.webContents.executeJavaScript(script);
+            this.logActivity('JS executed successfully');
+            return result;
+        } catch (e) {
+            this.logActivity('JS error: ' + e.message.substring(0, 50));
+            throw e;
+        }
     }
 
     async scrapePage(selector) {
@@ -79,31 +98,42 @@ async executeJs(script) {
             throw new Error('Browser not open');
         }
         console.log('[ElectronBrowserManager] Scraping page with selector:', selector);
+        this.logActivity('Scraping: ' + selector);
         const scrapeScript = `
             (function() {
-                const results = [];
-                const elements = document.querySelectorAll('${selector}');
-                elements.forEach(function(el) {
-                    results.push({
-                        tag: el.tagName.toLowerCase(),
-                        text: el.textContent ? el.textContent.trim() : '',
-                        html: el.innerHTML ? el.innerHTML.trim().substring(0, 500) : '',
-                        href: el.href || el.getAttribute('href') || '',
-                        src: el.src || el.getAttribute('src') || '',
-                        id: el.id || '',
-                        className: el.className || '',
-                        rect: el.getBoundingClientRect ? {
-                            x: el.getBoundingClientRect().x,
-                            y: el.getBoundingClientRect().y,
-                            width: el.getBoundingClientRect().width,
-                            height: el.getBoundingClientRect().height
-                        } : null
+                try {
+                    const results = [];
+                    const elements = document.querySelectorAll('${selector}');
+                    elements.forEach(function(el) {
+                        const rect = el.getBoundingClientRect ? el.getBoundingClientRect() : null;
+                        results.push({
+                            tag: el.tagName ? el.tagName.toLowerCase() : 'unknown',
+                            text: el.textContent ? el.textContent.trim().substring(0, 200) : '',
+                            html: el.innerHTML ? el.innerHTML.trim().substring(0, 500) : '',
+                            href: el.href || el.getAttribute('href') || '',
+                            src: el.src || el.getAttribute('src') || '',
+                            id: el.id || '',
+                            className: el.className || '',
+                            rect: rect ? {
+                                x: Math.round(rect.x),
+                                y: Math.round(rect.y),
+                                width: Math.round(rect.width),
+                                height: Math.round(rect.height),
+                                centerX: Math.round(rect.x + rect.width / 2),
+                                centerY: Math.round(rect.y + rect.height / 2)
+                            } : null
+                        });
                     });
-                });
-                return results;
+                    return { success: true, results: results, count: results.length };
+                } catch (e) {
+                    return { success: false, error: e.message };
+                }
             })();
         `;
         const result = await this.browserWindow.webContents.executeJavaScript(scrapeScript);
+        if (result.success) {
+            this.logActivity('Found ' + result.count + ' elements');
+        }
         return result;
     }
 
@@ -111,39 +141,67 @@ async executeJs(script) {
         if (!this.browserWindow || this.browserWindow.isDestroyed()) {
             throw new Error('Browser not open');
         }
+        this.logActivity('Extracting text from: ' + selector);
         const scrapeScript = `
             (function() {
-                const elements = document.querySelectorAll('${selector}');
-                const texts = [];
-                elements.forEach(function(el) {
-                    texts.push(el.textContent.trim());
-                });
-                return texts;
+                try {
+                    const elements = document.querySelectorAll('${selector}');
+                    const texts = [];
+                    elements.forEach(function(el) {
+                        const text = el.textContent ? el.textContent.trim() : '';
+                        if (text) texts.push(text);
+                    });
+                    return { success: true, texts: texts, count: texts.length };
+                } catch (e) {
+                    return { success: false, error: e.message };
+                }
             })();
         `;
-        return await this.browserWindow.webContents.executeJavaScript(scrapeScript);
+        const result = await this.browserWindow.webContents.executeJavaScript(scrapeScript);
+        if (result.success) {
+            this.logActivity('Extracted ' + result.count + ' text items');
+        }
+        return result;
     }
 
     async scrapeLinks() {
         if (!this.browserWindow || this.browserWindow.isDestroyed()) {
             throw new Error('Browser not open');
         }
+        this.logActivity('Scraping all links');
         const scrapeScript = `
             (function() {
-                const links = [];
-                document.querySelectorAll('a').forEach(function(link) {
-                    if (link.href && link.href.startsWith('http')) {
-                        links.push({
-                            text: link.textContent.trim(),
-                            href: link.href,
-                            title: link.title || ''
-                        });
-                    }
-                });
-                return links;
+                try {
+                    const links = [];
+                    document.querySelectorAll('a').forEach(function(link) {
+                        if (link.href && link.href.startsWith('http')) {
+                            const rect = link.getBoundingClientRect ? link.getBoundingClientRect() : null;
+                            links.push({
+                                text: link.textContent.trim().substring(0, 100),
+                                href: link.href,
+                                title: link.title || '',
+                                rect: rect ? {
+                                    x: Math.round(rect.x),
+                                    y: Math.round(rect.y),
+                                    width: Math.round(rect.width),
+                                    height: Math.round(rect.height),
+                                    centerX: Math.round(rect.x + rect.width / 2),
+                                    centerY: Math.round(rect.y + rect.height / 2)
+                                } : null
+                            });
+                        }
+                    });
+                    return { success: true, links: links, count: links.length };
+                } catch (e) {
+                    return { success: false, error: e.message };
+                }
             })();
         `;
-        return await this.browserWindow.webContents.executeJavaScript(scrapeScript);
+        const result = await this.browserWindow.webContents.executeJavaScript(scrapeScript);
+        if (result.success) {
+            this.logActivity('Found ' + result.count + ' links');
+        }
+        return result;
     }
 
     async scrapeAllText() {
@@ -217,55 +275,160 @@ async executeJs(script) {
         if (!this.browserWindow || this.browserWindow.isDestroyed()) {
             throw new Error('Browser not open');
         }
+        this.logActivity('Clicking: ' + selector);
         const clickScript = `
             (function() {
-                const el = document.querySelector('${selector}');
-                if (el) {
-                    el.click();
-                    return {success: true, message: 'Clicked ' + selector};
+                try {
+                    const el = document.querySelector('${selector}');
+                    if (el) {
+                        const rect = el.getBoundingClientRect();
+                        el.click();
+                        return {
+                            success: true,
+                            message: 'Clicked ' + el.tagName + ' at (' + Math.round(rect.x + rect.width/2) + ', ' + Math.round(rect.y + rect.height/2) + ')'
+                        };
+                    }
+                    return {success: false, message: 'Element not found: ' + selector};
+                } catch (e) {
+                    return {success: false, error: e.message};
                 }
-                return {success: false, message: 'Element not found: ' + selector};
             })();
         `;
-        return await this.browserWindow.webContents.executeJavaScript(clickScript);
+        const result = await this.browserWindow.webContents.executeJavaScript(clickScript);
+        if (result.success) {
+            this.logActivity('Click successful');
+        } else {
+            this.logActivity('Click failed: ' + result.message);
+        }
+        return result;
     }
 
-    async typeInto(selector, text) {
+async typeInto(selector, text) {
         if (!this.browserWindow || this.browserWindow.isDestroyed()) {
             throw new Error('Browser not open');
         }
+        this.logActivity('Typing: ' + text.substring(0, 30) + (text.length > 30 ? '...' : ''));
+        
+        const safeText = text.replace(/'/g, "\\'").replace(/\\/g, "\\\\");
         const typeScript = `
             (function() {
-                const el = document.querySelector('${selector}');
-                if (el) {
-                    el.value = '${text}';
-                    el.dispatchEvent(new Event('input', {bubbles: true}));
-                    el.dispatchEvent(new Event('change', {bubbles: true}));
-                    return {success: true, message: 'Typed into ' + selector};
+                try {
+                    const el = document.querySelector('${selector}');
+                    if (!el) return {success: false, message: 'Element not found: ' + selector};
+                    
+                    el.focus();
+                    el.value = '${safeText}';
+                    el.dispatchEvent(new Event('input', {bubbles:true}));
+                    el.dispatchEvent(new Event('change', {bubbles:true}));
+                    
+                    return {success: true, message: 'Typed: ' + el.value.substring(0, 50)};
+                } catch (e) {
+                    return {success: false, error: e.message};
                 }
-                return {success: false, message: 'Element not found: ' + selector};
             })();
         `;
         return await this.browserWindow.webContents.executeJavaScript(typeScript);
+    }
+
+    async pressEnter() {
+        if (!this.browserWindow || this.browserWindow.isDestroyed()) {
+            throw new Error('Browser not open');
+        }
+        this.logActivity('Pressing Enter');
+        const script = `
+            (function() {
+                try {
+                    const active = document.activeElement;
+                    if (active) {
+                        const evt = new KeyboardEvent('keydown', {key:'Enter', code:'Enter', keyCode:13, which:13, bubbles:true});
+                        active.dispatchEvent(evt);
+                        const evt2 = new KeyboardEvent('keypress', {key:'Enter', keyCode:13, which:13, bubbles:true});
+                        active.dispatchEvent(evt2);
+                        active.dispatchEvent(new KeyboardEvent('keyup', {key:'Enter', keyCode:13, which:13, bubbles:true}));
+                        return {success: true, message: 'Enter pressed'};
+                    }
+                    return {success: false, message: 'No active element'};
+                } catch (e) {
+                    return {success: false, error: e.message};
+                }
+            })();
+        `;
+        return await this.browserWindow.webContents.executeJavaScript(script);
+    }
+
+    async submitForm(selector) {
+        if (!this.browserWindow || this.browserWindow.isDestroyed()) {
+            throw new Error('Browser not open');
+        }
+        this.logActivity('Submitting form');
+        const script = `
+            (function() {
+                try {
+                    const form = document.querySelector('${selector}');
+                    if (form) {
+                        form.submit();
+                        return {success: true, message: 'Form submitted'};
+                    }
+                    const input = document.querySelector('[name="q"]') || document.querySelector('input[type="search"]') || document.querySelector('textarea[name="q"]');
+                    if (input && input.form) {
+                        input.form.submit();
+                        return {success: true, message: 'Form submitted via input'};
+                    }
+                    const evt = new KeyboardEvent('keydown', {key:'Enter', code:'Enter', keyCode:13, bubbles:true});
+                    document.activeElement.dispatchEvent(evt);
+                    return {success: true, message: 'Enter key sent'};
+                } catch (e) {
+                    return {success: false, error: e.message};
+                }
+            })();
+        `;
+        return await this.browserWindow.webContents.executeJavaScript(script);
+    }
+
+    async getBrowserState() {
+        if (!this.browserWindow || this.browserWindow.isDestroyed()) {
+            return {success: false, error: 'Browser not open'};
+        }
+        const script = `
+            (function() {
+                const el = document.activeElement;
+                let activeInfo = 'none';
+                if (el) {
+                    activeInfo = el.tagName + (el.name ? '[name='+el.name+']' : '') + (el.id ? '#'+el.id : '');
+                }
+                return {
+                    url: window.location.href,
+                    title: document.title,
+                    activeElement: activeInfo,
+                    readyState: document.readyState
+                };
+            })();
+        `;
+        return await this.browserWindow.webContents.executeJavaScript(script);
     }
 
     async scrollTo(selector) {
         if (!this.browserWindow || this.browserWindow.isDestroyed()) {
             throw new Error('Browser not open');
         }
+        this.logActivity('Scrolling to: ' + selector);
         const scrollScript = `
             (function() {
-                const el = document.querySelector('${selector}');
-                if (el) {
-                    el.scrollIntoView({behavior: 'smooth', block: 'center'});
-                    return {success: true};
+                try {
+                    const el = document.querySelector('${selector}');
+                    if (el) {
+                        el.scrollIntoView({behavior: 'smooth', block: 'center'});
+                        return {success: true};
+                    }
+                    const match = '${selector}'.match(/\\d+/);
+                    if (match) {
+                        window.scrollTo(0, parseInt(match[0]));
+                        return {success: true};
+                    }
+                    return {success: false, message: 'Element not found: ' + selector};
+                } catch (e) {
+                    return {success: false, error: e.message};
                 }
-                const match = '${selector}'.match(/\\d+/);
-                if (match) {
-                    window.scrollTo(0, parseInt(match[0]));
-                    return {success: true};
-                }
-                return {success: false, message: 'Element not found: ' + selector};
             })();
         `;
         return await this.browserWindow.webContents.executeJavaScript(scrollScript);
@@ -275,21 +438,59 @@ async executeJs(script) {
         if (!this.browserWindow || this.browserWindow.isDestroyed()) {
             throw new Error('Browser not open');
         }
+        this.logActivity('Getting element at: (' + x + ', ' + y + ')');
         const script = `
             (function() {
                 const el = document.elementFromPoint(${x}, ${y});
                 if (el) {
+                    const rect = el.getBoundingClientRect ? el.getBoundingClientRect() : null;
                     return {
-                        tag: el.tagName.toLowerCase(),
-                        text: el.textContent.trim().substring(0, 100),
-                        id: el.id,
-                        className: el.className,
+                        tag: el.tagName ? el.tagName.toLowerCase() : 'unknown',
+                        text: el.textContent ? el.textContent.trim().substring(0, 100) : '',
+                        id: el.id || '',
+                        className: el.className || '',
                         href: el.href || '',
-                        rect: el.getBoundingClientRect ? {
-                            x: el.getBoundingClientRect().x,
-                            y: el.getBoundingClientRect().y,
-                            width: el.getBoundingClientRect().width,
-                            height: el.getBoundingClientRect().height
+                        rect: rect ? {
+                            x: Math.round(rect.x),
+                            y: Math.round(rect.y),
+                            width: Math.round(rect.width),
+                            height: Math.round(rect.height),
+                            centerX: Math.round(rect.x + rect.width / 2),
+                            centerY: Math.round(rect.y + rect.height / 2)
+                        } : null
+                    };
+                }
+                return null;
+            })();
+        `;
+        return await this.browserWindow.webContents.executeJavaScript(script);
+    }
+
+    async querySelector(selector) {
+        if (!this.browserWindow || this.browserWindow.isDestroyed()) {
+            throw new Error('Browser not open');
+        }
+        this.logActivity('Querying: ' + selector);
+        const script = `
+            (function() {
+                const el = document.querySelector('${selector}');
+                if (el) {
+                    const rect = el.getBoundingClientRect ? el.getBoundingClientRect() : null;
+                    return {
+                        tag: el.tagName ? el.tagName.toLowerCase() : 'unknown',
+                        text: el.textContent ? el.textContent.trim().substring(0, 100) : '',
+                        id: el.id || '',
+                        className: el.className || '',
+                        href: el.href || '',
+                        src: el.src || '',
+                        value: el.value || '',
+                        rect: rect ? {
+                            x: Math.round(rect.x),
+                            y: Math.round(rect.y),
+                            width: Math.round(rect.width),
+                            height: Math.round(rect.height),
+                            centerX: Math.round(rect.x + rect.width / 2),
+                            centerY: Math.round(rect.y + rect.height / 2)
                         } : null
                     };
                 }
@@ -304,8 +505,15 @@ async executeJs(script) {
             throw new Error('Browser not open');
         }
         console.log('[ElectronBrowserManager] Taking screenshot via capturePage');
-        const nativeImage = await this.browserWindow.webContents.capturePage();
-        return nativeImage.toPNG();
+        this.logActivity('Capturing screenshot');
+        try {
+            const nativeImage = await this.browserWindow.webContents.capturePage();
+            this.logActivity('Screenshot captured');
+            return nativeImage.toPNG();
+        } catch (e) {
+            this.logActivity('Screenshot failed');
+            throw e;
+        }
     }
 
     async close() {
@@ -321,10 +529,12 @@ async getStatus() {
         if (!this.browserWindow || this.browserWindow.isDestroyed()) {
             return { success: false, message: 'Browser not open' };
         }
+        const url = this.browserWindow.webContents.getURL();
+        const title = this.browserWindow.getTitle();
         return {
             success: true,
-            url: this.browserWindow.webContents.getURL(),
-            title: this.browserWindow.getTitle(),
+            url: url,
+            title: title,
             isVisible: this.isVisible
         };
     }
@@ -611,40 +821,34 @@ async getStatus() {
         return await this.browserWindow.webContents.executeJavaScript(script);
     }
 
-    async injectBanner() {
+async injectBanner() {
         if (!this.browserWindow || this.browserWindow.isDestroyed()) return;
-
-        const bannerJS = `
-            (function() {
-                if (document.getElementById('control-agent-banner')) return;
-
-                const style = document.createElement('style');
-                style.textContent = \`
-                    @keyframes banner-pulse {
-                        0%, 100% { transform: translateX(-50%) scale(1); box-shadow: 0 4px 12px rgba(124, 58, 237, 0.4); }
-                        50% { transform: translateX(-50%) scale(1.02); box-shadow: 0 6px 20px rgba(124, 58, 237, 0.6); }
-                    }
-                \`;
-                document.head.appendChild(style);
-
-                const banner = document.createElement('div');
-                banner.id = 'control-agent-banner';
-                banner.style.cssText = 'position: fixed; top: 15px; left: 50%; transform: translateX(-50%); background: rgba(124, 58, 237, 0.8); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); color: white; padding: 6px 16px; font-size: 11px; font-weight: 800; border-radius: 30px; border: 1px solid rgba(255,255,255,0.3); z-index: 2147483647; pointer-events: none; letter-spacing: 1.2px; text-transform: uppercase; animation: banner-pulse 2s ease-in-out infinite; font-family: sans-serif;';
-                banner.textContent = 'Control is using this browser';
-                document.body.appendChild(banner);
-            })();
-        `;
-
         try {
-            await this.browserWindow.webContents.executeJavaScript(bannerJS);
+            const bannerCode = `
+                (function() {
+                    if (document.getElementById('control-agent-banner')) return;
+                    var banner = document.createElement('div');
+                    banner.id = 'control-agent-banner';
+                    banner.style.cssText = 'position:fixed;top:16px;left:50%;transform:translateX(-50%);z-index:2147483647;pointer-events:none;font-family:Inter,sans-serif;display:flex;flex-direction:column;align-items:center;gap:6px;';
+                    var pill = document.createElement('div');
+                    pill.id = 'control-status-pill';
+                    pill.textContent = 'Control Active';
+                    pill.style.cssText = 'background:linear-gradient(135deg,#1a1a2e,#16213e);backdrop-filter:blur(12px);border:1px solid rgba(99,102,241,0.4);border-radius:24px;padding:8px 20px;font-size:13px;font-weight:600;color:#fff;box-shadow:0 4px 20px rgba(99,102,241,0.3);';
+                    var log = document.createElement('div');
+                    log.id = 'control-activity-log';
+                    log.style.cssText = 'background:rgba(0,0,0,0.7);border-radius:8px;padding:6px 12px;font-size:11px;color:rgba(255,255,255,0.8);max-width:400px;';
+                    banner.appendChild(pill);
+                    banner.appendChild(log);
+                    document.body.appendChild(banner);
+                    window.__controlUpdateActivity = function(msg) { log.textContent = msg; };
+                })();
+            `;
+            await this.browserWindow.webContents.executeJavaScript(bannerCode);
         } catch (e) {
-            console.error('Failed to inject banner:', e);
+            console.log('[ElectronBrowserManager] Banner inject failed:', e.message);
         }
     }
 
-    /**
-     * Close and cleanup the browser window
-     */
     close() {
         if (this.browserWindow && !this.browserWindow.isDestroyed()) {
             console.log('[ElectronBrowserManager] Closing browser window');

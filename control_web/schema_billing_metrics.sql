@@ -5,7 +5,9 @@ CREATE TABLE IF NOT EXISTS public.billing_metrics (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     user_id TEXT NOT NULL REFERENCES public.users(id),
     session_id UUID REFERENCES public.chat_sessions(id) ON DELETE SET NULL,
-    mode TEXT NOT NULL CHECK (mode IN ('ask', 'act')),
+    workflow_id UUID REFERENCES public.workflows(id) ON DELETE SET NULL,
+    workflow_name TEXT,
+    mode TEXT NOT NULL CHECK (mode IN ('ask', 'act', 'workflow')),
     tokens INTEGER NOT NULL DEFAULT 0,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
@@ -24,8 +26,11 @@ CREATE POLICY "Service can insert billing metrics" ON public.billing_metrics
     WITH CHECK (true);
 
 -- Index for efficient daily aggregation queries
-CREATE INDEX IF NOT EXISTS idx_billing_metrics_user_date 
+CREATE INDEX IF NOT EXISTS idx_billing_metrics_user_date
     ON public.billing_metrics(user_id, created_at::date);
 
-CREATE INDEX IF NOT EXISTS idx_billing_metrics_user_mode 
+CREATE INDEX IF NOT EXISTS idx_billing_metrics_user_mode
     ON public.billing_metrics(user_id, mode);
+
+CREATE INDEX IF NOT EXISTS idx_billing_metrics_workflow
+    ON public.billing_metrics(user_id, workflow_id) WHERE workflow_id IS NOT NULL;

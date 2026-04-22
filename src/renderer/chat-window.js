@@ -677,7 +677,18 @@ class ChatWindow {
                 if (!this.currentTask) return;
                 console.log('[ChatWindow] Action step:', data);
                 const stepMessage = `Step ${data.step}/${data.total_steps}: ${data.description}`;
-                this.updateActionStatus(null, null, stepMessage + "\n");
+                const actionCards = this.messagesContainer.querySelectorAll('.action-card--compact');
+                if (actionCards.length > 0) {
+                    const lastCard = actionCards[actionCards.length - 1];
+                    const detailsEl = lastCard.querySelector('.action-details');
+                    const toggle = lastCard.querySelector('.action-details-toggle');
+                    if (detailsEl) {
+                        detailsEl.textContent = (detailsEl.textContent ? detailsEl.textContent + '\n' : '') + stepMessage;
+                        detailsEl.classList.add('show');
+                        if (toggle) toggle.classList.add('open');
+                    }
+                }
+                this.updateActionStatus(null, null, null);
             });
 
             window.chatAPI.onActionComplete((event, data) => {
@@ -734,7 +745,7 @@ class ChatWindow {
                 const allSpinners = this.messagesContainer.querySelectorAll('.action-spinner');
                 allSpinners.forEach(s => s.remove());
 
-                this.addMessage(`${reasonText}: ${data.task || ''}`, 'ai', false);
+                this.addMessage("Task stopped by user", 'ai', false);
                 this.updateStatus('Ready', 'ready');
                 this.updateSendButton();
             });
@@ -1026,13 +1037,7 @@ class ChatWindow {
         this.updateSendButton();
         this.handleSlashCommandInput(); // Synchronize backdrop after clearing
 
-        // Show thinking indicator for both Ask and Act modes
         this.updateStatus('Thinking...', 'working');
-
-        // Add visual thinking message only for Ask mode (optional, but requested)
-        if (mode === 'ask') {
-            this.addActionMessage('Thinking...', 'running');
-        }
 
         try {
             if (window.chatAPI) {
@@ -1773,52 +1778,73 @@ class ChatWindow {
         return sections;
     }
 
-    // Render CUA section to HTML
+    // Render CUA section to HTML - Modern collapsible AI coding style
     renderCuaSectionHTML(text) {
         const sections = this.parseCuaSections(text);
         if (sections.length === 0) return this.parseMarkdown(text);
 
         let html = '<div class="cua-timeline">';
-        
+        let lastActionStep = null;
+        let stepIndex = 0;
+
         for (const section of sections) {
             if (section.type === 'next-action') {
                 const status = section.attrs.status || 'pending';
+                // Short, precise action summary
+                const shortAction = this.truncateText(section.content, 80);
                 html += `
-                    <div class="cua-step ${status}">
-                        <div class="cua-step-action">${this.parseMarkdown(section.content)}</div>
+                    <div class="cua-step ${status}" data-step="${stepIndex}">
+                        <div class="cua-step-action">${this.escapeHtml(shortAction)}</div>
                     </div>`;
+                lastActionStep = stepIndex;
+                stepIndex++;
             } else if (section.type === 'action-result') {
                 const status = section.attrs.status || 'success';
+                const resultShort = this.truncateText(section.content, 40);
                 html += `
                     <div class="cua-result-badge ${status}">
-                        <span class="cua-status-dot"></span>${this.parseMarkdown(section.content)}
+                        ${status === 'success' ? '✓' : '✗'} ${this.escapeHtml(resultShort)}
                     </div>`;
             } else if (section.type === 'status') {
                 const isComplete = section.attrs.status === 'completed';
+                const checkIcon = isComplete
+                    ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>'
+                    : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>';
                 html += `
                     <div class="cua-status-complete ${isComplete ? '' : 'error'}">
-                        ${isComplete ? '✓' : '✗'} ${this.parseMarkdown(section.content)}
+                        ${checkIcon} ${this.escapeHtml(section.content)}
                     </div>`;
             } else if (section.type === 'verification' || section.type === 'analysis' || section.type === 'reflection') {
+                // Add observation with collapsible content
+                const typeLabel = section.type.charAt(0).toUpperCase() + section.type.slice(1);
+                const chevronIcon = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"></polyline></svg>';
                 html += `
-                    <div class="cua-step-details">
-                        <button class="cua-detail-toggle" onclick="this.classList.toggle('open'); const c=this.nextElementSibling; if(c.style.display!=='block'){c.style.display='block'}else{c.style.display='none'}">
-                            ▼ ${section.type.charAt(0).toUpperCase() + section.type.slice(1)}
+                    <div class="cua-observation">
+                        <button class="cua-observation-toggle" onclick="this.classList.toggle('open'); const content=this.nextElementSibling; content.classList.toggle('show');">
+                            ${chevronIcon} ${typeLabel}
                         </button>
-                        <div class="cua-detail-content" style="display:none">${this.parseMarkdown(section.content)}</div>
+                        <div class="cua-observation-content">${this.parseMarkdown(section.content)}</div>
                     </div>`;
             }
         }
-        
+
         html += '</div>';
-        
+
         // Also add any plain text before or after CUA sections
         const plainMatch = text.split(/<cua-section\s/)[0].trim();
         if (plainMatch) {
             html = this.parseMarkdown(plainMatch) + html;
         }
-        
+
         return html;
+    }
+
+    // Helper to truncate text
+    truncateText(text, maxLength) {
+        if (!text) return '';
+        text = text.trim();
+        if (text.length <= maxLength) return text;
+        return text.substring(0, maxLength - 3) + '...';
     }
 
     addMessage(text, sender, isAction = false, attachments = null, isFinal = false) {
@@ -1998,9 +2024,12 @@ class ChatWindow {
             <span class="action-icon-inline" aria-hidden="true"><i class="fas ${icon}"></i></span>
             <div class="action-main">
                 <span class="action-title">${safeTitle}</span>
+                <button class="action-details-toggle" onclick="this.classList.toggle('open'); const content=this.closest('.action-card').querySelector('.action-details'); if(content) content.classList.toggle('show');" title="Toggle details">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                </button>
                 <span class="action-status-dot" title=""></span>
             </div>
-            <div class="action-details" style="display:none"></div>
+            <div class="action-details"></div>
         `;
 
         sectionContent.appendChild(actionCard);
@@ -2055,13 +2084,16 @@ class ChatWindow {
             // Update details (description) - append if already has content
             if (details && actionDetailsEl) {
                 if (actionDetailsEl.textContent.trim()) {
-                    // Don't append if it's the same message
                     if (!actionDetailsEl.textContent.includes(details)) {
                         actionDetailsEl.textContent += '\n' + details;
                     }
                 } else {
                     actionDetailsEl.textContent = details;
                 }
+                // Auto-expand when details are added
+                actionDetailsEl.classList.add('show');
+                const toggle = entry.querySelector('.action-details-toggle');
+                if (toggle) toggle.classList.add('open');
             }
         });
     }

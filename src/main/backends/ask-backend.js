@@ -7,6 +7,7 @@ const os = require("os");
 const electronBrowserManager = require("../electron-browser-manager");
 const promptManager = require("../prompt-manager");
 const storageManager = require("../storage-manager");
+const toolExecutor = require("../tool-executor");
 
 class AskBackend {
   constructor() {
@@ -16,8 +17,41 @@ class AskBackend {
     this.stopRequested = false;
     // Don't call setupGeminiAPI here - it will be called from BackendManager with correct model
 
-    this.conversationHistory = [];
+this.conversationHistory = [];
     this.maxHistoryLength = 20;
+  }
+
+  getToolDescription() {
+    const schemas = toolExecutor.getAllSchemas();
+    let description = '\n\nAVAILABLE TOOLS:\n';
+    description += '================\n\n';
+    
+    for (const [name, tool] of Object.entries(schemas)) {
+      description += `${tool.name}:\n`;
+      description += `  Description: ${tool.description}\n`;
+      
+      if (tool.parameters && tool.parameters.properties) {
+        description += '  Parameters:\n';
+        for (const [paramName, paramSchema] of Object.entries(tool.parameters.properties)) {
+          const required = tool.parameters.required?.includes(paramName) ? ' (required)' : '';
+          const enumStr = paramSchema.enum ? ` [${paramSchema.enum.join(', ')}]` : '';
+          const defaultStr = paramSchema.default !== undefined ? ` (default: ${paramSchema.default})` : '';
+          const rangeStr = (paramSchema.minimum !== undefined || paramSchema.maximum !== undefined) 
+            ? ` [${paramSchema.minimum || 0}-${paramSchema.maximum || 'unlimited'}]` 
+            : '';
+          description += `    - ${paramName}${required}${enumStr}: ${paramSchema.description || paramSchema.type}${defaultStr}${rangeStr}\n`;
+        }
+      }
+      description += '\n';
+    }
+    
+    return description;
+  }
+
+  appendToolsToSystemPrompt(systemPrompt) {
+    if (!systemPrompt) return systemPrompt;
+    const toolDesc = this.getToolDescription();
+    return systemPrompt + toolDesc;
   }
 
   setupGeminiAPI(apiKey, modelName) {
@@ -29,7 +63,8 @@ class AskBackend {
     this.currentApiKey = key;
     this.currentModelName = finalModelName;
     const genAI = new GoogleGenerativeAI(key);
-    const systemPrompt = promptManager.getPrompt('ask-system-prompt');
+    const baseSystemPrompt = promptManager.getPrompt('ask-system-prompt');
+    const systemPrompt = this.appendToolsToSystemPrompt(baseSystemPrompt);
     const modelOptions = {
       model: finalModelName,
       systemInstruction: systemPrompt,
@@ -460,7 +495,7 @@ const supabaseService = require("../supabase-service");
         let responseText = "";
         let responseObj = null;
 
-        const sysMsg = "You are Control (Ask Mode), an intelligent AI assistant.";
+        const sysMsg = this.appendToolsToSystemPrompt("You are Control (Ask Mode), an intelligent AI assistant.");
 
         const onChunkCallback = (chunk) => {
           if (onResponse && typeof onResponse === 'function') {

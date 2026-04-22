@@ -70,6 +70,9 @@ const RemoteDesktopManager = require('./remote-desktop-manager');
 const workflowManager = require('./workflow-manager');
 const appUtils = require('./app-utils');
 const electronBrowserManager = require('./electron-browser-manager');
+const toolExecutor = require('./tool-executor');
+
+global.toolExecutor = toolExecutor;
 
 class ComputerUseAgent {
     constructor() {
@@ -1485,6 +1488,46 @@ if (this.appSettings.workflowTriggersEnabled !== false && task.text && !task.ski
 
             console.warn('[Main] show-prompt-modal not fully implemented, returning default');
             return defaultValue;
+        });
+
+        ipcMain.handle('get-tool-schemas', async () => {
+            try {
+                return {
+                    success: true,
+                    schemas: toolExecutor.getAllSchemas()
+                };
+            } catch (e) {
+                return { success: false, error: e.message };
+            }
+        });
+
+        ipcMain.handle('get-tool-names', async () => {
+            try {
+                return {
+                    success: true,
+                    tools: toolExecutor.getAvailableTools()
+                };
+            } catch (e) {
+                return { success: false, error: e.message };
+            }
+        });
+
+        ipcMain.handle('execute-tool', async (event, toolName, params) => {
+            try {
+                const result = await toolExecutor.execute(toolName, params || {});
+                return result;
+            } catch (e) {
+                return { success: false, error: e.message };
+            }
+        });
+
+        ipcMain.handle('validate-tool-params', async (event, toolName, params) => {
+            try {
+                const validation = toolExecutor.validateParameters(toolName, params || {});
+                return validation;
+            } catch (e) {
+                return { valid: false, error: e.message };
+            }
         });
     }
 

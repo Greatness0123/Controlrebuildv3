@@ -145,7 +145,7 @@ async startBackend() {
             const modelSettings = supabaseService.getModelSettings();
             const cachedKeys = supabaseService.getKeys();
             
-            const defaultModel = modelSettings?.selectedModel || 'gemini-2.0-flash';
+            const defaultModel = modelSettings?.selectedModel || 'gemini-2.5-flash';
             const apiKey = cachedKeys?.gemini || process.env.GEMINI_API_KEY;
             
             this.actBackend = new ActBackend();

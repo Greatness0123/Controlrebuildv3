@@ -1,4 +1,4 @@
-const fs = require('fs-extra');
+﻿const fs = require('fs-extra');
 const path = require('path');
 const os = require('os');
 
@@ -56,6 +56,7 @@ class SettingsManager {
             floatingButtonVisible: true,
             edgeGlowEnabled: true,    // New: control purple edge glow during Act mode
             borderStreakEnabled: true, // New: control purple border streak on windows
+            overlayPillEnabled: true, // New: control action status pill display
             workflowTriggersEnabled: true, // New: control keyword/time triggers for workflows
             theme: 'light',           // New: light or dark theme
             modelProvider: 'gemini',
@@ -74,7 +75,7 @@ class SettingsManager {
                 stopAction: 'Alt+Z'
             },
             remoteAccessEnabled: false,
-            /** Optional: same origin as control_web API, e.g. https://your-app.com — used for remote desktop WebSocket relay if env BACKEND_URL is unset */
+            /** Optional: same origin as control_web API, e.g. https://your-app.com â€” used for remote desktop WebSocket relay if env BACKEND_URL is unset */
             controlBackendUrl: 'https://control.southafricanorth.cloudapp.azure.com',
             userDetails: null
         };
@@ -174,3 +175,4 @@ class SettingsManager {
 }
 
 module.exports = SettingsManager;
+

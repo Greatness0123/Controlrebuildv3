@@ -344,11 +344,11 @@ class WakewordHelper {
         }
       }
 
-      try {
-          this.log(`Initializing Porcupine with key: ${currentKey.substring(0, 5)}...`);
-          this.log(`Model path: ${this.modelPath}`);
+try {
+           this.log(`Initializing Porcupine with key: ${currentKey ? currentKey.substring(0, 5) + '...' : 'undefined'}...`);
+           this.log(`Model path: ${this.modelPath}`);
 
-          if (!Porcupine) {
+           if (!Porcupine) {
             throw new Error("Porcupine native module not loaded. This usually means the library is not compatible with your system or was not correctly unpacked.");
           }
 

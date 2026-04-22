@@ -4,35 +4,37 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Control - Lite</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
 
         :root {
-            --glass-bg: rgba(255, 255, 255, 0.65);
-            --glass-border: rgba(255, 255, 255, 0.4);
-            --text-primary: #111111;
-            --text-secondary: #6b7280;
-            --accent: #000000;
-            --accent-hover: #333333;
-            --ai-bubble: rgba(255, 255, 255, 0.5);
-            --user-bubble: #000000;
-            --user-text: #ffffff;
-            --shadow: 0 20px 60px rgba(0, 0, 0, 0.15), 0 0 0 1px inset rgba(255, 255, 255, 0.5);
+            --bg-dark: #0a0a0f;
+            --bg-card: rgba(15, 15, 25, 0.95);
+            --bg-terminal: rgba(10, 10, 15, 0.98);
+            --border-glow: rgba(99, 102, 241, 0.3);
+            --text-primary: #e4e4e7;
+            --text-secondary: #71717a;
+            --text-muted: #52525b;
+            --accent: #6366f1;
+            --accent-glow: rgba(99, 102, 241, 0.4);
+            --success: #22c55e;
+            --error: #ef4444;
+            --user-cursor: #22c55e;
+            --ai-cursor: #6366f1;
         }
 
-        body.dark-mode {
-            --glass-bg: rgba(18, 18, 18, 0.65);
-            --glass-border: rgba(255, 255, 255, 0.08);
-            --text-primary: #f5f5f7;
-            --text-secondary: #9ca3af;
+        body {
+            --bg-dark: #000000;
+            --bg-card: rgba(15, 15, 20, 0.98);
+            --bg-terminal: rgba(5, 5, 10, 0.99);
+            --border-glow: rgba(255, 255, 255, 0.1);
+            --text-primary: #ffffff;
+            --text-secondary: #a1a1aa;
+            --text-muted: #52525b;
             --accent: #ffffff;
-            --accent-hover: #dddddd;
-            --ai-bubble: rgba(40, 40, 40, 0.5);
-            --user-bubble: #ffffff;
-            --user-text: #000000;
-            --shadow: 0 20px 60px rgba(0, 0, 0, 0.5), 0 0 0 1px inset rgba(255, 255, 255, 0.05);
+            --accent-glow: rgba(255, 255, 255, 0.2);
         }
 
         html, body {
@@ -40,7 +42,7 @@
             width: 100%;
             overflow: hidden;
             background: transparent !important;
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            font-family: 'JetBrains Mono', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
             -webkit-font-smoothing: antialiased;
         }
 
@@ -49,277 +51,311 @@
             width: 100%;
             display: flex;
             flex-direction: column;
-            justify-content: flex-end;
-            padding: 20px;
+            padding: 16px;
             gap: 12px;
             position: relative;
         }
 
-        .glass {
-            background: var(--glass-bg);
-            backdrop-filter: blur(40px) saturate(180%);
-            -webkit-backdrop-filter: blur(40px) saturate(180%);
-            border: 1px solid var(--glass-border);
-            box-shadow: var(--shadow);
-            border-radius: 24px;
-        }
-
-        /* Input Bar (The Main Component) */
-        .input-bar-container {
+        /* Header Bar - Minimal */
+        .lite-header {
             display: flex;
             align-items: center;
-            padding: 6px;
-            height: 64px;
+            justify-content: space-between;
+            padding: 0 8px;
+            -webkit-app-region: drag;
+        }
+
+        .lite-logo {
+            display: flex;
+            align-items: center;
             gap: 8px;
-            transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-            position: relative;
-            z-index: 10;
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text-muted);
+            letter-spacing: 1px;
+            text-transform: uppercase;
         }
 
-        .input-bar-container:focus-within {
-            box-shadow: 0 0 0 2px var(--accent), var(--shadow);
+        .lite-logo::before {
+            content: '';
+            width: 8px;
+            height: 8px;
+            background: var(--user-cursor);
+            border-radius: 50%;
+            box-shadow: 0 0 8px var(--user-cursor);
         }
 
-        .icon-btn {
-            width: 44px;
-            height: 44px;
-            border-radius: 18px;
+        .lite-mode {
+            font-size: 10px;
+            color: var(--accent);
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        /* Terminal Output Area */
+        .terminal-output {
+            flex: 1;
+            background: var(--bg-terminal);
+            border: 1px solid var(--border-glow);
+            border-radius: 12px;
+            overflow-y: auto;
+            padding: 16px;
             display: flex;
-            align-items: center;
-            justify-content: center;
-            background: transparent;
-            border: none;
-            color: var(--text-secondary);
-            cursor: pointer;
-            transition: all 0.2s;
-            flex-shrink: 0;
+            flex-direction: column;
+            gap: 8px;
             -webkit-app-region: no-drag;
         }
 
-        .icon-btn:hover {
+        .terminal-output::-webkit-scrollbar {
+            width: 4px;
+        }
+
+        .terminal-output::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        .terminal-output::-webkit-scrollbar-thumb {
+            background: var(--border-glow);
+            border-radius: 4px;
+        }
+
+        /* Terminal Line */
+        .terminal-line {
+            display: flex;
+            gap: 12px;
+            font-size: 12px;
+            line-height: 1.6;
+            animation: fadeIn 0.2s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(4px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .line-prompt {
+            color: var(--user-cursor);
+            font-weight: 600;
+            flex-shrink: 0;
+        }
+
+        .line-content {
             color: var(--text-primary);
-            background: rgba(128, 128, 128, 0.1);
+            word-wrap: break-word;
+            flex: 1;
         }
 
-        .send-btn {
+        .line-content.user {
+            color: var(--text-primary);
+        }
+
+        .line-content.ai {
+            color: var(--text-secondary);
+        }
+
+        .line-content.thinking {
+            color: var(--text-muted);
+            font-style: italic;
+        }
+
+        .line-content.success {
+            color: var(--success);
+        }
+
+        .line-content.error {
+            color: var(--error);
+        }
+
+        /* Action Indicator */
+        .action-indicator {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 11px;
+            color: var(--accent);
+            margin-top: 4px;
+        }
+
+        .action-indicator::before {
+            content: '';
+            width: 6px;
+            height: 6px;
             background: var(--accent);
-            color: var(--glass-bg);
+            border-radius: 50%;
+            animation: pulse 1.5s ease-in-out infinite;
         }
 
-        .send-btn:hover {
-            background: var(--accent-hover);
-            color: var(--glass-bg);
+        @keyframes pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.5; transform: scale(0.8); }
         }
 
-        .send-btn:disabled {
-            background: rgba(128, 128, 128, 0.2);
-            color: rgba(128, 128, 128, 0.5);
-            cursor: not-allowed;
+        .action-indicator.success::before {
+            background: var(--success);
         }
 
-        /* Settings and other controls at left */
-        .controls-left {
+        .action-indicator.error::before {
+            background: var(--error);
+        }
+
+        /* Command Input */
+        .command-input-container {
             display: flex;
             align-items: center;
-            gap: 4px;
-            margin-left: 2px;
+            background: var(--bg-card);
+            border: 1px solid var(--border-glow);
+            border-radius: 10px;
+            padding: 12px 16px;
+            gap: 12px;
+            transition: border-color 0.2s ease;
         }
 
-        textarea {
+        .command-input-container:focus-within {
+            border-color: var(--accent);
+            box-shadow: 0 0 0 2px var(--accent-glow);
+        }
+
+        .input-prompt {
+            color: var(--user-cursor);
+            font-weight: 600;
+            font-size: 14px;
+        }
+
+        .command-input {
             flex: 1;
             background: transparent;
             border: none;
             outline: none;
             color: var(--text-primary);
-            font-size: 16px;
-            font-weight: 400;
-            resize: none;
-            height: 24px;
-            line-height: 24px;
-            padding: 0 4px;
+            font-size: 13px;
             font-family: inherit;
+            line-height: 1.5;
             -webkit-app-region: no-drag;
-            scrollbar-width: none;
-        }
-        
-        textarea::-webkit-scrollbar { display: none; }
-        textarea::placeholder { font-weight: 400; color: var(--text-secondary); opacity: 0.6; }
-
-        /* Messages Drawer */
-        .messages-drawer {
-            flex: 1;
-            max-height: calc(100vh - 120px);
-            display: flex;
-            flex-direction: column;
-            overflow-y: auto;
-            opacity: 0;
-            pointer-events: none;
-            transform: translateY(10px) scale(0.98);
-            transform-origin: bottom center;
-            transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
-            padding: 24px;
-            gap: 20px;
-            -webkit-app-region: no-drag;
-            position: absolute;
-            bottom: 96px; /* above the input bar */
-            left: 20px;
-            right: 20px;
-            height: calc(100vh - 116px);
         }
 
-        .messages-drawer.visible {
-            opacity: 1;
-            pointer-events: auto;
-            transform: translateY(0) scale(1);
+        .command-input::placeholder {
+            color: var(--text-muted);
         }
 
-        /* Message Styling */
-        .message {
-            display: flex;
-            flex-direction: column;
-            gap: 6px;
-            max-width: 88%;
-            animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-            opacity: 0;
-            transform: translateY(10px);
-        }
-
-        @keyframes slideUp {
-            to { opacity: 1; transform: translateY(0); }
-        }
-
-        .message.user {
-            align-self: flex-end;
-            align-items: flex-end;
-        }
-
-        .message.ai {
-            align-self: flex-start;
-            width: 100%;
-        }
-
-        .bubble {
-            padding: 14px 18px;
-            border-radius: 20px;
-            font-size: 14px;
-            line-height: 1.6;
-            word-wrap: break-word;
-        }
-
-        .user .bubble {
-            background: var(--user-bubble);
-            color: var(--user-text);
-            border-bottom-right-radius: 6px;
-            font-weight: 500;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-        }
-
-        .ai .bubble {
-            background: var(--ai-bubble);
-            color: var(--text-primary);
-            border: 1px solid var(--glass-border);
-            border-top-left-radius: 6px;
-            backdrop-filter: blur(10px);
-        }
-
-        .thought {
-            font-size: 13px;
-            color: var(--text-secondary);
-            font-style: italic;
-            border-left: 2px solid var(--glass-border);
-            padding-left: 14px;
-            margin: 4px 0;
-        }
-
-        .action-log {
-            background: rgba(128, 128, 128, 0.04);
-            border: 1px solid var(--glass-border);
-            border-radius: 14px;
-            padding: 12px 16px;
-            display: flex;
-            align-items: center;
-            gap: 14px;
-            font-size: 13px;
-            color: var(--text-secondary);
-            margin-bottom: 8px;
-            max-width: 90%;
-            align-self: flex-start;
-            animation: slideUp 0.3s ease-out forwards;
-        }
-
-        .action-icon {
-            color: var(--accent);
-            width: 20px;
-            height: 20px;
+        .send-trigger {
             display: flex;
             align-items: center;
             justify-content: center;
-            background: var(--glass-bg);
-            border-radius: 5px;
-            border: 1px solid var(--glass-border);
+            width: 28px;
+            height: 28px;
+            background: var(--accent);
+            border: none;
+            border-radius: 6px;
+            color: white;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            flex-shrink: 0;
         }
 
-        .action-status {
-            margin-left: auto;
-            font-size: 10px;
-            text-transform: uppercase;
-            font-weight: 700;
-            letter-spacing: 0.5px;
+        .send-trigger:hover {
+            background: var(--text-primary);
+            color: var(--bg-dark);
+        }
+
+        .send-trigger:disabled {
+            background: var(--text-muted);
+            cursor: not-allowed;
+            opacity: 0.5;
+        }
+
+        .send-trigger svg {
+            width: 14px;
+            height: 14px;
+        }
+
+        /* Voice Button */
+        .voice-trigger {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            background: transparent;
+            border: 1px solid var(--border-glow);
+            border-radius: 6px;
+            color: var(--text-muted);
+            cursor: pointer;
+            transition: all 0.2s ease;
+            flex-shrink: 0;
+        }
+
+        .voice-trigger:hover {
+            border-color: var(--accent);
+            color: var(--accent);
+        }
+
+        .voice-trigger svg {
+            width: 14px;
+            height: 14px;
+        }
+
+        /* Markdown Code */
+        .terminal-line code {
+            font-family: 'JetBrains Mono', monospace;
+            background: rgba(0, 0, 0, 0.4);
             padding: 2px 6px;
-            border-radius: 10px;
-            background: rgba(128,128,128,0.1);
+            border-radius: 4px;
+            font-size: 11px;
         }
 
-        .status-running { color: #007aff; background: rgba(0, 122, 255, 0.1); }
-        .status-success { color: #34c759; background: rgba(52, 199, 89, 0.1); }
-        .status-error { color: #ff3b30; background: rgba(255, 59, 48, 0.1); }
+        .terminal-line pre {
+            background: rgba(0, 0, 0, 0.4);
+            padding: 12px;
+            border-radius: 8px;
+            overflow-x: auto;
+            margin: 8px 0;
+        }
 
-        /* Window Drag */
+        .terminal-line pre code {
+            background: transparent;
+            padding: 0;
+        }
+
+        /* Window Drag Handle */
         .drag-handle {
             position: absolute;
-            top: 0; left: 0; right: 0; bottom: 0;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 40px;
             -webkit-app-region: drag;
-            z-index: -1;
+            z-index: 10;
         }
-
-        /* Scrollbar */
-        ::-webkit-scrollbar { width: 6px; }
-        ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: rgba(128,128,128,0.2); border-radius: 10px; }
-        ::-webkit-scrollbar-thumb:hover { background: rgba(128,128,128,0.4); }
-
-        /* Markdown Overrides */
-        code { font-family: 'JetBrains Mono', monospace; background: rgba(128,128,128,0.1); padding: 2px 4px; border-radius: 4px; font-size: 0.9em; }
-        pre { background: rgba(0,0,0,0.05); padding: 16px; border-radius: 12px; overflow-x: auto; margin: 12px 0; border: 1px solid var(--glass-border); }
-        .dark-mode pre { background: rgba(255,255,255,0.03); }
-        .ai .bubble p { margin-bottom: 8px; }
-        .ai .bubble p:last-child { margin-bottom: 0; }
     </style>
 </head>
 <body>
     <div class="drag-handle"></div>
 
     <div class="lite-container">
-        <!-- Expanded Messages Area -->
-        <div class="messages-drawer glass" id="messagesDrawer">
-            <!-- Messages populated via JS -->
+        <!-- Header -->
+        <div class="lite-header">
+            <div class="lite-logo">Control</div>
+            <div class="lite-mode">Agentic</div>
         </div>
 
-        <!-- Sleek Search/Input Bar -->
-        <div class="input-bar-container glass">
-            <div class="controls-left">
-                <button class="icon-btn" id="toggleMessagesBtn" title="Toggle Chat History">
-                    <i class="fas fa-bars"></i>
-                </button>
-            </div>
-            
-            <textarea id="chatInput" placeholder="Ask Control to do something..." rows="1"></textarea>
-            
-            <button class="icon-btn" id="voiceBtn" title="Voice Input">
+        <!-- Terminal Output -->
+        <div class="terminal-output" id="terminalOutput">
+            <!-- Terminal lines populated via JS -->
+        </div>
+
+        <!-- Command Input -->
+        <div class="command-input-container">
+            <span class="input-prompt">&gt;</span>
+            <input type="text" class="command-input" id="commandInput" placeholder="Enter command..." autocomplete="off" spellcheck="false">
+            <button class="voice-trigger" id="voiceBtn" title="Voice input">
                 <i class="fas fa-microphone"></i>
             </button>
-            <button class="icon-btn send-btn" id="sendBtn" disabled title="Send">
-                <i class="fas fa-arrow-up"></i>
+            <button class="send-trigger" id="sendBtn" disabled title="Execute">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="12" y1="19" x2="12" y2="5"></line>
+                    <polyline points="5 12 12 5 19 12"></polyline>
+                </svg>
             </button>
         </div>
     </div>
@@ -328,13 +364,13 @@
     <script>
         class LiteAgent {
             constructor() {
-                this.drawer = document.getElementById('messagesDrawer');
-                this.input = document.getElementById('chatInput');
+                this.terminal = document.getElementById('terminalOutput');
+                this.input = document.getElementById('commandInput');
                 this.sendBtn = document.getElementById('sendBtn');
-                this.toggleBtn = document.getElementById('toggleMessagesBtn');
-                this.messagesVisible = false;
-                this.streamContainer = null;
-                this.streamText = "";
+                this.voiceBtn = document.getElementById('voiceBtn');
+                this.isStreaming = false;
+                this.currentLine = null;
+                this.pendingActions = [];
 
                 this.init();
             }
@@ -342,43 +378,28 @@
             async init() {
                 this.setupListeners();
 
-                const settings = await window.chatAPI.getSettings();
-                this.applySettings(settings);
+                // Load own event handlers (don't share with classic window)
+                window.chatAPI.removeAllListeners('ai-stream');
+                window.chatAPI.removeAllListeners('ai-response');
+                window.chatAPI.removeAllListeners('action-start');
+                window.chatAPI.removeAllListeners('action-complete');
+                window.chatAPI.removeAllListeners('settings-updated');
 
                 window.chatAPI.onAIStream((e, data) => this.handleStream(data.chunk));
                 window.chatAPI.onAIResponse((e, data) => this.handleResponse(data));
-
                 window.chatAPI.onActionStart((e, data) => this.logAction(data.description, 'running'));
                 window.chatAPI.onActionComplete((e, data) => this.updateAction(data.description, data.success ? 'success' : 'error'));
-
                 window.chatAPI.onSettingsUpdated((e, s) => this.applySettings(s));
 
+                this.addLine('Ready to execute commands...', 'ai', 'system');
                 this.input.focus();
             }
 
-            applySettings(settings) {
-                if (settings.theme === 'dark') document.body.classList.add('dark-mode');
-                else document.body.classList.remove('dark-mode');
-            }
-
             setupListeners() {
-                this.toggleBtn.onclick = () => this.toggleMessages();
-
                 this.sendBtn.onclick = () => this.sendMessage();
-                
+
                 this.input.addEventListener('input', () => {
                     this.sendBtn.disabled = !this.input.value.trim();
-                    // Auto-resize
-                    this.input.style.height = '24px';
-                    const newHeight = Math.min(this.input.scrollHeight, 120);
-                    if (newHeight > 24) {
-                        this.input.style.height = newHeight + 'px';
-                        this.input.parentElement.style.height = 'auto';
-                        this.input.parentElement.style.padding = '12px 6px';
-                    } else {
-                        this.input.parentElement.style.height = '64px';
-                        this.input.parentElement.style.padding = '6px';
-                    }
                 });
 
                 this.input.onkeydown = (e) => {
@@ -389,117 +410,109 @@
                 };
             }
 
-            toggleMessages(force) {
-                this.messagesVisible = force !== undefined ? force : !this.messagesVisible;
-                this.drawer.classList.toggle('visible', this.messagesVisible);
-                
-                if (this.messagesVisible) {
-                    this.toggleBtn.classList.add('active');
-                    this.toggleBtn.style.color = 'var(--text-primary)';
-                    setTimeout(() => this.drawer.scrollTop = this.drawer.scrollHeight, 100);
-                } else {
-                    this.toggleBtn.classList.remove('active');
-                    this.toggleBtn.style.color = 'var(--text-secondary)';
+            applySettings(settings) {
+                // Lite window has its own theme handling
+            }
+
+            addLine(content, sender = 'ai', type = 'normal') {
+                const line = document.createElement('div');
+                line.className = 'terminal-line';
+
+                if (sender === 'user') {
+                    line.innerHTML = `
+                        <span class="line-prompt">&gt;</span>
+                        <span class="line-content user">${this.escapeHtml(content)}</span>
+                    `;
+                } else if (sender === 'ai') {
+                    const contentClass = type === 'thinking' ? 'ai thinking' : (type === 'system' ? 'ai' : 'ai');
+                    line.innerHTML = `
+                        <span class="line-prompt" style="color: var(--ai-cursor);">&lt;</span>
+                        <span class="line-content ${contentClass}">${content}</span>
+                    `;
                 }
+
+                this.terminal.appendChild(line);
+                this.scrollToBottom();
+                return line;
             }
 
             sendMessage() {
                 const text = this.input.value.trim();
                 if (!text) return;
 
-                this.addMessage(text, 'user');
-                this.toggleMessages(true);
-
-                window.chatAPI.executeTask({ text, attachments: [] }, 'act');
-
+                // Add user line
+                this.addLine(text, 'user');
                 this.input.value = '';
                 this.sendBtn.disabled = true;
-                this.input.style.height = '24px';
-                this.input.parentElement.style.height = '64px';
-                this.input.parentElement.style.padding = '6px';
-                
-                this.streamContainer = null;
-                this.streamText = "";
-            }
 
-            addMessage(content, sender, isHtml = false) {
-                const msgDiv = document.createElement('div');
-                msgDiv.className = `message ${sender}`;
+                // Add thinking indicator
+                this.addLine('Processing...', 'ai', 'thinking');
 
-                const bubble = document.createElement('div');
-                bubble.className = 'bubble';
-                bubble.innerHTML = isHtml ? content : this.escapeHtml(content);
-
-                msgDiv.appendChild(bubble);
-                this.drawer.appendChild(msgDiv);
-                this.drawer.scrollTop = this.drawer.scrollHeight;
-                return msgDiv;
+                // Execute task
+                window.chatAPI.executeTask({ text, attachments: [] }, 'act');
             }
 
             handleStream(chunk) {
-                this.toggleMessages(true);
-                if (!this.streamContainer) {
-                    this.streamContainer = this.addMessage('', 'ai', true);
+                if (!this.currentLine) {
+                    this.currentLine = this.addLine('', 'ai', 'thinking');
                 }
-                this.streamText += chunk;
-                if (this.streamText.trim().startsWith('{')) {
-                    this.streamContainer.querySelector('.bubble').innerHTML = '<div class="thought">Thinking...</div>';
-                } else {
-                    this.streamContainer.querySelector('.bubble').innerHTML = marked.parse(this.streamText);
+
+                const content = this.currentLine.querySelector('.line-content');
+                if (content.textContent.includes('Processing...')) {
+                    content.textContent = '';
                 }
-                this.drawer.scrollTop = this.drawer.scrollHeight;
+
+                content.textContent += chunk;
+                this.scrollToBottom();
             }
 
             handleResponse(data) {
-                this.toggleMessages(true);
-                const text = data.text || data.message;
-                if (!text) return;
+                const text = data.text || data.message || '';
 
-                if (this.streamContainer) {
-                    this.streamContainer.querySelector('.bubble').innerHTML = marked.parse(text);
+                if (this.currentLine) {
+                    this.currentLine.querySelector('.line-content').innerHTML = marked.parse(text) || this.escapeHtml(text);
+                    this.currentLine = null;
                 } else {
-                    this.addMessage(marked.parse(text), 'ai', true);
+                    this.addLine(text, 'ai');
                 }
-                this.streamContainer = null;
-                this.streamText = "";
             }
 
             logAction(description, status) {
-                this.toggleMessages(true);
-                const log = document.createElement('div');
-                log.className = 'action-log';
-                log.dataset.desc = description;
-
-                let icon = 'fa-cog fa-spin';
-                if (description.toLowerCase().includes('click')) icon = 'fa-mouse-pointer';
-                if (description.toLowerCase().includes('type')) icon = 'fa-keyboard';
-                if (description.toLowerCase().includes('search')) icon = 'fa-search';
-
-                log.innerHTML = `
-                    <div class="action-icon"><i class="fas ${icon}"></i></div>
-                    <div class="action-desc">${description}</div>
-                    <div class="action-status status-${status}">${status}</div>
+                const line = document.createElement('div');
+                line.className = 'terminal-line';
+                line.innerHTML = `
+                    <span class="line-prompt" style="color: var(--accent);">*</span>
+                    <span class="line-content ai">
+                        ${this.escapeHtml(description)}
+                        <div class="action-indicator ${status}">${status === 'running' ? 'Executing' : 'Complete'}</div>
+                    </span>
                 `;
-
-                this.drawer.appendChild(log);
-                this.drawer.scrollTop = this.drawer.scrollHeight;
+                this.terminal.appendChild(line);
+                this.scrollToBottom();
             }
 
             updateAction(description, status) {
-                const logs = this.drawer.querySelectorAll('.action-log');
-                for (let i = logs.length - 1; i >= 0; i--) {
-                    if (logs[i].dataset.desc === description) {
-                        const statusEl = logs[i].querySelector('.action-status');
-                        statusEl.className = `action-status status-${status}`;
-                        statusEl.textContent = status;
-                        const icon = logs[i].querySelector('.action-icon i');
-                        icon.className = icon.className.replace('fa-spin', '');
+                const lines = this.terminal.querySelectorAll('.terminal-line');
+                for (let i = lines.length - 1; i >= 0; i--) {
+                    const line = lines[i];
+                    if (line.textContent.includes(description)) {
+                        const indicator = line.querySelector('.action-indicator');
+                        if (indicator) {
+                            indicator.className = `action-indicator ${status}`;
+                            indicator.textContent = status === 'success' ? 'Done' : 'Failed';
+                        }
                         break;
                     }
                 }
+                this.scrollToBottom();
+            }
+
+            scrollToBottom() {
+                this.terminal.scrollTop = this.terminal.scrollHeight;
             }
 
             escapeHtml(text) {
+                if (!text) return '';
                 const div = document.createElement('div');
                 div.textContent = text;
                 return div.innerHTML;

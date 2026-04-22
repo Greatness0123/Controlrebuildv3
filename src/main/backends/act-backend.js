@@ -12,6 +12,7 @@ const electronBrowserManager = require("../electron-browser-manager");
 const promptManager = require("../prompt-manager");
 const searchManager = require("../search-manager");
 const supabaseService = require("../supabase-service");
+const toolExecutor = require("../tool-executor");
 
 const SYSTEM_PROMPT = promptManager.getPrompt('act-system-prompt');
 const GENERAL_SYSTEM_PROMPT = promptManager.getPrompt('act-general-system-prompt');
@@ -41,6 +42,41 @@ this.conversationHistory = [];
     this.currentStepIndex = 0;
     this.stepHistory = [];
     this.taskContext = {};
+    this.actionRetryCount = 0;
+    this.maxActionRetries = 3;
+  }
+
+  getToolDescription() {
+    const schemas = toolExecutor.getAllSchemas();
+    let description = '\n\nAVAILABLE TOOLS:\n';
+    description += '================\n\n';
+    
+    for (const [name, tool] of Object.entries(schemas)) {
+      description += `${tool.name}:\n`;
+      description += `  Description: ${tool.description}\n`;
+      
+      if (tool.parameters && tool.parameters.properties) {
+        description += '  Parameters:\n';
+        for (const [paramName, paramSchema] of Object.entries(tool.parameters.properties)) {
+          const required = tool.parameters.required?.includes(paramName) ? ' (required)' : '';
+          const enumStr = paramSchema.enum ? ` [${paramSchema.enum.join(', ')}]` : '';
+          const defaultStr = paramSchema.default !== undefined ? ` (default: ${paramSchema.default})` : '';
+          const rangeStr = (paramSchema.minimum !== undefined || paramSchema.maximum !== undefined) 
+            ? ` [${paramSchema.minimum || 0}-${paramSchema.maximum || 'unlimited'}]` 
+            : '';
+          description += `    - ${paramName}${required}${enumStr}: ${paramSchema.description || paramSchema.type}${defaultStr}${rangeStr}\n`;
+        }
+      }
+      description += '\n';
+    }
+    
+    return description;
+  }
+
+  appendToolsToSystemPrompt(systemPrompt) {
+    if (!systemPrompt) return systemPrompt;
+    const toolDesc = this.getToolDescription();
+    return systemPrompt + toolDesc;
   }
 
   setTaskPlan(steps, context = {}) {
@@ -48,6 +84,7 @@ this.conversationHistory = [];
     this.currentStepIndex = 0;
     this.stepHistory = [];
     this.taskContext = { ...context, startTime: Date.now() };
+    this.actionRetryCount = 0;
     console.log(`[ACT JS] Task plan set: ${this.currentTaskSteps.length} steps`);
   }
 
@@ -147,6 +184,7 @@ this.conversationHistory = [];
     this.currentStepIndex = 0;
     this.stepHistory = [];
     this.taskContext = {};
+    this.actionRetryCount = 0;
   }
 
   async verifyCoordinates(inputX, inputY, attempts = 3) {
@@ -454,9 +492,13 @@ Respond ONLY with JSON: {"correct": true/false, "what_element": "...", "suggesti
     this.currentApiKey = key;
     this.currentModelName = finalModelName;
     const genAI = new GoogleGenerativeAI(key);
+    
+    const toolDescription = this.getToolDescription();
+    const enhancedSystemPrompt = SYSTEM_PROMPT + toolDescription;
+    
     const modelOptions = {
       model: finalModelName,
-      systemInstruction: SYSTEM_PROMPT,
+      systemInstruction: enhancedSystemPrompt,
       generationConfig: {}
     };
 
@@ -474,6 +516,31 @@ Respond ONLY with JSON: {"correct": true/false, "what_element": "...", "suggesti
       const filename = `screenshot_${timestamp}.png`;
       const filepath = path.join(this.screenshotDir, filename);
 
+      // Auto-hide windows before taking screenshot to avoid capturing the overlay
+      let windowsHidden = false;
+      const hiddenWindows = [];
+      try {
+        if (global.windowManager) {
+          const chatWin = global.windowManager.getWindow('chat');
+          const settingsWin = global.windowManager.getWindow('settings');
+          const liteWin = global.windowManager.getWindow('lite');
+
+          for (const win of [chatWin, settingsWin, liteWin]) {
+            if (win && !win.isDestroyed() && win.isVisible()) {
+              win.hide();
+              hiddenWindows.push(win);
+              windowsHidden = true;
+            }
+          }
+          // Wait for windows to fully hide before capturing
+          if (windowsHidden) {
+            await new Promise(resolve => setTimeout(resolve, 100));
+          }
+        }
+      } catch (e) {
+        console.log('[ACT JS] Could not hide windows:', e.message);
+      }
+
       let imgBuffer;
       try {
         const displays = await screenshot.listDisplays();
@@ -481,6 +548,15 @@ Respond ONLY with JSON: {"correct": true/false, "what_element": "...", "suggesti
         imgBuffer = await screenshot({ format: "png", screen: primary.id });
       } catch (e) {
         imgBuffer = await screenshot({ format: "png" });
+      }
+
+      // Restore hidden windows after screenshot
+      if (windowsHidden && hiddenWindows.length > 0) {
+        for (const win of hiddenWindows) {
+          if (!win.isDestroyed()) {
+            win.show();
+          }
+        }
       }
 
 const image = await Jimp.read(imgBuffer);
@@ -1218,8 +1294,17 @@ case "browser_close":
           }
           break;
 
-        case "browser_get_element":
-          if (params.x !== undefined && params.y !== undefined) {
+case "browser_get_element":
+          if (params.selector) {
+            try {
+              const element = await electronBrowserManager.querySelector(params.selector);
+              result.success = !!element;
+              result.message = element ? `Found: ${element.tag}` : 'No element found';
+              result.element = element;
+            } catch (e) {
+              result.message = `Get element error: ${e.message}`;
+            }
+          } else if (params.x !== undefined && params.y !== undefined) {
             try {
               const element = await electronBrowserManager.getElementAtPosition(params.x, params.y);
               result.success = true;
@@ -1229,7 +1314,7 @@ case "browser_close":
               result.message = `Get element error: ${e.message}`;
             }
           } else {
-            result.message = "No x,y coordinates provided for browser_get_element";
+            result.message = "Provide selector or x,y coordinates";
           }
           break;
 
@@ -1299,6 +1384,57 @@ case "browser_close":
           result.message = "Code displayed";
           break;
 
+        case "browser_submit":
+          if (params.selector) {
+            try {
+              const submitResult = await electronBrowserManager.submitForm(params.selector);
+              result.success = submitResult.success;
+              result.message = submitResult.message;
+            } catch (e) {
+              result.message = `Submit error: ${e.message}`;
+            }
+          } else {
+            result.success = false;
+            result.message = "No selector provided for browser_submit";
+          }
+          break;
+
+        case "browser_get_state":
+          try {
+            const state = await electronBrowserManager.getBrowserState();
+            result.success = state.success !== false;
+            result.message = `URL: ${state.url || ''}, Title: ${state.title || ''}, Focus: ${state.activeElement || ''}`;
+            result.state = state;
+          } catch (e) {
+            result.message = `Get state error: ${e.message}`;
+          }
+          break;
+
+        case "browser_press_enter":
+          try {
+            const pressResult = await electronBrowserManager.pressEnter();
+            result.success = pressResult.success;
+            result.message = pressResult.message;
+          } catch (e) {
+            result.message = `Press Enter error: ${e.message}`;
+          }
+          break;
+
+        case "browser_search":
+          if (params.query) {
+            try {
+              const url = `https://www.google.com/search?q=${encodeURIComponent(params.query)}`;
+              await electronBrowserManager.navigateViaJs(url);
+              result.success = true;
+              result.message = `Navigated to search: ${params.query}`;
+            } catch (e) {
+              result.message = `Search error: ${e.message}`;
+            }
+          } else {
+            result.message = "No query provided for browser_search";
+          }
+          break;
+
         default:
           result.message = `Unknown action: ${actionType}`;
       }
@@ -1309,11 +1445,15 @@ case "browser_close":
     return result;
   }
 
-  async verifyAction(action, executionResult) {
+  async verifyAction(action, executionResult, existingShot = null) {
     const verificationInfo = action.verification || {};
     if (!verificationInfo.expected_outcome) return { verified: true, message: "No verification needed" };
 
-    await new Promise(r => setTimeout(r, this.verificationWait));
+    if (!verificationInfo.verification_method || verificationInfo.verification_method === "visual") {
+      await new Promise(r => setTimeout(r, 300));
+    } else {
+      await new Promise(r => setTimeout(r, this.verificationWait));
+    }
 
     const method = verificationInfo.verification_method || "visual";
     let terminalContext = "";
@@ -1679,9 +1819,10 @@ try {
 
       while (loopCount < maxLoops && !this.stopRequested) {
         loopCount++;
-        await new Promise(r => setTimeout(r, 400));
+        await new Promise(r => setTimeout(r, 150));
         const shot = await this.takeScreenshot();
         if (!shot) throw new Error("Screenshot failed");
+        const screenshotData = shot.buffer || fs.readFileSync(shot.filepath);
 
         const prefs = storageManager.readPreferences();
         const libs = storageManager.readLibraries();
@@ -1701,13 +1842,36 @@ Installed Libraries: ${JSON.stringify(libs)}
 Learned Behaviors: ${JSON.stringify(behaviors)}
 Last Action Result: ${lastResultContext}${browserStatus}
 OS: ${process.platform}, Native Screen: ${this.actualScreen.width}x${this.actualScreen.height}, Image Size: ${this.imageSize.width}x${this.imageSize.height}
+
+=== WORKFLOW TRACKING ===
+You are on step ${this.currentStepIndex + 1} of ${this.currentTaskSteps.length}. ${this.currentTaskSteps[this.currentStepIndex] ? 'Current step: ' + this.currentTaskSteps[this.currentStepIndex] : ''}
+COMPLETED STEPS: ${this.stepHistory.map(h => h.action).join(', ') || 'None'}
+DO NOT repeat actions from completed steps. Move forward to the next step.
+
 ${effectiveProvider !== 'gemini' ? 'NOTE: Native web search tool (googleSearch) is NOT available for this provider. Use browser_open, browser_execute_js, and standard spatial actions to perform web searches manually via a search engine.' : ''}
 
 Analyze screen and provide IMMEDIATE ACTIONS. Respond with JSON.`;
 
-        const screenshotData = shot.buffer || fs.readFileSync(shot.filepath);
+        let imgBuffer = screenshotData;
+        try {
+          const img = await Jimp.read(screenshotData);
+          const w = img.bitmap.width;
+          const h = img.bitmap.height;
+          const maxDim = 1024;
+          if (w > maxDim || h > maxDim) {
+            if (w > h) {
+              img.resize(maxDim, Jimp.AUTO_HEIGHT);
+            } else {
+              img.resize(Jimp.AUTO_WIDTH, maxDim);
+            }
+          }
+          imgBuffer = await img.getBufferAsync(Jimp.MIME_PNG);
+        } catch (e) {
+          console.log('[ACT JS] Image resize skipped:', e.message);
+        }
+
         const content = [
-          { inlineData: { mimeType: "image/png", data: screenshotData.toString("base64") } }
+          { inlineData: { mimeType: "image/png", data: imgBuffer.toString("base64") } }
         ];
 
         if (attachments && attachments.length > 0) {
@@ -1732,7 +1896,7 @@ Analyze screen and provide IMMEDIATE ACTIONS. Respond with JSON.`;
 
         let fullText = "";
 
-        const sysPrompt = GENERAL_SYSTEM_PROMPT;
+        const sysPrompt = this.appendToolsToSystemPrompt(GENERAL_SYSTEM_PROMPT);
         const baseImage = fs.readFileSync(shot.filepath).toString("base64");
         const allImages = [baseImage];
         if (attachments && attachments.length > 0) {
@@ -1770,11 +1934,14 @@ Analyze screen and provide IMMEDIATE ACTIONS. Respond with JSON.`;
         };
 
         if (effectiveProvider === 'ollama') {
-          fullText = await this.ollamaGenerate(prompt, sysPrompt, settings, allImages, onChunkCallback);
+          const ollamaSysPrompt = this.appendToolsToSystemPrompt(GENERAL_SYSTEM_PROMPT);
+          fullText = await this.ollamaGenerate(prompt, ollamaSysPrompt, settings, allImages, onChunkCallback);
         } else if (effectiveProvider === 'anthropic') {
-          fullText = await this.anthropicGenerate(prompt, sysPrompt, settings, allImages, onChunkCallback);
+          const anthropicSysPrompt = this.appendToolsToSystemPrompt(GENERAL_SYSTEM_PROMPT);
+          fullText = await this.anthropicGenerate(prompt, anthropicSysPrompt, settings, allImages, onChunkCallback);
         } else if (['openai', 'deepseek', 'xai', 'moonshot', 'zai', 'openrouter', 'lmstudio', 'litellm', 'minimax', 'azure', 'aws', 'vertex'].includes(effectiveProvider)) {
-          fullText = await this.universalGenerate(prompt, sysPrompt, settings, allImages, onChunkCallback);
+          const universalSysPrompt = this.appendToolsToSystemPrompt(GENERAL_SYSTEM_PROMPT);
+          fullText = await this.universalGenerate(prompt, universalSysPrompt, settings, allImages, onChunkCallback);
 } else if (effectiveProvider === 'gemini') {
           let geminiRetry = 0;
           const maxRetries = 2;
@@ -1901,7 +2068,25 @@ if (loopCount >= maxLoops) break;
 
           onEvent("action_start", { description: action.description });
           const execResult = await this.executeAction(action, onEvent);
-          const verification = await this.verifyAction(action, execResult);
+          
+          if (!this.isOnTrack()) {
+            onEvent("ai_response", { text: "Detected repeated actions. Stopping task to prevent infinite loop.", is_action: false });
+            this.stopRequested = true;
+            break;
+          }
+          
+          const confidence = action.parameters?.confidence;
+          const skipVerif = action.parameters?.skip_ai_verify || action.parameters?.skip_verify;
+          const isRoutine = ['click', 'type', 'scroll', 'mouse_move'].includes(action.action.toLowerCase());
+          const isHighConf = confidence !== undefined && confidence >= 95;
+          
+          let verification;
+          if (skipVerif || (isRoutine && isHighConf)) {
+            verification = { verified: execResult.success, message: `Verified locally (confidence: ${confidence}%)` };
+          } else {
+            verification = await this.verifyAction(action, execResult);
+          }
+          
           lastResultContext = `Action: ${action.action}, Success: ${verification.verified}, Notes: ${verification.message}`;
           onEvent("action_complete", {
             description: action.description,
@@ -1911,7 +2096,23 @@ if (loopCount >= maxLoops) break;
             code: execResult.code,
             language: execResult.language
           });
-          if (!verification.verified) break;
+          
+          if (!verification.verified || !execResult.success) {
+            this.actionRetryCount++;
+            console.log(`[ACT JS] Action failed, retry count: ${this.actionRetryCount}/${this.maxActionRetries}`);
+            
+            if (this.actionRetryCount >= this.maxActionRetries) {
+              onEvent("ai_response", { text: `Action failed after ${this.maxActionRetries} attempts: ${verification.message}. Moving to next step.`, is_action: false });
+              this.actionRetryCount = 0;
+              this.advanceStep(action.action + '_FAILED', execResult);
+            } else {
+              onEvent("ai_response", { text: `Action failed or verification failed: ${verification.message}. Will retry (${this.actionRetryCount}/${this.maxActionRetries}).`, is_action: false });
+            }
+            continue;
+          }
+          
+          this.actionRetryCount = 0;
+          this.advanceStep(action.action, execResult);
         }
       }
       if (!taskFinished) onEvent("task_complete", { task: userRequest, success: !this.stopRequested });
