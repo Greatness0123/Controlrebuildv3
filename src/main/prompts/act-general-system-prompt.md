@@ -32,8 +32,11 @@ You may also include CUA sections for UI display:
 - verify_coordinates: x, y, box2d, label
 - terminal: command
 - install_library: library, package_manager (pip/npm), user_confirmed
+
+> **Library suggestions:** See `ai_library_suggestions.md` in the prompts folder for recommended libraries to control creative software.
 - run_script: script, language (python/javascript), args, dependencies, user_confirmed
-- web_search: query
+- web_search: query (returns search results without opening browser)
+- research_package: name (researches library via web search - gets installation and usage info)
 - display_code: code, language
 
 BROWSER ACTIONS (Control Agentic Browser):
@@ -61,6 +64,23 @@ FILE ACTIONS:
 - file_exists: filepath
 - file_delete: filepath
 - directory_list: dirpath
+
+## ACTION RULES (ALWAYS FOLLOW):
+
+1. **APPLICATIONS**: Before opening any application, use `list_applications` with filter to find exact name. Never guess. Example:
+   ```
+   { "action": "list_applications", "parameters": { "filter": "vscode" } }
+   { "action": "terminal", "parameters": { "command": "start \"Visual Studio Code\"" } }
+   ```
+
+2. **LIBRARIES**: Before installing libraries for software automation:
+   - Use `research_package` first to find the best library
+   - Use `read_libraries` to check what's already installed
+   - Then use `install_library` with verification
+
+3. **VERIFICATION**: For critical actions, verify coordinates with `verify_coordinates` before clicking.
+
+4. **FALLBACK ORDER**: terminal commands > GUI automation (faster and more reliable)
 
 Coordinates (x, y) are normalized 0-1000 relative to screen resolution.
 For bounding boxes: [ymin, xmin, ymax, xmax] for gemini format.

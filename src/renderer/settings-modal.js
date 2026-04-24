@@ -510,7 +510,8 @@ document.getElementById('deleteAllDataBtn')?.addEventListener('click', async () 
 
             window.settingsAPI.onUserChanged((event, user) => {
                 console.log('User changed from main:', user);
-                this.currentUser = user;
+                this.currentUser = (user && typeof user === 'object') ? user : null;
+                console.log('Setting currentUser:', this.currentUser);
                 this.updateUserInfo();
             });
         }
@@ -660,8 +661,17 @@ const actUsed = this.currentUser.actCount || 0;
                 document.getElementById('askLimitText').textContent = `${askUsed} / ${askLimitStr}`;
             }
 
-            const totalTokens = this.currentUser.totalTokens || 0;
-            const dailyTokens = Object.values(this.currentUser.dailyTokenData || {}).reduce((a, b) => a + (b || 0), 0);
+            const totalTokens = (this.currentUser?.totalTokens && typeof this.currentUser.totalTokens === 'number') 
+                ? this.currentUser.totalTokens 
+                : (this.currentUser?.total_token_usage || 0);
+            
+            let dailyTokens = 0;
+            const today = new Date().toISOString().split('T')[0];
+            const dailyData = this.currentUser?.dailyTokenData;
+            
+            if (dailyData && dailyData[today]) {
+                dailyTokens = dailyData[today].total || dailyData[today] || 0;
+            }
             
             if (document.getElementById('statTotalTokens')) document.getElementById('statTotalTokens').textContent = totalTokens.toLocaleString();
             if (document.getElementById('statDailyTokens')) document.getElementById('statDailyTokens').textContent = dailyTokens.toLocaleString();

@@ -78,6 +78,18 @@ class ChatWindow {
         this.updateSendButton();
         await this.loadSettings();
 
+        // Open external links in system browser
+        document.addEventListener('click', (e) => {
+            const link = e.target.closest('a.external-link');
+            if (link) {
+                e.preventDefault();
+                const href = link.href;
+                if (href && !href.startsWith('#')) {
+                    window.electronAPI?.openExternal?.(href) || window.open(href, '_blank');
+                }
+            }
+        });
+
         if (this.settings.layout === 'lite' && window.chatAPI && window.chatAPI.showWindow) {
             window.chatAPI.showWindow('lite');
             window.chatAPI.hideChat();
@@ -753,12 +765,13 @@ class ChatWindow {
             window.chatAPI.onBackendError((event, data) => {
                 console.log('[ChatWindow] Backend error:', data);
 
+                // Show error immediately in chat
+                const userMessage = data.message || 'An error occurred';
+                this.addMessage(userMessage, 'ai', false);
+
                 // Clear all thinking indicators
                 this.forceStopThinking();
-
-                const userMessage = this.parseErrorMessage(data.message);
                 this.updateActionStatus(null, false, userMessage);
-                this.addMessage(userMessage, 'ai', false);
                 this.updateStatus('Error', 'error');
             });
 
@@ -1050,8 +1063,13 @@ class ChatWindow {
                 await window.chatAPI.executeTask(taskPayload, mode);
             }
         } catch (error) {
-            console.error('Failed to execute task:', error);
-            const userMessage = this.parseErrorMessage(error.message);
+            console.error('[Chat] executeTask error caught:', error);
+            // Show raw error if parsing fails
+            let userMessage = this.parseErrorMessage(error.message || error.toString());
+            if (!userMessage || userMessage === 'Unknown error object') {
+                userMessage = error.message || error.toString() || 'An error occurred while executing your request.';
+            }
+            console.log('[Chat] Will add message:', userMessage);
             this.addMessage(userMessage, 'ai', false);
             this.updateStatus('Error', 'error');
             this.updateActionStatus('Thinking...', false, userMessage);
@@ -2245,6 +2263,15 @@ class ChatWindow {
             if (typeof marked !== 'undefined') {
                 const renderer = new marked.Renderer();
 
+                // Enable clickable links
+                renderer.link = (token) => {
+                    const href = token.href || '#';
+                    const title = token.title ? ` title="${token.title}"` : '';
+                    const isExternal = href.startsWith('http');
+                    const target = isExternal ? ' target="_blank"' : '';
+                    return `<a href="${href}"${title} class="external-link"${target}>${token.text}</a>`;
+                };
+
                 // Prevent raw HTML from being rendered as UI elements
                 renderer.html = (token) => {
                     return token.text.replace(/&/g, "&amp;")
@@ -2362,7 +2389,7 @@ class ChatWindow {
         const errorMappings = [
             { pattern: /User profile not loaded/i, message: 'Please sign in to continue.' },
             { pattern: /Authentication required/i, message: 'Please sign in to continue.' },
-            { pattern: /Rate limit exceeded/i, message: 'You\'ve reached your usage limit. Please upgrade your plan or wait.' },
+            { pattern: /Rate limit exceeded|limit reached/i, message: 'You\'ve reached your limit. [Upgrade here](https://control-website.vercel.app/pricing)' },
             { pattern: /quota.*exceeded|exceeded.*quota/i, message: 'Unable to connect to AI. Please try again later.' },
             { pattern: /429|too many requests/i, message: 'Service temporarily busy. Please try again in a moment.' },
             { pattern: /fetch failed|ECONNREFUSED|ENOTFOUND/i, message: 'Connection failed. Please check your internet or ensure the local AI server (Ollama) is running.' },

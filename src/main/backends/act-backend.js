@@ -892,16 +892,53 @@ case "type":
           }
           break;
 
-case "terminal":
+        case "terminal":
           if (params.command) {
-            const output = await new Promise(resolve => {
-              exec(params.command, (err, stdout, stderr) => {
-                resolve({ success: !err, out: stdout || stderr });
-              });
-            });
-            result.success = output.success;
-            result.message = output.out.substring(0, 200);
+            try {
+              const { promisify } = require('util');
+              const execAsync = promisify(exec);
+              const output = await execAsync(params.command, { timeout: 30000, windowsHide: true });
+              result.success = !output.error;
+              result.message = (output.stdout || output.stderr || 'Command executed').substring(0, 500);
+              result.stdout = output.stdout;
+              result.stderr = output.stderr;
+            } catch (err) {
+              result.success = false;
+              result.message = err.message.substring(0, 200);
+              result.error = err.message;
+            }
           }
+          break;
+
+        case "list_applications":
+          const { exec: exec2 } = require('child_process');
+          const startMenuPaths = [
+            path.join(os.homedir(), 'AppData', 'Roaming', 'Microsoft', 'Windows', 'Start Menu', 'Programs'),
+            'C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs'
+          ];
+          const apps = [];
+          const scanDir = (dir) => {
+            if (!fs.existsSync(dir)) return;
+            try {
+              const items = fs.readdirSync(dir);
+              for (const item of items) {
+                const fullPath = path.join(dir, item);
+                const stat = fs.statSync(fullPath);
+                if (stat.isDirectory()) {
+                  scanDir(fullPath);
+                } else if (item.endsWith('.lnk')) {
+                  apps.push(item.replace('.lnk', ''));
+                }
+              }
+            } catch (e) {}
+          };
+          for (const p of startMenuPaths) scanDir(p);
+          const filteredApps = params.filter 
+            ? apps.filter(a => a.toLowerCase().includes(params.filter.toLowerCase()))
+            : apps;
+          result.success = true;
+          result.applications = [...new Set(filteredApps)].sort();
+          result.hint = 'Use exact name with: terminal { command: "start \\"<name>\\"" }';
           break;
 
         case "install_library":
@@ -1022,8 +1059,17 @@ case "terminal":
           break;
 
         case "research_package":
-          result.success = true;
-          result.message = `Researched package: ${params.name}`;
+          // Use web search to research the library
+          const packageQuery = `Python library ${params.name} how to use install`;
+          const searchResults = await searchManager.search(packageQuery);
+          if (searchResults && searchResults.length > 0) {
+            result.success = true;
+            result.message = `Research for ${params.name}:\n\n` + 
+              searchResults.slice(0, 3).map((r, i) => `${i + 1}. ${r.title}\n${r.link}\n${r.snippet}\n`).join('\n');
+          } else {
+            result.success = true;
+            result.message = `Package ${params.name} - use web_search for more info on how to install and use this library.`;
+          }
           break;
 
         case "read_preferences":
@@ -1811,6 +1857,20 @@ try {
 
     onEvent("task_start", { task: userRequest, show_effects: true });
 
+    const requestLower = userRequest.toLowerCase();
+    let steps = [];
+    
+    if (requestLower.includes('open') && requestLower.includes(' ')) {
+      const appMatch = userRequest.match(/open\s+(\w+)/i);
+      if (appMatch) steps.push(`Open ${appMatch[1]}`);
+    }
+    
+    steps.push('Analyze what is needed');
+    steps.push('Execute actions to complete the request');
+    steps.push('Verify completion');
+    
+    this.setTaskPlan(steps, { originalRequest: userRequest });
+
     try {
       let loopCount = 0;
       const maxLoops = 15;
@@ -1842,6 +1902,14 @@ Installed Libraries: ${JSON.stringify(libs)}
 Learned Behaviors: ${JSON.stringify(behaviors)}
 Last Action Result: ${lastResultContext}${browserStatus}
 OS: ${process.platform}, Native Screen: ${this.actualScreen.width}x${this.actualScreen.height}, Image Size: ${this.imageSize.width}x${this.imageSize.height}
+
+=== INSTALLED APPLICATIONS WITH PATHS ===
+${(global.cachedApplicationsWithPaths || []).slice(0, 80).join('\n')}
+
+=== CRITICAL APP LAUNCHING RULES ===
+- NEVER use "start <appname>" - it opens wrong app or command prompt  
+- When need to open app from list, use the shortcut path above with: explorer "<shortcut_path>"
+- Or just click on the actual Start Menu item in the screenshot
 
 === WORKFLOW TRACKING ===
 You are on step ${this.currentStepIndex + 1} of ${this.currentTaskSteps.length}. ${this.currentTaskSteps[this.currentStepIndex] ? 'Current step: ' + this.currentTaskSteps[this.currentStepIndex] : ''}

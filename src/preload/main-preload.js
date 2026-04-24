@@ -46,5 +46,7 @@ contextBridge.exposeInMainWorld('toolAPI', {
     getToolSchemas: () => ipcRenderer.invoke('get-tool-schemas'),
     getToolNames: () => ipcRenderer.invoke('get-tool-names'),
     executeTool: (toolName, params) => ipcRenderer.invoke('execute-tool', toolName, params),
-    validateParams: (toolName, params) => ipcRenderer.invoke('validate-tool-params', toolName, params)
+    validateParams: (toolName, params) => ipcRenderer.invoke('validate-tool-params', toolName, params),
+    getCachedApps: () => ipcRenderer.invoke('get-cached-apps'),
+    refreshAppCache: () => ipcRenderer.invoke('refresh-app-cache')
 });

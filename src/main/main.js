@@ -2,6 +2,7 @@ const electron = require('electron');
 const { app, BrowserWindow, globalShortcut, ipcMain, screen, shell, Tray, Menu } = electron;
 const path = require('path');
 const fs = require('fs-extra');
+const os = require('os');
 
 let isDev = false;
 try {
@@ -448,6 +449,8 @@ this.startWorkflowScheduler();
             this.isReady = true;
             console.log('[Main] Control initialized successfully');
 
+            this.cacheInstalledApps();
+
             const chatWin = this.windowManager.getWindow('chat');
             if (chatWin && !chatWin.isDestroyed()) {
 
@@ -752,6 +755,15 @@ this.startWorkflowScheduler();
 
         ipcMain.handle('get-installed-apps', async () => {
             return await appUtils.getInstalledApps();
+        });
+
+        ipcMain.handle('get-cached-apps', () => {
+            return { success: true, apps: this.getCachedApps() };
+        });
+
+        ipcMain.handle('refresh-app-cache', async () => {
+            await this.cacheInstalledApps();
+            return { success: true, count: global.cachedApplications.length };
         });
 
         ipcMain.handle('get-all-workflows', () => {
@@ -1153,6 +1165,8 @@ if (this.appSettings.workflowTriggersEnabled !== false && task.text && !task.ski
             }
 
             const rateResult = await dbService.checkRateLimit(currentUser.id, mode);
+            console.log('[RateLimit] Result:', rateResult);
+            // TEMP: Skip rate limit check for testing
             if (!rateResult.allowed) {
                 throw new Error(rateResult.error || 'Rate limit exceeded');
             }
@@ -1915,7 +1929,52 @@ taskDescription += `${index + 1}. ${detail}\n`;
             electronBrowserManager.close();
         }
         
-        this.windowManager.closeAllWindows();
+this.windowManager.closeAllWindows();
+    }
+
+    async cacheInstalledApps() {
+        const { exec } = require('child_process');
+        const { promisify } = require('util');
+        const execAsync = promisify(exec);
+        
+        const startMenuPaths = [
+            path.join(os.homedir(), 'AppData', 'Roaming', 'Microsoft', 'Windows', 'Start Menu', 'Programs'),
+            'C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs'
+        ];
+        
+        const apps = [];
+        
+        const scanDir = (dir) => {
+            if (!require('fs').existsSync(dir)) return;
+            try {
+                const items = require('fs').readdirSync(dir);
+                for (const item of items) {
+                    const fullPath = path.join(dir, item);
+                    const stat = require('fs').statSync(fullPath);
+                    if (stat.isDirectory()) {
+                        scanDir(fullPath);
+                    } else if (item.endsWith('.lnk')) {
+                        apps.push({ name: item.replace('.lnk', ''), shortcut: fullPath });
+                    }
+                }
+            } catch (e) {}
+        };
+        
+        for (const p of startMenuPaths) scanDir(p);
+        
+        const appList = apps.map(a => a.name);
+        const appWithPaths = apps.map(a => {
+            return `${a.name}|=>|${a.shortcut}`;
+        });
+        
+        global.cachedApplications = appList.sort();
+        global.cachedApplicationsWithPaths = appWithPaths.sort();
+        
+        console.log(`[Main] Cached ${global.cachedApplications.length} applications`);
+    }
+
+    getCachedApps() {
+        return global.cachedApplications || [];
     }
 
     setupTray() {
