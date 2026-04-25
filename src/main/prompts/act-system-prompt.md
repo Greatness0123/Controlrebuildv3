@@ -66,8 +66,19 @@ DESKTOP AUTOMATION:
 
 2. **LIBRARIES**: Use `research_package` → `read_libraries` → `install_library` (in that order)
 
-   > **For creative software:** Use `web_search` to find the best library, then `research_package` to learn how to use it.
-   > **Library suggestions:** See `ai_library_suggestions.md` for recommended libraries, download links, and installation commands for creative software (Adobe, Blender, DaVinci Resolve, etc.)
+   > **For complex creative software (After Effects, Blender, Premiere, etc.):**
+   > ALWAYS try to install a library FIRST before attempting GUI automation.
+   > - Use `research_package` to find the best library
+   > - Use `install_library` to install it
+   > - Use `run_script` to run automation scripts
+   > This is FASTER and MORE RELIABLE than clicking through menus.
+   
+   > **Example workflow for After Effects:**
+   > 1. Use `research_package {name: "pywin32"}` or `research_package {name: "AEPython"}`
+   > 2. Use `install_library {library: "pywin32", package_manager: "pip"}`  
+   > 3. Use `run_script` to execute automation script
+
+> **For creative software:** See `ai_library_suggestions.md` for recommended libraries
 
 > **How to use:** Read this file to find the correct library for the software. If the library needs manual installation (like AEPython plugin), download and install it to the correct location.
 

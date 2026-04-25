@@ -29,8 +29,9 @@ this.verificationWait = 1000;
     // Don't call setupGeminiAPI here - it will be called from BackendManager with correct model
 
 this.stopRequested = false;
-    this.screenSize = { width: 1920, height: 1080 };
-    this.imageSize = { width: 1920, height: 1080 };
+    // Default to expected, will be updated by screenshot
+    this.screenSize = { width: 1280, height: 720, x: 0, y: 0 };
+    this.imageSize = { width: 1280, height: 720 };
 
 this.conversationHistory = [];
     this.maxHistoryLength = 20;
@@ -654,26 +655,57 @@ case "click":
             let xmin, ymin, xmax, ymax;
             const box = params.box2d;
             
+            // AI provides coordinates normalized to the SCREENSHOT it sees (0-1000 format)
             if (this.currentProvider === 'gemini') {
+              // Gemini format: [ymin, xmin, ymax, xmax]
               [ymin, xmin, ymax, xmax] = box;
             } else {
+              // Standard format: [xmin, ymin, xmax, ymax]
               [xmin, ymin, xmax, ymax] = box;
             }
             
-            const centerNormX = xmin + (xmax - xmin) / 2;
-            const centerNormY = ymin + (ymax - ymin) / 2;
+            // Calculate center in normalized coordinates (0-1000)
+            const centerNormX = (xmin + xmax) / 2;
+            const centerNormY = (ymin + ymax) / 2;
             
-            const scaleX = this.screenSize.width / 1000;
-            const scaleY = this.screenSize.height / 1000;
+            // CONVERT: normalized (0-1000) -> screenshot pixels using imageSize
+            // This is what the AI sees, so coordinates map here first
+            const scaleX = this.imageSize.width / 1000;
+            const scaleY = this.imageSize.height / 1000;
             
-            targetX = Math.round(centerNormX * scaleX) + this.screenSize.x;
-            targetY = Math.round(centerNormY * scaleY) + this.screenSize.y;
+            let clickX = Math.round(centerNormX * scaleX);
+            let clickY = Math.round(centerNormY * scaleY);
             
-            console.log(`[ACT JS] Coords: box=[${box}] center=(${centerNormX},${centerNormY}) screen=${this.screenSize.width}x${this.screenSize.height} final=(${targetX},${targetY})`);
+            // Then SCALE to native screen coordinates for the click
+            // If screenshot was scaled down (e.g., 1280->1920), we need to scale up
+            if (this.imageSize.width !== this.screenSize.width || this.imageSize.height !== this.screenSize.height) {
+              const nativeScaleX = this.screenSize.width / this.imageSize.width;
+              const nativeScaleY = this.screenSize.height / this.imageSize.height;
+              clickX = Math.round(clickX * nativeScaleX);
+              clickY = Math.round(clickY * nativeScaleY);
+            }
+            
+            // Add monitor offset
+            targetX = clickX + this.screenSize.x;
+            targetY = clickY + this.screenSize.y;
+            
+            console.log(`[ACT JS] Coords: box=[${box}] centerNorm=(${centerNormX},${centerNormY}) imgScale=${scaleX}x${scaleY} imgPx=(${clickX},${clickY}) final=(${targetX},${targetY})`);
           } else if (params.x !== undefined && params.y !== undefined) {
-            targetX = Math.round((params.x / 1000) * this.screenSize.width) + this.screenSize.x;
-            targetY = Math.round((params.y / 1000) * this.screenSize.height) + this.screenSize.y;
-            console.log(`[ACT JS] DEBUG coords: params.xy=(${params.x},${params.y}) final=(${targetX},${targetY})`);
+            // Direct coordinates - convert from normalized to screenshot pixels first
+            const scaleX = this.imageSize.width / 1000;
+            const scaleY = this.imageSize.height / 1000;
+            let clickX = Math.round(params.x * scaleX);
+            let clickY = Math.round(params.y * scaleY);
+            
+            // Scale to native if needed
+            if (this.imageSize.width !== this.screenSize.width || this.imageSize.height !== this.screenSize.height) {
+              clickX = Math.round(clickX * (this.screenSize.width / this.imageSize.width));
+              clickY = Math.round(clickY * (this.screenSize.height / this.imageSize.height));
+            }
+            
+            targetX = clickX + this.screenSize.x;
+            targetY = clickY + this.screenSize.y;
+            console.log(`[ACT JS] DEBUG coords: params.xy=(${params.x},${params.y}) imgScale=${scaleX}x${scaleY} final=(${targetX},${targetY})`);
           }
           
           if (targetX !== undefined && targetY !== undefined) {
@@ -1493,10 +1525,16 @@ case "browser_get_element":
 
   async verifyAction(action, executionResult, existingShot = null) {
     const verificationInfo = action.verification || {};
-    if (!verificationInfo.expected_outcome) return { verified: true, message: "No verification needed" };
-
+    
+    // For terminal commands - verify by exit code only
+    if (action.action === 'terminal' || action.action === 'run_script') {
+      const success = executionResult.success && executionResult.code === 0;
+      return { verified: success, message: success ? "Terminal command executed successfully" : `Terminal failed with code ${executionResult.code}` };
+    }
+    
+    // Wait for app to respond
     if (!verificationInfo.verification_method || verificationInfo.verification_method === "visual") {
-      await new Promise(r => setTimeout(r, 300));
+      await new Promise(r => setTimeout(r, 500));
     } else {
       await new Promise(r => setTimeout(r, this.verificationWait));
     }
@@ -1517,7 +1555,7 @@ case "browser_get_element":
       }
     }
 
-const isBrowserAction = action.action.startsWith('browser_');
+    const isBrowserAction = action.action.startsWith('browser_');
     let shotData;
     let mimeType = "image/png";
     let scrapeData = null;
@@ -2146,10 +2184,16 @@ if (loopCount >= maxLoops) break;
           const confidence = action.parameters?.confidence;
           const skipVerif = action.parameters?.skip_ai_verify || action.parameters?.skip_verify;
           const isRoutine = ['click', 'type', 'scroll', 'mouse_move'].includes(action.action.toLowerCase());
+          const isTerminal = ['terminal', 'run_script'].includes(action.action.toLowerCase());
           const isHighConf = confidence !== undefined && confidence >= 95;
           
           let verification;
-          if (skipVerif || (isRoutine && isHighConf)) {
+          // For terminal commands - verify by exit code, not AI assessment
+          if (isTerminal && execResult.success) {
+            verification = { verified: true, message: `Terminal command executed successfully (code: ${execResult.code || 0})` };
+          } 
+          // For high confidence - verify locally, assume success unless obvious failure
+          else if (skipVerif || (isRoutine && isHighConf)) {
             verification = { verified: execResult.success, message: `Verified locally (confidence: ${confidence}%)` };
           } else {
             verification = await this.verifyAction(action, execResult);
@@ -2165,7 +2209,12 @@ if (loopCount >= maxLoops) break;
             language: execResult.language
           });
           
-          if (!verification.verified || !execResult.success) {
+          // Only retry if there's a REAL failure, not just "verification unclear"
+          const realFailure = !verification.verified || !execResult.success;
+          // Don't retry terminal commands that succeeded, or high-confidence clicks
+          const shouldRetry = realFailure && !(isTerminal && execResult.success) && !isHighConf;
+          
+          if (shouldRetry) {
             this.actionRetryCount++;
             console.log(`[ACT JS] Action failed, retry count: ${this.actionRetryCount}/${this.maxActionRetries}`);
             
@@ -2174,7 +2223,7 @@ if (loopCount >= maxLoops) break;
               this.actionRetryCount = 0;
               this.advanceStep(action.action + '_FAILED', execResult);
             } else {
-              onEvent("ai_response", { text: `Action failed or verification failed: ${verification.message}. Will retry (${this.actionRetryCount}/${this.maxActionRetries}).`, is_action: false });
+              onEvent("ai_response", { text: `Action failed: ${verification.message}. Will retry (${this.actionRetryCount}/${this.maxActionRetries}).`, is_action: false });
             }
             continue;
           }

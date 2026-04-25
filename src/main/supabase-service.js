@@ -399,7 +399,7 @@ async fetchAndCacheKeys() {
                 .eq('id', userId)
                 .single();
 
-            if (error || !user) return { allowed: true };
+if (error || !user) return { allowed: true };
 
             console.log('[RateLimit] User plan:', user.plan, 'act_count:', user.act_count, 'ask_count:', user.ask_count);
 
@@ -407,15 +407,15 @@ async fetchAndCacheKeys() {
                 'Free': { act: 10, ask: 50 },
                 'Pro': { act: 500, ask: 2000 },
                 'Master': { act: Infinity, ask: Infinity },
-                'master': { act: Infinity, ask: Infinity }  // Also handle lowercase
+                'master': { act: Infinity, ask: Infinity }
             };
 
             const planLimits = limits[user.plan] || limits['Free'];
             const currentCount = mode === 'act' ? user.act_count : user.ask_count;
             const limit = mode === 'act' ? planLimits.act : planLimits.ask;
 
-            // Skip limit check for Master plan (infinite)
-            if (user.plan === 'Master') {
+            // Skip limit check for Master plan (infinite) - case insensitive
+            if (user.plan && user.plan.toLowerCase() === 'master') {
                 return { allowed: true };
             }
 
