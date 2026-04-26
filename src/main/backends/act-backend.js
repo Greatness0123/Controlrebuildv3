@@ -14,6 +14,58 @@ const searchManager = require("../search-manager");
 const supabaseService = require("../supabase-service");
 const toolExecutor = require("../tool-executor");
 
+function parseTerminalCommandTarget(command) {
+  const trimmed = command.trim();
+  if (/^explorer\s+/i.test(trimmed)) {
+    return trimmed.replace(/^explorer\s+/i, '').trim();
+  }
+  if (/^start\s+/i.test(trimmed)) {
+    const rest = trimmed.replace(/^start\s+/i, '').trim();
+    const quoted = [...rest.matchAll(/"([^"]*)"/g)].map(m => m[1]);
+    if (quoted.length >= 2) {
+      return quoted[1];
+    }
+    if (quoted.length === 1) {
+      return quoted[0];
+    }
+    return rest;
+  }
+  return null;
+}
+
+async function executeTerminalCommand(command) {
+  const { promisify } = require('util');
+  const execAsync = promisify(exec);
+  const normalizePath = (value) => value.replace(/^['"]|['"]$/g, '');
+  const escapeForPowerShell = (value) => value.replace(/'/g, "''");
+
+  const runCommand = async (cmd) => {
+    console.log(`[ACT JS] Running terminal command: ${cmd}`);
+    return await execAsync(cmd, { timeout: 30000, windowsHide: true });
+  };
+
+  try {
+    return await runCommand(command);
+  } catch (primaryError) {
+    if (process.platform === 'win32') {
+      const target = normalizePath(parseTerminalCommandTarget(command) || '');
+      if (target) {
+        const escapeTarget = escapeForPowerShell(target);
+        const fallback = `powershell -NoProfile -Command "Start-Process -FilePath '${escapeTarget}'"`;
+        console.warn('[ACT JS] Primary terminal command failed, retrying with PowerShell fallback:', fallback);
+        try {
+          return await runCommand(fallback);
+        } catch (fallbackError) {
+          fallbackError.originalError = primaryError;
+          fallbackError.fallbackCommand = fallback;
+          throw fallbackError;
+        }
+      }
+    }
+    throw primaryError;
+  }
+}
+
 const SYSTEM_PROMPT = promptManager.getPrompt('act-system-prompt');
 const GENERAL_SYSTEM_PROMPT = promptManager.getPrompt('act-general-system-prompt');
 
@@ -37,10 +89,7 @@ this.conversationHistory = [];
     this.maxHistoryLength = 20;
     this.currentBlueprint = [];
     this.currentProvider = 'gemini';
-    
-    // Task state tracking
-    this.currentTaskSteps = [];
-    this.currentStepIndex = 0;
+    this.currentSystemPrompt = null;
     this.stepHistory = [];
     this.taskContext = {};
     this.actionRetryCount = 0;
@@ -484,18 +533,20 @@ Respond ONLY with JSON: {"correct": true/false, "what_element": "...", "suggesti
     }
   }
 
-  setupGeminiAPI(apiKey, modelName) {
+  setupGeminiAPI(apiKey, modelName, systemPrompt = null) {
     const key = apiKey || process.env.GEMINI_API_KEY || process.env.GEMINI_FREE_KEY || "test_api_key";
     const finalModelName = modelName || process.env.GEMINI_MODEL || "gemini-2.5-flash";
+    const targetSystemPrompt = systemPrompt || SYSTEM_PROMPT;
 
-    if (key === this.currentApiKey && this.model && this.currentModelName === finalModelName) return;
+    if (key === this.currentApiKey && this.model && this.currentModelName === finalModelName && this.currentSystemPrompt === targetSystemPrompt) return;
 
     this.currentApiKey = key;
     this.currentModelName = finalModelName;
+    this.currentSystemPrompt = targetSystemPrompt;
     const genAI = new GoogleGenerativeAI(key);
     
     const toolDescription = this.getToolDescription();
-    const enhancedSystemPrompt = SYSTEM_PROMPT + toolDescription;
+    const enhancedSystemPrompt = targetSystemPrompt + toolDescription;
     
     const modelOptions = {
       model: finalModelName,
@@ -655,29 +706,43 @@ case "click":
             let xmin, ymin, xmax, ymax;
             const box = params.box2d;
             
-            // AI provides coordinates normalized to the SCREENSHOT it sees (0-1000 format)
+            // AI provides coordinates - could be 0-1000 normalized OR screenshot pixels
+            // Detect which format by checking magnitude
             if (this.currentProvider === 'gemini') {
-              // Gemini format: [ymin, xmin, ymax, xmax]
               [ymin, xmin, ymax, xmax] = box;
             } else {
-              // Standard format: [xmin, ymin, xmax, ymax]
               [xmin, ymin, xmax, ymax] = box;
             }
             
-            // Calculate center in normalized coordinates (0-1000)
-            const centerNormX = (xmin + xmax) / 2;
-            const centerNormY = (ymin + ymax) / 2;
+            // Check if already in pixel coordinates (imageSize range) or normalized (0-1000)
+            const maxCoord = Math.max(xmin, xmax, ymin, ymax);
+            let centerNormX, centerNormY;
+            
+            if (maxCoord > 1000) {
+              // Already in screenshot pixels - use directly
+              centerNormX = xmin;
+              centerNormY = ymin;
+              console.log(`[ACT JS] Coords from AI in PIXEL FORMAT: ${box}`);
+            } else {
+              // Calculate center in normalized coordinates (0-1000)
+              centerNormX = (xmin + xmax) / 2;
+              centerNormY = (ymin + ymax) / 2;
+            }
             
             // CONVERT: normalized (0-1000) -> screenshot pixels using imageSize
-            // This is what the AI sees, so coordinates map here first
-            const scaleX = this.imageSize.width / 1000;
-            const scaleY = this.imageSize.height / 1000;
-            
-            let clickX = Math.round(centerNormX * scaleX);
-            let clickY = Math.round(centerNormY * scaleY);
+            // If AI gave pixels, skip this
+            let clickX, clickY;
+            if (maxCoord > 1000) {
+              clickX = centerNormX;
+              clickY = centerNormY;
+            } else {
+              const scaleX = this.imageSize.width / 1000;
+              const scaleY = this.imageSize.height / 1000;
+              clickX = Math.round(centerNormX * scaleX);
+              clickY = Math.round(centerNormY * scaleY);
+            }
             
             // Then SCALE to native screen coordinates for the click
-            // If screenshot was scaled down (e.g., 1280->1920), we need to scale up
             if (this.imageSize.width !== this.screenSize.width || this.imageSize.height !== this.screenSize.height) {
               const nativeScaleX = this.screenSize.width / this.imageSize.width;
               const nativeScaleY = this.screenSize.height / this.imageSize.height;
@@ -689,13 +754,22 @@ case "click":
             targetX = clickX + this.screenSize.x;
             targetY = clickY + this.screenSize.y;
             
-            console.log(`[ACT JS] Coords: box=[${box}] centerNorm=(${centerNormX},${centerNormY}) imgScale=${scaleX}x${scaleY} imgPx=(${clickX},${clickY}) final=(${targetX},${targetY})`);
+            console.log(`[ACT JS] Coords: box=[${box}] centerNorm=(${centerNormX},${centerNormY}) imgScale=${(this.imageSize.width/1000)}x${(this.imageSize.height/1000)} imgPx=(${clickX},${clickY}) final=(${targetX},${targetY})`);
           } else if (params.x !== undefined && params.y !== undefined) {
-            // Direct coordinates - convert from normalized to screenshot pixels first
-            const scaleX = this.imageSize.width / 1000;
-            const scaleY = this.imageSize.height / 1000;
-            let clickX = Math.round(params.x * scaleX);
-            let clickY = Math.round(params.y * scaleY);
+            // Direct coordinates - could be 0-1000 or pixels
+            const isPixelFormat = params.x > 1000 || params.y > 1000;
+            let clickX, clickY;
+            
+            if (isPixelFormat) {
+              clickX = params.x;
+              clickY = params.y;
+            } else {
+              // Convert from normalized 0-1000
+              const scaleX = this.imageSize.width / 1000;
+              const scaleY = this.imageSize.height / 1000;
+              clickX = Math.round(params.x * scaleX);
+              clickY = Math.round(params.y * scaleY);
+            }
             
             // Scale to native if needed
             if (this.imageSize.width !== this.screenSize.width || this.imageSize.height !== this.screenSize.height) {
@@ -705,7 +779,7 @@ case "click":
             
             targetX = clickX + this.screenSize.x;
             targetY = clickY + this.screenSize.y;
-            console.log(`[ACT JS] DEBUG coords: params.xy=(${params.x},${params.y}) imgScale=${scaleX}x${scaleY} final=(${targetX},${targetY})`);
+            console.log(`[ACT JS] DEBUG coords: params.xy=(${params.x},${params.y}) format=${isPixelFormat?'PIXEL':'NORM'} final=(${targetX},${targetY})`);
           }
           
           if (targetX !== undefined && targetY !== undefined) {
@@ -927,17 +1001,27 @@ case "type":
         case "terminal":
           if (params.command) {
             try {
-              const { promisify } = require('util');
-              const execAsync = promisify(exec);
-              const output = await execAsync(params.command, { timeout: 30000, windowsHide: true });
-              result.success = !output.error;
+              const output = await executeTerminalCommand(params.command);
+              result.success = true;
+              result.code = 0;
               result.message = (output.stdout || output.stderr || 'Command executed').substring(0, 500);
               result.stdout = output.stdout;
               result.stderr = output.stderr;
             } catch (err) {
               result.success = false;
-              result.message = err.message.substring(0, 200);
+              result.code = err.code !== undefined ? err.code : 1;
+              result.stdout = err.stdout || '';
+              result.stderr = err.stderr || '';
+              result.message = ((err.stderr && err.stderr.toString()) || err.message || 'Command failed').substring(0, 500);
               result.error = err.message;
+              console.error('[ACT JS] Terminal command failed:', {
+                command: params.command,
+                code: result.code,
+                message: result.message,
+                stdout: result.stdout,
+                stderr: result.stderr,
+                fallbackCommand: err.fallbackCommand
+              });
             }
           }
           break;
@@ -1027,6 +1111,158 @@ case "type":
           } else {
             result.message = "Missing script or language (python/javascript)";
           }
+          break;
+
+        case "run_extendscript":
+          // Run ExtendScript on Adobe After Effects via CLI
+          if (params.script) {
+            try {
+              const { exec: execCmd, execSync } = require('child_process');
+              const fs = require('fs');
+              const path = require('path');
+              const os = require('os');
+              const tmpDir = os.tmpdir();
+              
+              // Check if AE is running first
+              let isRunning = false;
+              try {
+                const runningOutput = execSync('tasklist /FI "IMAGENAME eq AfterFX.exe"', { windowsHide: true, encoding: 'utf8' });
+                isRunning = runningOutput.includes('AfterFX.exe');
+              } catch (err) {
+                isRunning = false;
+              }
+              
+              if (!isRunning) {
+                result.success = false;
+                result.message = "Adobe After Effects is not running. Please open AE first.";
+                break;
+              }
+              
+              // Don't wrap if already has try-catch or is wrapped in IIFE
+              let scriptToRun = params.script;
+              const hasErrorHandling = params.script.includes('try {') || params.script.includes('catch(') || params.script.includes('function()') || params.script.trim().startsWith('(function');
+              
+              if (!hasErrorHandling) {
+                scriptToRun = `
+try {
+${params.script}
+} catch(e) {
+  var logFile = new File('${tmpDir.replace(/\\/g, '/')}/ae_control_error.log');
+  logFile.open('w');
+  logFile.write('Error: ' + e.message + ' | Line: ' + e.line);
+  logFile.close();
+}
+`;
+              }
+              
+              const jsxFile = path.join(tmpDir, `ae_extendscript_${Date.now()}.jsx`);
+              
+              // Write JSX script to temp file (UTF-8 No BOM)
+              fs.writeFileSync(jsxFile, scriptToRun, 'utf8');
+              
+              // Find After Effects path
+              const aePaths = [
+                'C:\\Program Files\\Adobe\\Adobe After Effects 2024\\Support Files\\AfterFX.exe',
+                'C:\\Program Files\\Adobe\\Adobe After Effects 2023\\Support Files\\AfterFX.exe',
+                'C:\\Program Files\\Adobe\\Adobe After Effects 2022\\Support Files\\AfterFX.exe'
+              ];
+              let aePath = params.app_path;
+              for (const p of aePaths) {
+                if (fs.existsSync(p)) {
+                  aePath = p;
+                  break;
+                }
+              }
+              
+              if (!aePath) {
+                fs.unlinkSync(jsxFile);
+                result.success = false;
+                result.message = "Adobe After Effects not found. Install AE or provide path.";
+                break;
+              }
+              
+              // Run via AE CLI -r flag using PowerShell Start-Process (Node exec fails with AE)
+              const psCmd = `powershell -Command "Start-Process -FilePath '${aePath}' -ArgumentList '-r','${jsxFile}' -Wait -NoNewWindow"`;
+              console.log(`[ACT JS] Running ExtendScript on AE via PowerShell`);
+
+              await new Promise((resolve) => {
+                execCmd(psCmd, { windowsHide: true, timeout: 60000 }, (err, stdout, stderr) => {
+                  // Check for error log
+                  let errorLog = null;
+                  const errorLogPath = path.join(tmpDir, 'ae_control_error.log');
+                  if (fs.existsSync(errorLogPath)) {
+                    try {
+                      errorLog = fs.readFileSync(errorLogPath, 'utf8');
+                      fs.unlinkSync(errorLogPath); // Clean up
+                    } catch (e) {}
+                  }
+
+                  try { fs.unlinkSync(jsxFile); } catch (e) {}
+
+                  // AE returns exit code 1 even on success - check error log instead
+                  if (errorLog) {
+                    result.success = false;
+                    result.message = errorLog;
+                    result.error = errorLog;
+                  } else {
+                    result.success = true;
+                    result.message = "ExtendScript executed on After Effects";
+                    result.output = stdout;
+                  }
+                  resolve();
+                });
+              });
+            } catch (err) {
+              result.success = false;
+              result.message = `ExtendScript error: ${err.message}`;
+            }
+          } else {
+            result.message = "Missing script for run_extendscript";
+          }
+          break;
+
+        case "enable_scripting":
+          // Enable scripting permissions for creative software
+          const appName = params.app || 'all';
+          const mode = params.mode || 'check';
+          const fs2 = require('fs');
+          const pathModule = require('path');
+          
+          // Try JS version first, fallback to Python
+          let scriptPath = pathModule.join(__dirname, '..', '..', 'scripts', 'enable_scripting.js');
+          if (!fs2.existsSync(scriptPath)) {
+            scriptPath = pathModule.join(__dirname, '..', '..', 'scripts', 'enable_scripting.py');
+          }
+          
+          if (!fs2.existsSync(scriptPath)) {
+            result.success = false;
+            result.message = "enable_scripting script not found";
+            break;
+          }
+          
+          let args = [];
+          if (mode === 'status') {
+            args = ['--status'];
+          } else if (mode === 'check') {
+            args = ['--check'];
+          } else if (mode === 'all') {
+            args = ['--all'];
+          } else {
+            args = ['--app', appName];
+          }
+          
+          const isJs = scriptPath.endsWith('.js');
+          const cmd = isJs 
+            ? `node "${scriptPath}" ${args.join(' ')}`
+            : `python "${scriptPath}" ${args.join(' ')}`;
+          
+          await new Promise((resolve) => {
+            execCmd(cmd, { windowsHide: true, timeout: 60000 }, (err, stdout, stderr) => {
+              result.success = !err;
+              result.message = stdout || stderr;
+              resolve();
+            });
+          });
           break;
 
         case "run_script_on_file":
@@ -1528,8 +1764,16 @@ case "browser_get_element":
     
     // For terminal commands - verify by exit code only
     if (action.action === 'terminal' || action.action === 'run_script') {
-      const success = executionResult.success && executionResult.code === 0;
-      return { verified: success, message: success ? "Terminal command executed successfully" : `Terminal failed with code ${executionResult.code}` };
+      const exitCode = executionResult.code;
+      // If code is undefined (didn't run), check success flag
+      // If code is 0, success. If code > 0, failure
+      const success = executionResult.success && (exitCode === undefined || exitCode === 0);
+      return { 
+        verified: success, 
+        message: success 
+          ? `Terminal command executed successfully (exit code: ${exitCode || 0})` 
+          : `Terminal failed with exit code: ${exitCode || 'unknown'}` 
+      };
     }
     
     // Wait for app to respond
@@ -1889,7 +2133,8 @@ try {
     const geminiModel = settings.selectedModel || defaultGeminiModel;
 
     if (effectiveProvider === 'gemini') {
-      this.setupGeminiAPI(apiKey, geminiModel);
+      const geminiSysPrompt = this.appendToolsToSystemPrompt(GENERAL_SYSTEM_PROMPT);
+      this.setupGeminiAPI(apiKey, geminiModel, geminiSysPrompt);
     }
     const cachedUser = supabaseService.checkCachedUser();
 
@@ -2085,31 +2330,52 @@ Analyze screen and provide IMMEDIATE ACTIONS. Respond with JSON.`;
         }
         const jsonMatch = /\{[\s\S]*\}/.exec(fullText);
 
+        // If NO json found at all - treat as text
         if (!jsonMatch) {
-          const cleanMarkdown = fullText.trim();
-          if (cleanMarkdown) {
-            onEvent("ai_response", { text: cleanMarkdown, is_action: false });
+          console.log('[ACT JS] No JSON found in response, treating as text');
+          const cleanText = fullText.trim();
+          if (cleanText && cleanText.length > 5) {
+            onEvent("ai_response", { text: cleanText, is_action: false });
+            onEvent("task_complete", { task: userRequest, success: true });
           }
-
-if (loopCount >= maxLoops) break;
-
-          continue;
+          break;
         }
 
         let plan;
         let parseFailed = false;
         try {
-          plan = JSON.parse(jsonMatch[0]);
+          // Check if response starts with valid JSON opening
+          const jsonText = jsonMatch[0].trim();
+          if (!jsonText.startsWith('{') || !jsonText.endsWith('}')) {
+            // Not a valid JSON block - treat as text
+            console.log('[ACT JS] JSON block not valid, treating as text response');
+            const cleanText = fullText.trim();
+            if (cleanText && cleanText.length > 5) {
+              onEvent("ai_response", { text: cleanText, is_action: false });
+              onEvent("task_complete", { task: userRequest, success: true });
+              break;
+            }
+          }
+          plan = JSON.parse(jsonText);
         } catch (jsonErr) {
           console.error('[ACT JS] JSON parse error:', jsonErr.message, 'Attempting recovery...');
+          console.log('[ACT JS] Raw fullText:', fullText);
           parseFailed = true;
           
           try {
-            const fixedJson = '{' + jsonMatch[0].split('{')[1];
-            plan = JSON.parse(fixedJson);
-            parseFailed = false;
+            const jsonStart = fullText.indexOf('{');
+            const jsonEnd = fullText.lastIndexOf('}');
+            if (jsonStart !== -1 && jsonEnd !== -1 && jsonEnd > jsonStart) {
+              let fixedJson = fullText.substring(jsonStart, jsonEnd + 1);
+              fixedJson = fixedJson
+                .replace(/([,{\[]\s*)'([^']+)'\s*:/g, '$1"$2":')
+                .replace(/:\s*'([^']*)'/g, ': "$1"')
+                .replace(/,\s*([}\]])/g, '$1');
+              plan = JSON.parse(fixedJson);
+              parseFailed = false;
+            }
           } catch (fixErr) {
-            console.error('[ACT JS] JSON recovery failed');
+            console.error('[ACT JS] JSON recovery failed:', fixErr.message);
           }
         }
         

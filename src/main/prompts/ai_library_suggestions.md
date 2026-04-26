@@ -1,6 +1,7 @@
 # AI Library Suggestions for Creative Software Control
 
 > **Purpose:** This file tells the AI which Python libraries to use to control specific creative software.
+> **Scripting Setup:** Run `src/scripts/enable_scripting.py` to enable scripting for all apps.
 > **How to use:** The AI reads this file FIRST before any automation task to determine which libraries to install.
 > **Update:** If a better library is found or a software's API changes, update this file.
 
@@ -19,15 +20,51 @@
 
 ### ADOBE CREATIVE CLOUD
 
-| Software | Library | Install | Download/Access | Notes |
-|---|---|---|---|---|
-| **Photoshop** | `photoshop-python-api` + `pywin32` | `pip install photoshop-python-api pywin32` | PyPI | Windows COM |
-| **Illustrator** | `pywin32` | `pip install pywin32` | PyPI | Direct COM dispatch |
-| **Premiere Pro** | `pymiere` | `pip install pymiere` | [PyPI](https://pypi.org/project/pymiere/) + [Pymiere Link](https://github.com/pymiere/PymiereLink) | Requires extension |
-| **After Effects** | `pywin32` | `pip install pywin32` | PyPI | COM interface |
-| **After Effects (deep)** | `AEPython` | Manual | [GitHub](https://github.com/takeshi-okuya/AEPython) | Plugin install |
-| **Lightroom** | REST API | `pip install requests` | [Adobe LR API](https://developer.adobe.com/lightroom-sdk/) | Cloud API |
-| **XD** | `pywin32` | `pip install pywin32` | PyPI | Being deprecated |
+| Software | Best Method | Scripting Permission Required |
+|---|---|---|
+| **After Effects** | ExtendScript via CLI (`-r` flag) | YES - Edit Prefs file |
+| **Photoshop** | COM via pywin32 or File > Scripts | NO - Enabled by default |
+| **Illustrator** | COM via pywin32 or File > Scripts | NO - Enabled by default |
+| **Premiere Pro** | UXP scripting | NO - Enabled by default |
+| **Audition** | COM via pywin32 | NO - Enabled by default |
+
+### After Effects - USE EXTENDSCRIPT:
+After Effects uses **ExtendScript** (Adobe's JavaScript variant, .jsx format) for automation.
+
+**BOTH READ AND WRITE:**
+```json
+{
+  "action": "run_extendscript",
+  "parameters": {
+    "script": "// READ: List all layers\nfor (var i = 1; i <= app.project.activeItem.layers.length; i++) {\n  $.writeln(app.project.activeItem.layers[i].name);\n}"
+  }
+}
+```
+- **READ:** Query project structure, layers, properties, selection
+- **WRITE:** Create compositions, add layers, set keyframes, import assets
+- Must enable scripting permissions first (see section above).
+
+### After Effects Automation (RECOMMENDED):
+
+**Best Approach: ExtendScript via CLI**
+```json
+{
+  "action": "run_extendscript",
+  "parameters": {
+    "script": "app.project.activeItem.layers.addText('Your Text')"
+  }
+}
+```
+
+**Error Handling (Auto-wrapped):**
+- Scripts are automatically wrapped in try-catch
+- Errors logged to `%TEMP%/ae_control_error.log`
+- Prevents AE error popups
+
+**Common Errors to Avoid:**
+- ❌ Use UI names ("Glow") → ✅ Use Match Names ("ADBE Glow")
+- ❌ Write to C:\Program Files → ✅ Write to %TEMP%
+- ❌ Wrong encoding → ✅ UTF-8 No BOM
 
 ### VIDEO & MOTION GRAPHICS
 
@@ -207,4 +244,10 @@ If no specific API exists, use:
 
 ---
 
-(End of file - last updated: 2026-04-24)
+(End of file - last updated: 2026-04-25)
+
+---
+
+## SEE ALSO
+
+- `native-scripting-reference.md` — Complete reference for each app's native scripting language, file extensions, and Python bridge templates

@@ -26,7 +26,10 @@ class ChatWindow {
         this.isTyping = false;
         this.isRecording = false;
         this.currentTask = null;
+        this.taskStopMessageShown = false;
         this.currentMode = 'act'; // Default, will override from settings
+        this.taskHistory = []; // Store all task executions
+        this.currentTaskStartTime = null;
         this.actionStatuses = new Map();
         this.attachments = [];
         this.currentAIResponseContainer = null;
@@ -62,6 +65,8 @@ class ChatWindow {
         this.isOnline = navigator.onLine;
         this.offlineChecked = false;
         this.settings = {};
+        this.pathPlaceholderMap = new Map();
+        this.pathPlaceholderCounter = 0;
 
         window.chatWindowInstance = this;
         this.init();
@@ -74,6 +79,7 @@ class ChatWindow {
         this.setupInputHandlers();
         this.setupKeyboardShortcuts();
         this.setupDragging();
+        this.setupFileDragDrop();
         this.initializeLucideIcons();
         this.updateSendButton();
         await this.loadSettings();
@@ -226,7 +232,30 @@ class ChatWindow {
 
         // Attach button
         this.attachButton.addEventListener('click', () => {
-            this.handleFileAttachment();
+            this.toggleAttachPopup();
+        });
+
+        // Attach popup buttons
+        document.getElementById('attachFileBtn')?.addEventListener('click', () => {
+            this.hideAttachPopup();
+            this.openFilePicker('file');
+        });
+
+        document.getElementById('attachLinkBtn')?.addEventListener('click', () => {
+            this.hideAttachPopup();
+            this.openFilePicker('path');
+        });
+
+        document.getElementById('attachFolderBtn')?.addEventListener('click', () => {
+            this.hideAttachPopup();
+            this.openFilePicker('folder');
+        });
+
+        // Close popup on outside click
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('#attachBtn') && !e.target.closest('#attachPopup')) {
+                this.hideAttachPopup();
+            }
         });
 
         // Blueprint toggle
@@ -275,6 +304,29 @@ class ChatWindow {
 
         // Input key handlers
         this.chatInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Backspace' || e.key === 'Delete') {
+                const start = this.chatInput.selectionStart;
+                const end = this.chatInput.selectionEnd;
+                const value = this.chatInput.value;
+                if (typeof start === 'number' && typeof end === 'number') {
+                    const token = this.findAdjacentPathToken(value, start, end, e.key === 'Backspace');
+                    if (token) {
+                        e.preventDefault();
+                        this.chatInput.value = value.slice(0, token.start) + value.slice(token.end + 1);
+                        if (/^"__path\d+__"$/.test(token.raw)) {
+                            const placeholder = token.raw.slice(1, -1);
+                            this.pathPlaceholderMap.delete(placeholder);
+                        }
+                        const caretPosition = token.start;
+                        this.chatInput.selectionStart = this.chatInput.selectionEnd = caretPosition;
+                        this.autoResizeTextarea();
+                        this.updateSendButton();
+                        this.handleSlashCommandInput();
+                        return;
+                    }
+                }
+            }
+
             if (e.key === 'Enter' && !e.shiftKey) {
                 e.preventDefault();
                 this.sendMessage();
@@ -367,7 +419,7 @@ class ChatWindow {
     syncInputBackdrop() {
         if (this.inputBackdrop) {
             const value = this.chatInput.value;
-            const escapedValue = this.escapeHtml(value);
+            const escapedValue = this.escapeHtmlPath(value);
             // For plain text (non-slash commands), just show the text as-is
             let highlightedText = escapedValue.replace(/^(\/[^\s]*)/, '<span class="highlight">$1</span>');
             if (value.endsWith('\n')) {
@@ -534,6 +586,71 @@ class ChatWindow {
 
         window.addEventListener('blur', () => {
             isDragging = false;
+        });
+    }
+
+    setupFileDragDrop() {
+        const dropOverlay = document.getElementById('dropOverlay');
+        const dropFileName = document.getElementById('dropFileName');
+        const dropAsAttachment = document.getElementById('dropAsAttachment');
+        const dropAsLink = document.getElementById('dropAsLink');
+        
+        let pendingDropFile = null;
+
+        // Prevent default drag behaviors on window
+        window.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+        });
+
+        window.addEventListener('drop', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            const files = e.dataTransfer?.files;
+            if (files && files.length > 0) {
+                pendingDropFile = files[0];
+                
+                if (dropFileName) dropFileName.textContent = pendingDropFile.name;
+                if (dropOverlay) dropOverlay.classList.add('show');
+            }
+        });
+
+        // Attach button handlers for drop choices
+        if (dropAsAttachment) {
+            dropAsAttachment.onclick = () => {
+                if (pendingDropFile) {
+                    this.readAndAddFile(pendingDropFile);
+                }
+                if (dropOverlay) dropOverlay.classList.remove('show');
+                pendingDropFile = null;
+            };
+        }
+
+        if (dropAsLink) {
+            dropAsLink.onclick = () => {
+                if (pendingDropFile) {
+                    const filePath = pendingDropFile.path || pendingDropFile.name;
+                    this.insertPathAtCursor(filePath);
+                }
+                if (dropOverlay) dropOverlay.classList.remove('show');
+                pendingDropFile = null;
+            };
+        }
+
+        // Close overlay on Escape or clicking outside
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && dropOverlay?.classList.contains('show')) {
+                dropOverlay.classList.remove('show');
+                pendingDropFile = null;
+            }
+        });
+
+        dropOverlay?.addEventListener('click', (e) => {
+            if (e.target === dropOverlay) {
+                dropOverlay.classList.remove('show');
+                pendingDropFile = null;
+            }
         });
     }
 
@@ -720,6 +837,19 @@ class ChatWindow {
             // Task updates
             window.chatAPI.onTaskStart((event, data) => {
                 this.currentTask = data.task;
+                this.taskStopMessageShown = false;
+                this.currentTaskStartTime = Date.now();
+                
+                // Save to task history
+                this.taskHistory.push({
+                    task: data.task,
+                    startTime: this.currentTaskStartTime,
+                    status: 'running',
+                    actions: [],
+                    endTime: null,
+                    success: null
+                });
+                
                 // Only add action message if we don't already have one from action-start
                 if (!this.lastActionId || !this.actionStatuses.has(this.lastActionId)) {
                     this.addActionMessage(data.task || 'Starting task...', 'running');
@@ -733,6 +863,20 @@ class ChatWindow {
                 const completedTask = this.currentTask;
                 const success = !!(data && data.success);
                 this.currentTask = null;
+                this.taskStopMessageShown = false;
+                
+                // Update task history
+                if (this.currentTaskStartTime) {
+                    const taskEntry = this.taskHistory.find(t => t.startTime === this.currentTaskStartTime);
+                    if (taskEntry) {
+                        taskEntry.status = 'completed';
+                        taskEntry.endTime = Date.now();
+                        taskEntry.success = success;
+                        taskEntry.actions = Array.from(this.actionStatuses.values()).map(a => a.text);
+                    }
+                }
+                this.currentTaskStartTime = null;
+                
                 this.updateStatus('Ready', 'ready');
                 // Finalize action statuses for the completed task based on success
                 this.finalizeActionStatusesForTask(completedTask, success);
@@ -744,6 +888,17 @@ class ChatWindow {
                 console.log('[ChatWindow] Task stopped:', data);
                 this.currentTask = null;
                 const reasonText = data.reason === 'error' ? "Task stopped due to error" : "Task stopped by user";
+
+                // Update task history
+                if (this.currentTaskStartTime) {
+                    const taskEntry = this.taskHistory.find(t => t.startTime === this.currentTaskStartTime);
+                    if (taskEntry) {
+                        taskEntry.status = 'stopped';
+                        taskEntry.endTime = Date.now();
+                        taskEntry.actions = Array.from(this.actionStatuses.values()).map(a => a.text);
+                    }
+                }
+                this.currentTaskStartTime = null;
 
                 // Clear all thinking states
                 this.forceStopThinking();
@@ -757,7 +912,12 @@ class ChatWindow {
                 const allSpinners = this.messagesContainer.querySelectorAll('.action-spinner');
                 allSpinners.forEach(s => s.remove());
 
-                this.addMessage("Task stopped by user", 'ai', false);
+                // Only show "Task stopped" once - at the end of task, not for every action
+                if (!this.taskStopMessageShown) {
+                    this.addMessage("Task stopped by user", 'ai', false);
+                    this.taskStopMessageShown = true;
+                }
+                
                 this.updateStatus('Ready', 'ready');
                 this.updateSendButton();
             });
@@ -957,7 +1117,7 @@ class ChatWindow {
     }
 
     async sendMessage() {
-        const message = this.chatInput.value.trim();
+        const message = this.resolvePathPlaceholders(this.chatInput.value).trim();
 
         if (!message && this.attachments.length === 0 && !this.currentTask && !this.isAudioPlaying) return;
 
@@ -1628,6 +1788,180 @@ class ChatWindow {
         document.body.appendChild(fileInput);
         fileInput.click();
         document.body.removeChild(fileInput);
+    }
+
+    toggleAttachPopup() {
+        const popup = document.getElementById('attachPopup');
+        if (popup) {
+            popup.classList.toggle('show');
+        }
+    }
+
+    hideAttachPopup() {
+        const popup = document.getElementById('attachPopup');
+        if (popup) {
+            popup.classList.remove('show');
+        }
+    }
+
+    openFilePicker(mode) {
+        if (mode === 'file' || mode === 'path' || mode === 'folder') {
+            const fileInput = document.createElement('input');
+            fileInput.type = 'file';
+            fileInput.accept = '*/*';
+            fileInput.style.display = 'none';
+            fileInput.multiple = false;
+            fileInput.onchange = (e) => {
+                const file = e.target.files[0];
+                if (file) {
+                    if (mode === 'file') {
+                        this.readAndAddFile(file);
+                    } else if (mode === 'path') {
+                        this.insertPathAtCursor(file.path || file.name);
+                    } else if (mode === 'folder') {
+                        const folderPath = file.path || file.name;
+                        this.insertPathAtCursor(folderPath);
+                    }
+                }
+            };
+            document.body.appendChild(fileInput);
+            fileInput.click();
+            document.body.removeChild(fileInput);
+        }
+    }
+
+    insertPathAtCursor(path) {
+        const input = this.chatInput;
+        const fileName = path.split(/[/\\]/).pop() || path;
+        const displayName = fileName.length > 7 ? `${fileName.slice(0, 7)}...` : fileName;
+        const placeholder = `__path${++this.pathPlaceholderCounter}__`;
+        this.pathPlaceholderMap.set(placeholder, path);
+        const pathText = `"${placeholder}"`;
+
+        if (typeof input.selectionStart === 'number') {
+            const start = input.selectionStart;
+            const end = input.selectionEnd;
+            const text = input.value;
+            input.value = text.substring(0, start) + pathText + text.substring(end);
+            input.selectionStart = input.selectionEnd = start + pathText.length;
+        } else {
+            input.value += pathText;
+        }
+
+        this.autoResizeTextarea();
+        this.updateSendButton();
+        this.handleSlashCommandInput();
+    }
+
+    escapeHtmlPath(text) {
+        if (!text) return '';
+        // For inserted file tokens, render a shortened visible label while preserving
+        // the real path inside the textarea for message delivery.
+        const map = {
+            '&': '&amp;',
+            '<': '&lt;',
+            '>': '&gt;',
+            '"': '&quot;',
+            "'": '&#039;'
+        };
+        const escapeHtml = (value) => value.replace(/[&<>"']/g, (m) => map[m]);
+        const escapeAttr = (value) => escapeHtml(value).replace(/"/g, '&quot;');
+
+        let escaped = text.replace(/[&<>"']/g, (m) => map[m]);
+        escaped = escaped.replace(/&quot;([\s\S]*?)&quot;/g, (match, path) => {
+            const decodedPath = path
+                .replace(/&amp;/g, '&')
+                .replace(/&lt;/g, '<')
+                .replace(/&gt;/g, '>')
+                .replace(/&#039;/g, "'")
+                .replace(/&quot;/g, '"');
+            
+            const isPlaceholder = /^__path\d+__$/.test(decodedPath);
+            const actualPath = isPlaceholder ? this.pathPlaceholderMap.get(decodedPath) || decodedPath : decodedPath;
+            const fileName = actualPath.split(/[/\\]/).pop() || actualPath;
+            const displayName = fileName.length > 7 ? `${fileName.slice(0, 7)}...` : fileName;
+            const safeDisplay = escapeAttr(`@${displayName}`);
+
+            if (isPlaceholder || /[\\/]/.test(decodedPath)) {
+                return `<span class="path-reference" data-display="${safeDisplay}">${match}</span>`;
+            }
+
+            return match;
+        });
+        return escaped;
+    }
+
+    resolvePathPlaceholders(text) {
+        return text.replace(/"(__path\d+__)"/g, (match, placeholder) => {
+            const actualPath = this.pathPlaceholderMap.get(placeholder);
+            return actualPath ? `"${actualPath}"` : match;
+        });
+    }
+
+    getQuotedPathTokens(text) {
+        const tokens = [];
+        const regex = /"([^"\n]+)"/g;
+        let match;
+        while ((match = regex.exec(text)) !== null) {
+            const rawValue = match[1];
+            if (/[\\/]/.test(rawValue) || /^__path\d+__$/.test(rawValue)) {
+                tokens.push({
+                    start: match.index,
+                    end: regex.lastIndex - 1,
+                    raw: match[0],
+                    value: rawValue
+                });
+            }
+        }
+        return tokens;
+    }
+
+    findAdjacentPathToken(text, start, end, isBackspace) {
+        const tokens = this.getQuotedPathTokens(text);
+        for (const token of tokens) {
+            const tokenRange = { start: token.start, end: token.end + 1 };
+            if (start !== end) {
+                // If selection overlaps a token, delete the whole token
+                if (end > token.start && start < token.end + 1) {
+                    return token;
+                }
+            } else if (isBackspace) {
+                if (start > token.start && start <= token.end + 1) {
+                    return token;
+                }
+            } else {
+                if (start >= token.start && start < token.end + 1) {
+                    return token;
+                }
+            }
+        }
+        return null;
+    }
+
+    handleSlashCommandInput() {
+        const value = this.chatInput.value;
+
+        // Autocomplete logic: show suggestions if it starts with / and has no internal spaces
+        if (value.startsWith('/') && !value.includes(' ')) {
+            const query = value.substring(1).toLowerCase();
+            this.showCommandSuggestions(query);
+        } else {
+            this.hideCommandSuggestions();
+        }
+
+        // Highlighting for slash commands (Purple accent as requested)
+        if (this.inputBackdrop) {
+            const escapedValue = this.escapeHtmlPath(value);
+            // Highlight only the slash command at the start (e.g., /test)
+            let highlightedText = escapedValue.replace(/^(\/[^\s]*)/, '<span class="highlight">$1</span>');
+
+            // Ensure trailing newlines are preserved for correct alignment
+            if (value.endsWith('\n')) {
+                highlightedText += ' ';
+            }
+            this.inputBackdrop.innerHTML = highlightedText;
+            this.inputBackdrop.scrollTop = this.chatInput.scrollTop;
+        }
     }
 
     async readAndAddFile(file) {

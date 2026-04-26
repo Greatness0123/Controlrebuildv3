@@ -688,6 +688,209 @@ this.tools['install_library'] = {
             }
         };
 
+        // NEW: Run ExtendScript on Adobe After Effects
+this.tools['run_extendscript'] = {
+            name: 'run_extendscript',
+            description: 'Run ExtendScript code on Adobe After Effects via CLI (-r flag). For creating text, shapes, importing assets, animation, etc.',
+            parameters: {
+                type: 'object',
+                properties: {
+                    script: { type: 'string', description: 'ExtendScript code to run. Use app.project, app.project.items.addComp(), comp.layers.addText(), etc.' },
+                    app_path: { type: 'string', description: 'Optional: Path to AfterFX.exe' }
+                },
+                required: ['script'],
+                additionalProperties: false
+            },
+            execute: async (params) => {
+                const { exec, execSync } = require('child_process');
+                const fs = require('fs');
+                const path = require('path');
+                const os = require('os');
+                const tmpDir = os.tmpdir();
+                
+                const wrappedScript = `
+// Auto-wrapped by Control for error handling
+try {
+${params.script}
+} catch(e) {
+  var logFile = new File('${tmpDir.replace(/\\/g, '/')}/ae_control_error.log');
+  logFile.open('w');
+  logFile.write('Error: ' + e.message + ' | Line: ' + e.line + ' | Source: ' + e.source);
+  logFile.close();
+}
+`;
+                
+                const jsxFile = path.join(tmpDir, `ae_extendscript_${Date.now()}.jsx`);
+                fs.writeFileSync(jsxFile, wrappedScript, 'utf8');
+                
+                // Find AE path
+                const aePaths = [
+                    'C:\\Program Files\\Adobe\\Adobe After Effects 2024\\Support Files\\AfterFX.exe',
+                    'C:\\Program Files\\Adobe\\Adobe After Effects 2023\\Support Files\\AfterFX.exe',
+                    'C:\\Program Files\\Adobe\\Adobe After Effects 2022\\Support Files\\AfterFX.exe'
+                ];
+                let aePath = params.app_path;
+                for (const p of aePaths) {
+                    if (fs.existsSync(p)) {
+                        aePath = p;
+                        break;
+                    }
+                }
+                
+                if (!aePath) {
+                    fs.unlinkSync(jsxFile);
+                    return { success: false, error: "After Effects not found" };
+                }
+                
+                // Check if AE is running first
+                let isRunning = false;
+                try {
+                    const runningOutput = execSync('tasklist /FI "IMAGENAME eq AfterFX.exe"', { encoding: 'utf8', windowsHide: true });
+                    isRunning = runningOutput.includes('AfterFX.exe');
+                } catch (err) {
+                    isRunning = false;
+                }
+                
+                return new Promise((resolve) => {
+                    // Use PowerShell Start-Process (Node exec fails with AE)
+                    const psCmd = `powershell -Command "Start-Process -FilePath '${aePath}' -ArgumentList '-r','${jsxFile}' -Wait -NoNewWindow"`;
+                    exec(psCmd, { windowsHide: true, timeout: 60000 }, (err, stdout, stderr) => {
+                        const errorLogPath = path.join(tmpDir, 'ae_control_error.log');
+                        let errorLog = null;
+                        if (fs.existsSync(errorLogPath)) {
+                            try { errorLog = fs.readFileSync(errorLogPath, 'utf8'); } catch(e) {}
+                            try { fs.unlinkSync(errorLogPath); } catch(e) {}
+                        }
+
+                        try { fs.unlinkSync(jsxFile); } catch (e) {}
+
+                        // AE returns exit code 1 even on success - check error log instead
+                        resolve({
+                            success: !errorLog,
+                            message: errorLog || 'Script executed',
+                            error: errorLog,
+                            aeRunning: isRunning
+                        });
+                    });
+                });
+            }
+        };
+
+        this.tools['manage_ae_assets'] = {
+            name: 'manage_ae_assets',
+            description: 'Manage After Effects project assets: import files, create folders, auto-scale, relink missing footage, replace sources. AI should use this proactively when working with AE projects.',
+            parameters: {
+                type: 'object',
+                properties: {
+                    action: { type: 'string', description: 'Action: import (import file), create_folder, replace_source, relink_missing, consolidate, auto_scale_layer' },
+                    file_path: { type: 'string', description: 'Path to file to import (required for import/replace_source/relink_missing)' },
+                    folder_name: { type: 'string', description: 'Folder name for organize_assets action' },
+                    comp_width: { type: 'number', description: 'Composition width for auto_scale_layer' },
+                    comp_height: { type: 'number', description: 'Composition height for auto_scale_layer' },
+                    layer_name: { type: 'string', description: 'Layer name to target for replace_source/auto_scale' }
+                },
+                required: ['action'],
+                additionalProperties: false
+            },
+            execute: async (params) => {
+                const { exec } = require('child_process');
+                const fs = require('fs');
+                const path = require('path');
+                const os = require('os');
+                const tmpDir = os.tmpdir();
+                
+                let script = '';
+                
+                if (params.action === 'create_folder') {
+                    const folderName = params.folder_name || 'CONTROL_ASSETS';
+                    script = `var folder = app.project.items.addFolder('${folderName}');`;
+                } else if (params.action === 'import') {
+                    const filePath = (params.file_path || '').replace(/\\/g, '\\\\');
+                    const folderName = params.folder_name || 'CONTROL_ASSETS';
+                    script = `
+var footageFolder = app.project.items.addFolder('${folderName}');
+var targetFile = new File('${filePath}');
+if (targetFile.exists) {
+    var importOptions = new ImportOptions(targetFile);
+    var footage = app.project.importFile(importOptions);
+    footage.parentFolder = footageFolder;
+} else {
+    throw new Error('File not found: ' + targetFile.fsName);
+}`;
+                } else if (params.action === 'replace_source') {
+                    const filePath = (params.file_path || '').replace(/\\/g, '\\\\');
+                    script = `
+var newFile = new File('${filePath}');
+if (newFile.exists) {
+    for (var i = 1; i <= app.project.numItems; i++) {
+        var item = app.project.item(i);
+        if (item.name === '${params.layer_name || ''}' || (item instanceof FootageItem && item.name.includes('${params.layer_name || ''}'))) {
+            item.replace(newFile);
+        }
+    }
+} else {
+    throw new Error('File not found: ' + newFile.fsName);
+}`;
+                } else if (params.action === 'relink_missing') {
+                    const filePath = (params.file_path || '').replace(/\\/g, '\\\\');
+                    script = `
+var newFile = new File('${filePath}');
+if (newFile.exists) {
+    for (var i = 1; i <= app.project.numItems; i++) {
+        var item = app.project.item(i);
+        if (item.footageMissing) {
+            item.replace(newFile);
+        }
+    }
+}`;
+                } else if (params.action === 'consolidate') {
+                    script = `app.project.consolidateFootage();`;
+                } else if (params.action === 'auto_scale_layer') {
+                    const w = params.comp_width || 1920;
+                    const h = params.comp_height || 1080;
+                    const layerName = params.layer_name || '';
+                    script = `
+var comp = app.project.activeItem;
+if (comp && comp instanceof CompItem) {
+    for (var i = 1; i <= comp.layers.length; i++) {
+        var layer = comp.layers[i];
+        var targetName = '${layerName}';
+        if (!targetName || layer.name.indexOf(targetName) !== -1) {
+            var source = layer.source;
+            if (source && source.width && source.height) {
+                var scaleX = (comp.width / source.width) * 100;
+                var scaleY = (comp.height / source.height) * 100;
+                var finalScale = Math.min(scaleX, scaleY);
+                layer.property('Scale').setValue([finalScale, finalScale]);
+            }
+        }
+    }
+}`;
+                }
+                
+                if (!script) {
+                    return { success: false, message: `Unknown action: ${params.action}` };
+                }
+                
+                const wrapped = `try { ${script} } catch(e) { var f = new File('${tmpDir.replace(/\\/g, '/')}/ae_asset_err.log'); f.open('w'); f.write(e.message); f.close(); }`;
+                const jsxFile = path.join(tmpDir, `ae_assets_${Date.now()}.jsx`);
+                fs.writeFileSync(jsxFile, wrapped, 'utf8');
+                
+                const aePath = 'C:\\Program Files\\Adobe\\Adobe After Effects 2024\\Support Files\\AfterFX.exe';
+                
+                return new Promise((resolve) => {
+                    exec(`"${aePath}" -r "${jsxFile}"`, { windowsHide: true, timeout: 30000 }, (err, stdout, stderr) => {
+                        try { fs.unlinkSync(jsxFile); } catch (e) {}
+                        resolve({
+                            success: !err,
+                            message: err ? stderr : 'Asset action completed',
+                            error: err ? stderr : null
+                        });
+                    });
+                });
+            }
+        };
+
         this.tools['web_search'] = {
             name: 'web_search',
             description: 'Open system browser and perform a web search.',
