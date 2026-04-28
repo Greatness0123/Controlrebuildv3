@@ -2,6 +2,7 @@ import './globals.css'
 import AuthProvider from '@/components/AuthProvider'
 import { ThemeProvider } from '@/components/ThemeProvider'
 import { CookieConsent } from '@/components/CookieConsent'
+import { PWAProvider } from '@/components/PWAProvider'
 import type { Metadata } from 'next'
 import { Syne, Manrope } from 'next/font/google'
 
@@ -39,6 +40,13 @@ export const metadata: Metadata = {
   ],
   icons: {
     icon: '/favicon.ico',
+    apple: '/icons/icon-192x192.png',
+  },
+  manifest: '/manifest.json',
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'black-translucent',
+    title: 'Control',
   },
   openGraph: {
     title: 'Control — AI Software Use',
@@ -63,8 +71,10 @@ export default function RootLayout({
           disableTransitionOnChange
         >
           <AuthProvider>
-            {children}
-            <CookieConsent />
+            <PWAProvider>
+              {children}
+              <CookieConsent />
+            </PWAProvider>
           </AuthProvider>
         </ThemeProvider>
       </body>

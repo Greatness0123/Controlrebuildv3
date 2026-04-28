@@ -691,7 +691,7 @@ this.tools['install_library'] = {
         // NEW: Run ExtendScript on Adobe After Effects
 this.tools['run_extendscript'] = {
             name: 'run_extendscript',
-            description: 'Run ExtendScript code on Adobe After Effects via CLI (-r flag). For creating text, shapes, importing assets, animation, etc.',
+            description: 'Run ExtendScript code on Adobe After Effects via CLI (-r flag). Use it for creating text, shapes, importing assets, animation, and for reading comp/layer motion data to verify whether elements are animated.',
             parameters: {
                 type: 'object',
                 properties: {

@@ -172,6 +172,7 @@ DESKTOP AUTOMATION:
 
     **Creative Software Prompting Examples:**
     - User says "edit this video in Premiere" → Think: Enable scripting? Is UXP/ExtendScript supported? Import footage? Timeline manipulation?
+    - User says "create motion graphics in After Effects" → Think: Use `run_extendscript` to inspect comp and layer motion properties first, not just a screenshot. Query layer keyframes, time remapping, and animation metadata to distinguish static artwork from actual motion.
     - User says "render this Blender scene" → Think: Use bpy CLI headless? What output format? Is Blender running?
     - User says "add this song to my Audacity project" → Think: Is mod-script-pipe enabled in preferences? Import audio track?
     - User says "create a logo in Illustrator" → Think: Enable scripting? Use ExtendScript? Document setup? Path operations?

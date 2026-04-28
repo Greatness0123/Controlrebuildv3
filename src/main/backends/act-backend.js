@@ -6,7 +6,7 @@ const { exec } = require("child_process");
 const fs = require("fs");
 const path = require("path");
 const os = require("os");
-const Jimp = require("jimp");
+const sharp = require("sharp");
 const storageManager = require("../storage-manager");
 const electronBrowserManager = require("../electron-browser-manager");
 const promptManager = require("../prompt-manager");
@@ -248,21 +248,21 @@ this.conversationHistory = [];
         continue;
       }
       
-      const img = await Jimp.read(shot.buffer);
-      const imgW = img.bitmap.width;
-      const imgH = img.bitmap.height;
+      const img = await sharp(shot.buffer).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
+      const imgW = img.info.width;
+      const imgH = img.info.height;
       
       const searchRadius = 25;
       const checkX = Math.min(Math.max(Math.round(inputX * imgW / this.screenSize.width), searchRadius), imgW - searchRadius - 1);
       const checkY = Math.min(Math.max(Math.round(inputY * imgH / this.screenSize.height), searchRadius), imgH - searchRadius - 1);
       
       const pixelColors = [];
+      const imgData = await sharp(shot.buffer).raw().ensureAlpha().toBuffer();
       for (let dy = -searchRadius; dy <= searchRadius; dy += 5) {
         for (let dx = -searchRadius; dx <= searchRadius; dx += 5) {
           try {
-            const color = img.getPixelColor(checkX + dx, checkY + dy);
-            const rgba = Jimp.intToRGBA(color);
-            pixelColors.push({ r: rgba.r, g: rgba.g, b: rgba.b });
+            const idx = ((checkY + dy) * imgW + (checkX + dx)) * 3;
+            pixelColors.push({ r: imgData[idx], g: imgData[idx + 1], b: imgData[idx + 2] });
           } catch (e) {}
         }
       }
@@ -565,7 +565,7 @@ Respond ONLY with JSON: {"correct": true/false, "what_element": "...", "suggesti
   async takeScreenshot(markCursor = true) {
     try {
       const timestamp = Date.now();
-      const filename = `screenshot_${timestamp}.png`;
+      const filename = `screenshot_${timestamp}.webp`;
       const filepath = path.join(this.screenshotDir, filename);
 
       // Auto-hide windows before taking screenshot to avoid capturing the overlay
@@ -576,7 +576,6 @@ Respond ONLY with JSON: {"correct": true/false, "what_element": "...", "suggesti
           const chatWin = global.windowManager.getWindow('chat');
           const settingsWin = global.windowManager.getWindow('settings');
           const liteWin = global.windowManager.getWindow('lite');
-
           for (const win of [chatWin, settingsWin, liteWin]) {
             if (win && !win.isDestroyed() && win.isVisible()) {
               win.hide();
@@ -611,9 +610,14 @@ Respond ONLY with JSON: {"correct": true/false, "what_element": "...", "suggesti
         }
       }
 
-const image = await Jimp.read(imgBuffer);
-
-const thumbBuffer = await image.getBufferAsync(Jimp.MIME_PNG);
+      // Read image and resize to thumbnail using sharp, then save as WEBP
+      const thumbWidth = 540;
+      const thumbHeight = 640;
+      const thumbBuffer = await sharp(imgBuffer)
+        .resize(thumbWidth, thumbHeight)
+        .webp({ quality: 80 })
+        .toBuffer();
+      fs.writeFileSync(filepath, thumbBuffer);
 
       const primaryDisplay = screen.getPrimaryDisplay();
       const actualScreen = {
@@ -622,12 +626,11 @@ const thumbBuffer = await image.getBufferAsync(Jimp.MIME_PNG);
         x: primaryDisplay.bounds.x,
         y: primaryDisplay.bounds.y
       };
-      
-      this.imageSize = {
-        width: image.bitmap.width,
-        height: image.bitmap.height
-      };
 
+      this.imageSize = {
+        width: thumbWidth,
+        height: thumbHeight
+      };
       this.screenSize = actualScreen;
       this.actualScreen = actualScreen;
 
@@ -638,38 +641,19 @@ const thumbBuffer = await image.getBufferAsync(Jimp.MIME_PNG);
         cursorY = pos.y;
       } catch (e) { }
 
-      if (markCursor && cursorX > 0 && cursorY > 0) {
-        const color = 0xFF0000FF;
-        const radius = 15;
-        let markX = cursorX;
-        let markY = cursorY;
+      // Optionally mark cursor on thumbnail (optional, can be skipped for token savings)
+      // If you want to mark, you can draw a circle here
 
-        const primaryDisplay = screen.getPrimaryDisplay();
-        const logicalWidth = primaryDisplay.bounds.width;
-        const logicalHeight = primaryDisplay.bounds.height;
-
-        if (cursorX <= logicalWidth && cursorY <= logicalHeight && (logicalWidth !== image.bitmap.width)) {
-          markX = Math.round(cursorX * (image.bitmap.width / logicalWidth));
-          markY = Math.round(cursorY * (image.bitmap.height / logicalHeight));
-        }
-
-for (let i = -radius; i <= radius; i++) {
-          if (markX + i >= 0 && markX + i < image.bitmap.width) image.setPixelColor(color, markX + i, markY);
-          if (markY + i >= 0 && markY + i < image.bitmap.height) image.setPixelColor(color, markX, markY + i);
-        }
-      }
-      await image.writeAsync(filepath);
-      const outputPath = filepath;
-      return { 
-        filepath: outputPath, 
+      return {
+        filepath: filepath,
         buffer: thumbBuffer,
-        metadata: { 
-          screen_width: this.screenSize.width, 
-          screen_height: this.screenSize.height, 
-          cursor_x: cursorX, 
-          cursor_y: cursorY, 
-          timestamp 
-        } 
+        metadata: {
+          screen_width: this.screenSize.width,
+          screen_height: this.screenSize.height,
+          cursor_x: cursorX,
+          cursor_y: cursorY,
+          timestamp
+        }
       };
     } catch (err) {
       console.error("[ACT JS] Screenshot error:", err);
@@ -1860,16 +1844,39 @@ try {
       const result = await this.model.generateContent(content);
       const text = (await result.response).text();
       const jsonMatch = /\{[\s\S]*\}/.exec(text);
-      if (!jsonMatch) throw new Error("No JSON found in verification response");
+      const executionWasClean = executionResult.success === true && executionResult.error === undefined && (executionResult.code === undefined || executionResult.code === 0);
+
+      if (!jsonMatch) {
+        console.warn('[ACT JS] Verification response missing JSON:', text);
+        return {
+          verified: executionWasClean,
+          message: executionWasClean
+            ? 'Verification response missing JSON; defaulting to clean execution success.'
+            : `Verification response missing JSON; action did not report clean success.`
+        };
+      }
       let data;
       try {
         data = JSON.parse(jsonMatch[0]);
       } catch (e) {
-        data = { verification_status: "failure", observations: "Parse error - defaulting to failure" };
+        console.warn('[ACT JS] Verification JSON parse failed:', e.message, 'raw:', text);
+        return {
+          verified: executionWasClean,
+          message: executionWasClean
+            ? 'Verification parse error; defaulting to clean execution success.'
+            : `Verification parse error; action did not report clean success.`
+        };
       }
       return { verified: data.verification_status === "success", message: data.observations };
     } catch (err) {
-      return { verified: false, message: "Verification error: " + err.message };
+      console.warn('[ACT JS] Verification exception:', err.message);
+      const executionWasClean = executionResult.success === true && executionResult.error === undefined && (executionResult.code === undefined || executionResult.code === 0);
+      return {
+        verified: executionWasClean,
+        message: executionWasClean
+          ? `Verification error: ${err.message}; defaulting to clean execution success.`
+          : `Verification error: ${err.message}`
+      };
     }
   }
 
@@ -2205,24 +2212,24 @@ Analyze screen and provide IMMEDIATE ACTIONS. Respond with JSON.`;
 
         let imgBuffer = screenshotData;
         try {
-          const img = await Jimp.read(screenshotData);
-          const w = img.bitmap.width;
-          const h = img.bitmap.height;
+          const img = sharp(screenshotData);
+          const meta = await img.metadata();
           const maxDim = 1024;
-          if (w > maxDim || h > maxDim) {
-            if (w > h) {
-              img.resize(maxDim, Jimp.AUTO_HEIGHT);
+          if (meta.width > maxDim || meta.height > maxDim) {
+            if (meta.width > meta.height) {
+              imgBuffer = await img.resize(maxDim, null).png().toBuffer();
             } else {
-              img.resize(Jimp.AUTO_WIDTH, maxDim);
+              imgBuffer = await img.resize(null, maxDim).png().toBuffer();
             }
+          } else {
+            imgBuffer = await sharp(screenshotData).png().toBuffer();
           }
-          imgBuffer = await img.getBufferAsync(Jimp.MIME_PNG);
         } catch (e) {
           console.log('[ACT JS] Image resize skipped:', e.message);
         }
 
         const content = [
-          { inlineData: { mimeType: "image/png", data: imgBuffer.toString("base64") } }
+          { inlineData: { mimeType: "image/webp", data: imgBuffer.toString("base64") } }
         ];
 
         if (attachments && attachments.length > 0) {

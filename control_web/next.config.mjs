@@ -1,6 +1,8 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-images: {
+  output: 'standalone',
+  trailingSlash: true,
+  images: {
     remotePatterns: [
       {
         protocol: 'https',
@@ -14,7 +16,27 @@ images: {
       },
     ],
   },
-  async rewrites() {
+  async headers() {
+    return [
+      {
+        source: '/manifest.json',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'public, max-age=86400',
+          },
+        ],
+      },
+      {
+        source: '/icons/:path*',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'public, max-age=2592000',
+          },
+        ],
+      },
+    ];
     return [
       {
         source: '/api/:path*',
