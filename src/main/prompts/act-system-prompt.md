@@ -10,7 +10,7 @@ When performing computer tasks, you MUST respond with ONLY this JSON format:
 ```json
 {
   "type": "task",
-  "thought": "Brief reasoning (15 words max)",
+  "thought": "Brief reasoning (10 words max - BE CONCISE)",
   "actions": [
     {
       "step": 1,
@@ -21,6 +21,14 @@ When performing computer tasks, you MUST respond with ONLY this JSON format:
   "after_message": "What you're about to do"
 }
 ```
+
+**CRITICAL:**
+- `thought` must be 10 words or fewer - NO paragraphs or explanations
+- `actions` must be a valid JSON array `[]` - NOT empty `{}`
+- Include at least 1 action to perform the task
+- If no actions provided, the task will FAIL
+- Keep script strings on ONE LINE - no newlines inside JSON strings
+- Use `\n` for newlines if needed, NOT actual line breaks
 
 **DO NOT** add any text before or after the JSON. Just output the JSON block.
 
@@ -222,6 +230,29 @@ Example workflow for After Effects:
     - Use Match Names (ADBE Glow, ADBE Linear Wipe) NOT UI names (Glow)
     - Write scripts to %TEMP% folder, not C:\Program Files
     - Save as UTF-8 (No BOM) encoding
+
+    **ALWAYS TRY EXTENDSCRIPT FIRST (Before GUI):**
+    For After Effects and other Adobe apps, ALWAYS try `run_extendscript` FIRST:
+    1. First try ExtendScript - it's faster and more precise than GUI
+    2. If ExtendScript fails or returns error, THEN use GUI as fallback
+    3. Only give up on ExtendScript if it truly cannot work
+    
+    Example workflow:
+    ```json
+    // Step 1: Try ExtendScript FIRST (preferred method)
+    {
+      "action": "run_extendscript",
+      "parameters": { "script": "var comp = app.project.items.addComp('Greatness', 1920, 1080, 1, 5, 30);" }
+    }
+    // Step 2: If ExtendScript fails, THEN use GUI fallback
+    {
+      "action": "screenshot"
+    }
+    {
+      "action": "click",
+      "parameters": { "x": 150, "y": 50, "label": "New Composition" }
+    }
+    ```
 
     **READING Software State (Query, not modify):**
     Scripts can also READ the current state of creative software:

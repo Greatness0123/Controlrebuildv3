@@ -35,6 +35,33 @@ export default function WorkspaceLayout({ children }: { children: ReactNode }) {
   const [editingSessionId, setEditingSessionId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState('');
   const [showChatHistoryModal, setShowChatHistoryModal] = useState(false);
+  
+  // PWA Install Prompt
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+  const [showPwaPrompt, setShowPwaPrompt] = useState(false);
+
+  useEffect(() => {
+    // Listen for PWA install prompt
+    const handleBeforeInstall = (e: Event) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+      setShowPwaPrompt(true);
+    };
+    
+    window.addEventListener('beforeinstallprompt', handleBeforeInstall);
+    return () => window.removeEventListener('beforeinstallprompt', handleBeforeInstall);
+  }, []);
+
+  const handleInstallPwa = async () => {
+    if (!deferredPrompt) return;
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    if (outcome === 'accepted') {
+      console.log('PWA installed');
+    }
+    setDeferredPrompt(null);
+    setShowPwaPrompt(false);
+  };
 
   useEffect(() => {
     const loginWithReturn = () => {
@@ -318,6 +345,37 @@ export default function WorkspaceLayout({ children }: { children: ReactNode }) {
       "h-[100dvh] flex overflow-hidden bg-background text-foreground"
     )}>
       <WorkspaceTour userId={user.id} />
+
+      {/* PWA Install Prompt */}
+      {showPwaPrompt && (
+        <div className="fixed bottom-4 right-4 z-50 bg-card border border-border rounded-lg shadow-lg p-4 max-w-sm animate-in slide-in-from-bottom-4">
+          <div className="flex items-start gap-3">
+            <div className="p-2 bg-primary/10 rounded-lg">
+              <Monitor className="w-6 h-6 text-primary" />
+            </div>
+            <div className="flex-1">
+              <h3 className="font-semibold text-sm">Install Control App</h3>
+              <p className="text-xs text-text-secondary mt-1">
+                Add Control to your desktop for a faster, app-like experience.
+              </p>
+            </div>
+          </div>
+          <div className="flex gap-2 mt-4">
+            <button
+              onClick={() => setShowPwaPrompt(false)}
+              className="flex-1 px-3 py-2 text-xs text-text-secondary hover:text-foreground border border-border rounded-md transition-colors"
+            >
+              Not now
+            </button>
+            <button
+              onClick={handleInstallPwa}
+              className="flex-1 px-3 py-2 text-xs bg-primary text-primary-foreground rounded-md hover:opacity-90 transition-opacity"
+            >
+              Install
+            </button>
+          </div>
+        </div>
+      )}
 
       {mobileOpen && (
         <div

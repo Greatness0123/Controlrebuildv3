@@ -2376,7 +2376,7 @@ Analyze screen and provide IMMEDIATE ACTIONS. Respond with JSON.`;
               let fixedJson = fullText.substring(jsonStart, jsonEnd + 1);
               fixedJson = fixedJson
                 .replace(/([,{\[]\s*)'([^']+)'\s*:/g, '$1"$2":')
-                .replace(/:\s*'([^']*)'/g, ': "$1"')
+                .replace(/:\s*'([^']*)'/g, (m, g1) => ': "' + g1.replace(/"/g, '\\"').replace(/\n/g, '\\n') + '"')
                 .replace(/,\s*([}\]])/g, '$1');
               plan = JSON.parse(fixedJson);
               parseFailed = false;
@@ -2390,8 +2390,14 @@ Analyze screen and provide IMMEDIATE ACTIONS. Respond with JSON.`;
           const cleanMarkdown = fullText.replace(/\{[\s\S]*\}/, "").trim();
           if (cleanMarkdown && cleanMarkdown.length > 10) {
             onEvent("ai_response", { text: cleanMarkdown, is_action: false });
-            onEvent("task_complete", { task: userRequest, success: true });
-            break;
+            // Don't mark as success - JSON failed so retry
+            onEvent("ai_response", { text: "JSON parse failed. Please output valid JSON only.", is_action: false });
+            loopCount++;
+            if (loopCount >= maxLoops) {
+              onEvent("task_complete", { task: userRequest, success: false, error: "JSON parse failed after max retries" });
+              taskFinished = true;
+            }
+            continue;
           } else {
             onEvent("ai_response", { text: "I couldn't parse the response. Trying again.", is_action: false });
             loopCount++;
@@ -2402,17 +2408,29 @@ Analyze screen and provide IMMEDIATE ACTIONS. Respond with JSON.`;
 
         const cleanMarkdown = fullText.replace(/\{[\s\S]*\}/, "").trim();
 
-        const thoughtToDisplay = plan.thought || cleanMarkdown;
-        if (thoughtToDisplay) onEvent("ai_response", { text: thoughtToDisplay, is_action: false });
+        // Limit thought to 300 chars to avoid massive outputs
+        const rawThought = plan.thought || cleanMarkdown;
+        const thoughtToDisplay = rawThought.length > 300 ? rawThought.substring(0, 300) + "..." : rawThought;
+        if (thoughtToDisplay && thoughtToDisplay.length > 10) {
+          onEvent("ai_response", { text: thoughtToDisplay, is_action: false });
+        }
 
-        const actions = plan.actions || [];
-        if (actions.length === 0) {
-          onEvent("task_complete", { task: userRequest, success: true });
-          taskFinished = true;
-
-          const finalMessage = plan.after_message || (plan.thought ? "" : cleanMarkdown);
-          if (finalMessage) onEvent("after_message", { text: finalMessage });
-          break;
+        let actions = plan.actions;
+        // Handle case where actions is empty object {} instead of array []
+        if (!Array.isArray(actions)) {
+          actions = actions ? Object.values(actions).filter(a => a && a.action) : [];
+        }
+        
+        if (!actions || actions.length === 0) {
+          // No valid actions - send after_message if exists, otherwise ask AI to retry
+          const finalMessage = plan.after_message || "No actions provided. Please try again with valid actions.";
+          onEvent("ai_response", { text: finalMessage, is_action: false });
+          loopCount++;
+          if (loopCount >= maxLoops) {
+            onEvent("task_complete", { task: userRequest, success: false, error: "No actions after max retries" });
+            taskFinished = true;
+          }
+          continue;
         }
 
         for (const action of actions) {

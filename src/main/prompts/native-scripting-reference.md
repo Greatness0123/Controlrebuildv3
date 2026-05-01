@@ -126,6 +126,21 @@ app.project.removeUnusedFootage();
 - Check error log: `C:\Users\<user>\AppData\Local\Temp\ae_control_error.log`
 - If script fails, check if app is responding first
 
+**ALWAYS TRY EXTENDSCRIPT FIRST:**
+For After Effects, ALWAYS try `run_extendscript` FIRST before GUI:
+1. ExtendScript is faster, more precise, and repeatable
+2. Only use GUI if ExtendScript truly fails
+3. Check error log for ExtendScript bugs, then decide
+
+Example - Try ExtendScript first, then GUI if it fails:
+```json
+// Try ExtendScript FIRST (preferred)
+{ "action": "run_extendscript", "parameters": { "script": "..." } }
+// If fails, THEN use GUI
+{ "action": "screenshot" }
+{ "action": "click", "parameters": { "x": 100, "y": 80 } }
+```
+
 **Permissions:** Requires editing Prefs file:
 ```powershell
 $prefPath = "$env:APPDATA\Adobe\After Effects\24.0\Adobe After Effects 2024 Prefs-indep-general.txt"
