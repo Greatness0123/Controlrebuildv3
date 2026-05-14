@@ -19,9 +19,8 @@ class ChatWindow {
         // this.blueprintContent = document.getElementById('blueprintContent');
         // this.blueprintToggle = document.getElementById('blueprintToggle');
 
-        // Mode toggle elements
-        this.modeAct = document.getElementById('modeAct');
-        this.modeAsk = document.getElementById('modeAsk');
+        // Mode selector elements
+        this.modeSelect = document.getElementById('modeSelect');
 
         this.isTyping = false;
         this.isRecording = false;
@@ -33,6 +32,10 @@ class ChatWindow {
         this.actionStatuses = new Map();
         this.attachments = [];
         this.currentAIResponseContainer = null;
+        
+        // Click mode step tracking
+        this.stepTargetElement = null;
+        this.stepEventListener = null;
 
         // Vosk V2 Streaming
         this.mediaRecorder = null;
@@ -217,10 +220,9 @@ class ChatWindow {
             }
         });
 
-        // Mode Toggle
-        if (this.modeAct && this.modeAsk) {
-            this.modeAct.addEventListener('click', () => this.setMode('act'));
-            this.modeAsk.addEventListener('click', () => this.setMode('ask'));
+        // Mode Selector
+        if (this.modeSelect) {
+            this.modeSelect.addEventListener('change', (e) => this.setMode(e.target.value));
         }
 
         // Voice button
@@ -884,6 +886,75 @@ class ChatWindow {
                 // Chat window will be shown automatically by backend manager
             });
 
+            window.chatAPI.onClickStepStart((event, data) => {
+                console.log('[ChatWindow] Click step start:', data);
+                this.updateStatus(`Step ${data.progress}: ${data.instruction}`, 'working');
+                
+                // Add step instruction message
+                this.addActionMessage(`Step ${data.step}: ${data.instruction}`, 'running');
+                
+                // Clear any previous step target listener
+                if (this.stepTargetElement && this.stepEventListener) {
+                    this.stepTargetElement.removeEventListener('click', this.stepEventListener);
+                    this.stepTargetElement = null;
+                    this.stepEventListener = null;
+                }
+                
+                // Set up target element detection if target exists
+                if (data.target) {
+                    try {
+                        const targetEl = document.querySelector(data.target);
+                        if (targetEl) {
+                            this.stepTargetElement = targetEl;
+                            this.stepEventListener = () => {
+                                console.log('[ChatWindow] Target element clicked, completing step');
+                                if (window.ghostCursorAPI) {
+                                    window.ghostCursorAPI.sendStepComplete();
+                                }
+                            };
+                            targetEl.addEventListener('click', this.stepEventListener);
+                            console.log('[ChatWindow] Listening for clicks on:', data.target);
+                        } else {
+                            console.log('[ChatWindow] Target element not found, using Done button');
+                        }
+                    } catch (e) {
+                        console.log('[ChatWindow] Invalid selector, using Done button');
+                    }
+                }
+                
+                // Update ghost cursor position and text
+                if (window.chatAPI) {
+                    window.chatAPI.updateGhostCursor({
+                        text: data.instruction,
+                        guiding: true
+                    });
+                }
+            });
+
+            window.chatAPI.onClickStepComplete((event, data) => {
+                console.log('[ChatWindow] Click step complete:', data);
+                this.updateStatus('Step completed! Waiting for next step...', 'working');
+                // After step is complete, go back to following user cursor
+                if (window.chatAPI && this.currentMode === 'click') {
+                    window.chatAPI.updateGhostCursor({ guiding: false });
+                }
+            });
+
+            window.chatAPI.onClickTaskComplete((event, data) => {
+                console.log('[ChatWindow] Click task complete:', data);
+                this.updateStatus('Task completed!', 'ready');
+                
+                // Keep ghost cursor visible in idle mode if still in click mode
+                if (window.chatAPI && this.currentMode === 'click') {
+                    window.chatAPI.updateGhostCursor({ guiding: false });
+                } else if (window.chatAPI) {
+                    window.chatAPI.hideGhostCursor();
+                }
+                
+                // Add completion message
+                this.addActionMessage(`Task completed successfully! (${data.totalSteps} steps)`, 'completed');
+            });
+
             window.chatAPI.onTaskStopped((event, data) => {
                 console.log('[ChatWindow] Task stopped:', data);
                 this.currentTask = null;
@@ -1096,15 +1167,44 @@ class ChatWindow {
     async setMode(mode) {
         this.currentMode = mode;
 
-        if (this.modeAct && this.modeAsk) {
+        if (this.modeSelect) {
+            this.modeSelect.value = mode;
             if (mode === 'act') {
-                this.modeAct.classList.add('active');
-                this.modeAsk.classList.remove('active');
                 this.chatInput.placeholder = "Give a task";
-            } else {
-                this.modeAsk.classList.add('active');
-                this.modeAct.classList.remove('active');
+            } else if (mode === 'ask') {
                 this.chatInput.placeholder = "Ask a question...";
+            } else if (mode === 'click') {
+                this.chatInput.placeholder = "Describe a task to guide through...";
+            }
+        }
+
+        // Handle ghost cursor based on mode
+        if (mode === 'click') {
+            // Get settings to check if ghost cursor is enabled
+            if (window.chatAPI && window.chatAPI.getSettings) {
+                const settings = await window.chatAPI.getSettings();
+                // Default to enabled if not set
+                const isEnabled = settings.ghostCursorEnabled !== false;
+                if (isEnabled) {
+                    // Show ghost cursor in idle mode - it will follow mouse
+                    window.chatAPI.showGhostCursor();
+                    // Request initial settings for the ghost cursor
+                    window.chatAPI.updateGhostCursor({ guiding: false });
+                }
+            }
+        } else {
+            // Hide ghost cursor when leaving click mode
+            if (window.chatAPI && window.chatAPI.hideGhostCursor) {
+                window.chatAPI.hideGhostCursor();
+            }
+        }
+
+        // Save mode to settings
+        if (window.chatAPI && window.chatAPI.getSettings) {
+            const settings = await window.chatAPI.getSettings();
+            settings.lastMode = mode;
+            if (window.chatAPI.saveSettings) {
+                await window.chatAPI.saveSettings(settings);
             }
         }
 
@@ -1329,6 +1429,18 @@ class ChatWindow {
         try {
             if (window.chatAPI) {
                 await window.chatAPI.stopAction();
+            }
+            // Clean up click mode step listeners
+            if (this.stepTargetElement && this.stepEventListener) {
+                this.stepTargetElement.removeEventListener('click', this.stepEventListener);
+                this.stepTargetElement = null;
+                this.stepEventListener = null;
+            }
+            // Keep ghost cursor visible in idle mode if still in click mode
+            if (window.chatAPI && this.currentMode === 'click') {
+                window.chatAPI.updateGhostCursor({ guiding: false });
+            } else if (window.chatAPI) {
+                window.chatAPI.hideGhostCursor();
             }
         } catch (error) {
             console.error('Failed to stop action:', error);
@@ -2844,6 +2956,11 @@ class ChatWindow {
 
                 if (settings.borderStreakEnabled !== undefined) {
                     this.toggleBorderStreak(settings.borderStreakEnabled);
+                }
+
+                // Load saved mode (ask, act, or click)
+                if (settings.lastMode && this.modeSelect) {
+                    this.setMode(settings.lastMode);
                 }
             }
         } catch (error) {

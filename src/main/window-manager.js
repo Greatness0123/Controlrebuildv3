@@ -27,6 +27,7 @@ class WindowManager {
         console.log('[WindowManager] Initializing core windows...');
         await this.createMainWindow();
         await this.createEntryWindow();
+        await this.createGhostCursorWindow();
 
         this.setupWindowManagement();
     }
@@ -335,6 +336,144 @@ class WindowManager {
         this.applyCurrentVisibility(entryWindow);
 
         this.setupDraggableWindow(entryWindow);
+    }
+
+    async createGhostCursorWindow() {
+        console.log('[WindowManager] Creating ghost cursor window...');
+        const { width, height } = screen.getPrimaryDisplay().workAreaSize;
+
+        this.ghostCursorWindow = new BrowserWindow({
+            width: width,
+            height: height,
+            x: 0,
+            y: 0,
+            frame: false,
+            transparent: true,
+            alwaysOnTop: true,
+            skipTaskbar: true,
+            resizable: false,
+            movable: false,
+            minimizable: false,
+            maximizable: false,
+            closable: false,
+            fullscreenable: false,
+            visibleOnAllWorkspaces: true,
+            hasShadow: false,
+            show: false,
+            focusable: false,
+            webPreferences: {
+                nodeIntegration: false,
+                contextIsolation: true,
+                enableRemoteModule: false,
+                preload: path.join(__dirname, '../preload/ghost-cursor-preload.js'),
+                webSecurity: !isDev
+            }
+        });
+
+        this.ghostCursorWindow.setAlwaysOnTop(true, 'floating');
+        this.ghostCursorWindow.setIgnoreMouseEvents(true, { forward: false });
+
+        this.ghostCursorMouseTracker = null;
+        this.isGhostCursorActive = false;
+
+        try {
+            await this.ghostCursorWindow.loadFile(
+                path.join(__dirname, '../renderer/ghost-cursor-overlay.html')
+            );
+            console.log('[WindowManager] Ghost cursor window loaded successfully');
+        } catch (err) {
+            console.error('[WindowManager] Failed to load ghost cursor window:', err);
+            throw err;
+        }
+
+        this.windows.set('ghostCursor', this.ghostCursorWindow);
+        
+        if (process.platform === 'win32') {
+            try {
+                this.ghostCursorWindow.setContentProtection(true);
+            } catch (e) {
+                console.warn('[WindowManager] Could not set content protection:', e.message);
+            }
+        }
+        
+        return this.ghostCursorWindow;
+    }
+
+    showGhostCursor() {
+        if (this.ghostCursorWindow && !this.ghostCursorWindow.isDestroyed()) {
+            this.ghostCursorWindow.show();
+            this.ghostCursorWindow.focus();
+            this.isGhostCursorActive = true;
+            this.startMouseTracking();
+            this.ghostCursorWindow.webContents.send('ghost-cursor:start-idle');
+            this.initGhostCursorSettings();
+        }
+    }
+
+    initGhostCursorSettings() {
+        if (this.ghostCursorWindow && !this.ghostCursorWindow.isDestroyed()) {
+            const settings = this.appSettings;
+            this.ghostCursorWindow.webContents.send('ghost-cursor:init-settings', {
+                cursorColor: settings.ghostCursorColor || '#0078D4',
+                cursorOutlineColor: settings.ghostCursorOutlineColor || '#FFFFFF',
+                cursorOpacity: settings.ghostCursorOpacity || 100,
+                cursorSize: settings.ghostCursorSize || 'medium',
+                bubbleBg: settings.ghostCursorBubbleBg || '#FFFFFF',
+                bubbleTextColor: settings.ghostCursorBubbleTextColor || '#000000',
+                customImage: settings.ghostCursorCustomImage || null,
+                enabled: settings.ghostCursorEnabled !== false
+            });
+        }
+    }
+
+    startMouseTracking() {
+        if (this.ghostCursorMouseTracker) return;
+
+        const sendMousePosition = () => {
+            if (!this.isGhostCursorActive || !this.ghostCursorWindow || this.ghostCursorWindow.isDestroyed()) {
+                return;
+            }
+            const cursorPos = screen.getCursorScreenPoint();
+            this.ghostCursorWindow.webContents.send('ghost-cursor:mouse-move', {
+                x: cursorPos.x,
+                y: cursorPos.y
+            });
+        };
+
+        this.ghostCursorMouseTracker = setInterval(sendMousePosition, 16);
+    }
+
+    stopMouseTracking() {
+        if (this.ghostCursorMouseTracker) {
+            clearInterval(this.ghostCursorMouseTracker);
+            this.ghostCursorMouseTracker = null;
+        }
+    }
+
+    hideGhostCursor() {
+        if (this.ghostCursorWindow && !this.ghostCursorWindow.isDestroyed()) {
+            this.ghostCursorWindow.hide();
+            this.isGhostCursorActive = false;
+            this.stopMouseTracking();
+        }
+    }
+
+    moveGhostCursor(x, y) {
+        if (this.ghostCursorWindow && !this.ghostCursorWindow.isDestroyed()) {
+            this.ghostCursorWindow.webContents.send('ghost-cursor:move', { x, y });
+        }
+    }
+
+    updateGhostCursorText(text) {
+        if (this.ghostCursorWindow && !this.ghostCursorWindow.isDestroyed()) {
+            this.ghostCursorWindow.webContents.send('ghost-cursor:update-text', { text });
+        }
+    }
+
+    setGhostCursorGuiding(guiding) {
+        if (this.ghostCursorWindow && !this.ghostCursorWindow.isDestroyed()) {
+            this.ghostCursorWindow.webContents.send('ghost-cursor:set-guiding', { guiding });
+        }
     }
 
     setupDraggableWindow(window) {

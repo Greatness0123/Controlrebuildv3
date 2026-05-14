@@ -122,6 +122,48 @@
             color: var(--bg-primary);
         }
 
+        .mode-selector {
+            position: relative;
+        }
+
+        .mode-dropdown {
+            appearance: none;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 6px 28px 6px 12px;
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text-primary);
+            cursor: pointer;
+            outline: none;
+            transition: all 0.2s;
+            min-width: 70px;
+        }
+
+        .mode-dropdown:hover {
+            border-color: var(--accent);
+        }
+
+        .mode-dropdown:focus {
+            border-color: var(--accent);
+            box-shadow: 0 0 0 2px rgba(0, 120, 212, 0.2);
+        }
+
+        .mode-selector::after {
+            content: '';
+            position: absolute;
+            right: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 0;
+            height: 0;
+            border-left: 4px solid transparent;
+            border-right: 4px solid transparent;
+            border-top: 4px solid var(--text-secondary);
+            pointer-events: none;
+        }
+
 .messages-container {
             flex: 1;
             overflow-y: auto;
@@ -1421,9 +1463,12 @@
                 <div class="header-left">
                     <button class="icon-btn" id="historyButton" title="History"><i class="fas fa-history"></i></button>
                     <button class="icon-btn" id="newChatBtn" title="New Chat"><i class="fas fa-plus"></i></button>
-                    <div class="mode-switcher" style="-webkit-app-region: no-drag; margin-left: 8px;">
-                        <button class="mode-btn active" id="modeAct">ACT</button>
-                        <button class="mode-btn" id="modeAsk">ASK</button>
+                    <div class="mode-selector" style="-webkit-app-region: no-drag; margin-left: 8px;">
+                        <select id="modeSelect" class="mode-dropdown">
+                            <option value="act">ACT</option>
+                            <option value="ask">ASK</option>
+                            <option value="click">Click</option>
+                        </select>
                     </div>
                 </div>
                 <div class="header-right" style="display: flex; gap: 4px; -webkit-app-region: no-drag;">

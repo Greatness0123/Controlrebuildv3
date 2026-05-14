@@ -1,4 +1,4 @@
-﻿const fs = require('fs-extra');
+const fs = require('fs-extra');
 const path = require('path');
 const os = require('os');
 
@@ -77,7 +77,16 @@ class SettingsManager {
             remoteAccessEnabled: false,
             /** Optional: same origin as control_web API, e.g. https://your-app.com â€” used for remote desktop WebSocket relay if env BACKEND_URL is unset */
             controlBackendUrl: 'https://control.southafricanorth.cloudapp.azure.com',
-            userDetails: null
+            userDetails: null,
+            // Ghost Cursor settings for Click mode
+            ghostCursorEnabled: true,
+            ghostCursorColor: '#0078D4',
+            ghostCursorOutlineColor: '#FFFFFF',
+            ghostCursorOpacity: 100,
+            ghostCursorSize: 'medium',
+            ghostCursorBubbleBg: '#FFFFFF',
+            ghostCursorBubbleTextColor: '#000000',
+            ghostCursorCustomImage: null
         };
     }
 

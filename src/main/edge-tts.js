@@ -41,6 +41,9 @@ class EdgeTTSManager extends EventEmitter {
     }
 
     setVoice(voice) {
+        if (voice === undefined || voice === null || voice === '') {
+            voice = 'en-US-AriaNeural';
+        }
         this.voice = voice;
         console.log('[EdgeTTS] Voice set to:', voice);
     }

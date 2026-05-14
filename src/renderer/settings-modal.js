@@ -312,6 +312,7 @@ class SettingsModal {
 
         const toggleMap = {
             'borderStreakToggle': 'borderStreakEnabled',
+            'edgeGlowToggle': 'edgeGlowEnabled',
             'voiceResponseToggle': 'voiceResponse',
             'voiceToggle': 'voiceActivation',
             'autoSendToggle': 'autoSendAfterWakeWord',
@@ -362,6 +363,68 @@ class SettingsModal {
                 this.settings[id] = e.target.value;
                 this.saveSettings();
             });
+        });
+
+        // Ghost Cursor event listeners
+        document.getElementById('ghostCursorEnabled')?.addEventListener('change', (e) => {
+            this.settings.ghostCursorEnabled = e.target.checked;
+            this.saveSettings();
+        });
+
+        document.getElementById('ghostCursorColor')?.addEventListener('change', (e) => {
+            this.settings.ghostCursorColor = e.target.value;
+            this.saveSettings();
+        });
+
+        document.getElementById('ghostCursorOutlineColor')?.addEventListener('change', (e) => {
+            this.settings.ghostCursorOutlineColor = e.target.value;
+            this.saveSettings();
+        });
+
+        document.getElementById('ghostCursorOpacity')?.addEventListener('change', (e) => {
+            this.settings.ghostCursorOpacity = parseInt(e.target.value);
+            this.saveSettings();
+        });
+
+        document.getElementById('ghostCursorSize')?.addEventListener('change', (e) => {
+            this.settings.ghostCursorSize = e.target.value;
+            this.saveSettings();
+        });
+
+        document.getElementById('ghostCursorBubbleBg')?.addEventListener('change', (e) => {
+            this.settings.ghostCursorBubbleBg = e.target.value;
+            this.saveSettings();
+        });
+
+        document.getElementById('ghostCursorBubbleTextColor')?.addEventListener('change', (e) => {
+            this.settings.ghostCursorBubbleTextColor = e.target.value;
+            this.saveSettings();
+        });
+
+        document.getElementById('uploadCursorBtn')?.addEventListener('click', () => {
+            document.getElementById('ghostCursorCustomImage')?.click();
+        });
+
+        document.getElementById('ghostCursorCustomImage')?.addEventListener('change', async (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                if (file.size > 500 * 1024) {
+                    this.showToast('File too large. Max 500KB.', 'error');
+                    return;
+                }
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    this.settings.ghostCursorCustomImage = event.target.result;
+                    const previewRow = document.getElementById('cursorPreviewRow');
+                    const previewImg = document.getElementById('cursorPreviewImg');
+                    if (previewRow && previewImg) {
+                        previewRow.style.display = 'flex';
+                        previewImg.src = event.target.result;
+                    }
+                    this.saveSettings();
+                };
+                reader.readAsDataURL(file);
+            }
         });
 
         document.getElementById('ttsVoiceSelect')?.addEventListener('change', (e) => {
@@ -562,6 +625,7 @@ document.getElementById('deleteAllDataBtn')?.addEventListener('click', async () 
 
         const toggleMap = {
             'borderStreakToggle': 'borderStreakEnabled',
+            'edgeGlowToggle': 'edgeGlowEnabled',
             'voiceResponseToggle': 'voiceResponse',
             'voiceToggle': 'voiceActivation',
             'autoSendToggle': 'autoSendAfterWakeWord',
@@ -570,7 +634,8 @@ document.getElementById('deleteAllDataBtn')?.addEventListener('click', async () 
             'windowVisibilityToggle': 'windowVisibility',
             'autoStartToggle': 'openAtLogin',
             'floatingButtonToggle': 'floatingButtonVisible',
-            'remoteAccessToggle': 'remoteAccessEnabled'
+            'remoteAccessToggle': 'remoteAccessEnabled',
+            'ghostCursorEnabled': 'ghostCursorEnabled'
         };
 
         Object.keys(toggleMap).forEach(id => {
@@ -579,6 +644,29 @@ document.getElementById('deleteAllDataBtn')?.addEventListener('click', async () 
                 el.checked = !!this.settings[toggleMap[id]];
             }
         });
+
+        // Ghost cursor color and size settings
+        const ghostCursorColor = document.getElementById('ghostCursorColor');
+        if (ghostCursorColor) ghostCursorColor.value = this.settings.ghostCursorColor || '#0078D4';
+        const ghostCursorOutlineColor = document.getElementById('ghostCursorOutlineColor');
+        if (ghostCursorOutlineColor) ghostCursorOutlineColor.value = this.settings.ghostCursorOutlineColor || '#FFFFFF';
+        const ghostCursorOpacity = document.getElementById('ghostCursorOpacity');
+        if (ghostCursorOpacity) ghostCursorOpacity.value = this.settings.ghostCursorOpacity || 100;
+        const ghostCursorSize = document.getElementById('ghostCursorSize');
+        if (ghostCursorSize) ghostCursorSize.value = this.settings.ghostCursorSize || 'medium';
+        const ghostCursorBubbleBg = document.getElementById('ghostCursorBubbleBg');
+        if (ghostCursorBubbleBg) ghostCursorBubbleBg.value = this.settings.ghostCursorBubbleBg || '#FFFFFF';
+        const ghostCursorBubbleTextColor = document.getElementById('ghostCursorBubbleTextColor');
+        if (ghostCursorBubbleTextColor) ghostCursorBubbleTextColor.value = this.settings.ghostCursorBubbleTextColor || '#000000';
+        
+        if (this.settings.ghostCursorCustomImage) {
+            const previewRow = document.getElementById('cursorPreviewRow');
+            const previewImg = document.getElementById('cursorPreviewImg');
+            if (previewRow && previewImg) {
+                previewRow.style.display = 'flex';
+                previewImg.src = this.settings.ghostCursorCustomImage;
+            }
+        }
 
         const providerInputs = [
             'geminiApiKey', 'geminiModel', 'openaiApiKey', 'openaiModel', 'openaiBaseUrl',

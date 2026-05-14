@@ -718,7 +718,7 @@
     </style>
 </head>
 
-<body class="dark-mode">
+<body>
     <div class="settings-window">
         <aside class="sidebar">
             <div class="sidebar-item active" data-tab="account">
@@ -843,6 +843,16 @@
                         </div>
                         <label class="switch">
                             <input type="checkbox" id="borderStreakToggle">
+                            <span class="slider"></span>
+                        </label>
+                    </div>
+                    <div class="setting-row">
+                        <div class="setting-info">
+                            <div class="setting-name">Edge Glow</div>
+                            <div class="setting-desc">Glow effect on window edges when task is active</div>
+                        </div>
+                        <label class="switch">
+                            <input type="checkbox" id="edgeGlowToggle">
                             <span class="slider"></span>
                         </label>
                     </div>
@@ -1310,6 +1320,76 @@
                                 <input type="checkbox" id="floatingButtonToggle">
                                 <span class="slider"></span>
                             </label>
+                        </div>
+                    </div>
+
+                    <div class="section-title"><i class="fas fa-mouse-pointer"></i> Ghost Cursor</div>
+                    <div class="setting-card">
+                        <div class="setting-row">
+                            <div class="setting-info">
+                                <div class="setting-name">Enable Ghost Cursor</div>
+                                <div class="setting-desc">Show ghost cursor that follows your mouse in Click mode</div>
+                            </div>
+                            <label class="switch">
+                                <input type="checkbox" id="ghostCursorEnabled">
+                                <span class="slider"></span>
+                            </label>
+                        </div>
+                        <div class="setting-row">
+                            <div class="setting-info">
+                                <div class="setting-name">Cursor Color</div>
+                            </div>
+                            <input type="color" id="ghostCursorColor" value="#0078D4" style="width: 40px; height: 30px; border: none; cursor: pointer;">
+                        </div>
+                        <div class="setting-row">
+                            <div class="setting-info">
+                                <div class="setting-name">Cursor Outline</div>
+                            </div>
+                            <input type="color" id="ghostCursorOutlineColor" value="#FFFFFF" style="width: 40px; height: 30px; border: none; cursor: pointer;">
+                        </div>
+                        <div class="setting-row">
+                            <div class="setting-info">
+                                <div class="setting-name">Cursor Opacity</div>
+                            </div>
+                            <input type="range" id="ghostCursorOpacity" min="0" max="100" value="100" style="width: 100px;">
+                        </div>
+                        <div class="setting-row">
+                            <div class="setting-info">
+                                <div class="setting-name">Cursor Size</div>
+                            </div>
+                            <select id="ghostCursorSize" style="padding: 6px 12px; border-radius: 6px; border: 1px solid var(--border-color); background: var(--bg-tertiary); color: var(--text-primary);">
+                                <option value="small">Small</option>
+                                <option value="medium" selected>Medium</option>
+                                <option value="large">Large</option>
+                            </select>
+                        </div>
+                        <div class="setting-row">
+                            <div class="setting-info">
+                                <div class="setting-name">Text Bubble Background</div>
+                            </div>
+                            <input type="color" id="ghostCursorBubbleBg" value="#FFFFFF" style="width: 40px; height: 30px; border: none; cursor: pointer;">
+                        </div>
+                        <div class="setting-row">
+                            <div class="setting-info">
+                                <div class="setting-name">Text Bubble Text Color</div>
+                            </div>
+                            <input type="color" id="ghostCursorBubbleTextColor" value="#000000" style="width: 40px; height: 30px; border: none; cursor: pointer;">
+                        </div>
+                        <div class="setting-row">
+                            <div class="setting-info">
+                                <div class="setting-name">Custom Cursor Image</div>
+                                <div class="setting-desc">Upload PNG, SVG, or JPG (max 500KB)</div>
+                            </div>
+                            <input type="file" id="ghostCursorCustomImage" accept="image/png,image/svg+image/jpeg" style="display: none;">
+                            <button class="btn btn-secondary" id="uploadCursorBtn" style="padding: 6px 12px; font-size: 12px;">Upload</button>
+                        </div>
+                        <div class="setting-row" id="cursorPreviewRow" style="display: none;">
+                            <div class="setting-info">
+                                <div class="setting-name">Preview</div>
+                            </div>
+                            <div style="width: 48px; height: 48px; border: 1px solid var(--border-color); border-radius: 4px; display: flex; align-items: center; justify-content: center; overflow: hidden;">
+                                <img id="cursorPreviewImg" style="max-width: 100%; max-height: 100%;">
+                            </div>
                         </div>
                     </div>
 

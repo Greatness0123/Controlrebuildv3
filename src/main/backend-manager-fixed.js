@@ -2,6 +2,7 @@ const path = require('path');
 const fs = require('fs');
 const ActBackend = require('./backends/act-backend');
 const AskBackend = require('./backends/ask-backend');
+const ClickBackend = require('./backends/click-backend');
 const { EventEmitter } = require('events');
 
 class BackendManager extends EventEmitter {
@@ -9,6 +10,7 @@ class BackendManager extends EventEmitter {
         super();
         this.actBackend = null;
         this.askBackend = null;
+        this.clickBackend = null;
         this.isRunning = false;
         this.isReady = false;
         this.currentTask = null;
@@ -105,10 +107,23 @@ class BackendManager extends EventEmitter {
             this.broadcastToWindows('task-complete', data);
             this.hideVisualEffects();
             if (global.windowManager) {
+                global.windowManager.hideGhostCursor();
                 setTimeout(async () => {
                     await global.windowManager.showWindow('chat');
                 }, 500);
             }
+        });
+
+        this.messageHandlers.set('step_start', (data) => {
+            this.broadcastToWindows('click-step-start', data);
+            if (global.windowManager) {
+                global.windowManager.showGhostCursor();
+                global.windowManager.setGhostCursorGuiding(true);
+            }
+        });
+
+        this.messageHandlers.set('step_complete', (data) => {
+            this.broadcastToWindows('click-step-complete', data);
         });
 
         this.messageHandlers.set('error', (data, source) => {
@@ -148,12 +163,14 @@ async startBackend() {
             const defaultModel = modelSettings?.selectedModel || 'gemini-2.5-flash';
             const apiKey = cachedKeys?.gemini || process.env.GEMINI_API_KEY;
             
-            this.actBackend = new ActBackend();
+this.actBackend = new ActBackend();
             this.askBackend = new AskBackend();
+            this.clickBackend = new ClickBackend();
             
             // Initialize with correct model at startup
             this.actBackend.setupGeminiAPI(apiKey, defaultModel);
             this.askBackend.setupGeminiAPI(apiKey, defaultModel);
+            this.clickBackend.setupGeminiAPI(apiKey, defaultModel);
 
             this.isRunning = true;
             this.isReady = true;
@@ -192,8 +209,8 @@ async startBackend() {
             if (!this.isRunning) throw new Error('Backends not running');
         }
 
-        const backend = mode === 'ask' ? this.askBackend : this.actBackend;
-        const targetLabel = mode === 'ask' ? 'ASK' : 'ACT';
+        const backend = mode === 'ask' ? (this.askBackend) : (mode === 'click' ? this.clickBackend : this.actBackend);
+        const targetLabel = mode === 'ask' ? 'ASK' : (mode === 'click' ? 'CLICK' : 'ACT');
 
         if (!backend) throw new Error(`${targetLabel} backend is not initialized`);
 
@@ -258,6 +275,18 @@ this.currentTask = task.text;
                 backend.setTaskPlan(task.taskPlan, { workflowName: task.workflowName });
             }
 
+            // Special handling for Click backend - it has its own executeTask method
+            if (mode === 'click' && backend.executeTask) {
+                // Get API key from task
+                const clickApiKey = task.api_key || task.apiKey;
+                if (clickApiKey && !backend.model) {
+                    backend.setupGeminiAPI(clickApiKey, 'gemini-2.5-flash');
+                }
+                await backend.executeTask(task.text, onResponse, onError, onEvent);
+                this.currentTask = null;
+                return { success: true, task };
+            }
+
             await backend.processRequest(task.text, processedAttachments, (typeOrData, data) => {
                 if (typeof typeOrData === 'string') {
                     onEvent(typeOrData, data);
@@ -293,6 +322,10 @@ this.currentTask = task.text;
             try { if (this.askBackend.stopTask) this.askBackend.stopTask(); } catch (e) { }
         }
 
+        if (this.clickBackend) {
+            try { if (this.clickBackend.stopTask) this.clickBackend.stopTask(); } catch (e) { }
+        }
+
         const task = this.currentTask || 'Current Task';
         this.currentTask = null;
 
@@ -313,6 +346,7 @@ this.currentTask = task.text;
         this.isRunning = false;
         this.actBackend = null;
         this.askBackend = null;
+        this.clickBackend = null;
         this.currentTask = null;
     }
 

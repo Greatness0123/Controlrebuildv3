@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ghost Cursor Overlay</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            width: 100vw;
+            height: 100vh;
+            overflow: hidden;
+            background: transparent;
+            cursor: none;
+        }
+
+        #ghostCursor {
+            position: fixed;
+            width: 32px;
+            height: 32px;
+            pointer-events: none;
+            z-index: 999999;
+            transition: transform 0.15s ease-out, opacity 0.15s ease-out;
+        }
+
+        #ghostCursor.hidden {
+            opacity: 0;
+        }
+
+        #cursorSvg {
+            width: 100%;
+            height: 100%;
+        }
+
+        #textBubble {
+            position: fixed;
+            max-width: 300px;
+            padding: 12px 16px;
+            border-radius: 12px;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            font-size: 14px;
+            line-height: 1.4;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+            z-index: 999998;
+            transition: opacity 0.2s ease, transform 0.15s ease-out;
+            word-wrap: break-word;
+            background: #FFFFFF;
+            color: #000000;
+        }
+
+        #textBubble.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        #textBubble::after {
+            content: '';
+            position: absolute;
+            width: 12px;
+            height: 12px;
+            background: inherit;
+            transform: rotate(45deg);
+        }
+
+        #textBubble.above::after {
+            bottom: -6px;
+            left: 50%;
+            margin-left: -6px;
+        }
+
+        #textBubble.below::after {
+            top: -6px;
+            left: 50%;
+            margin-left: -6px;
+        }
+
+        #textBubble.left::after {
+            right: -6px;
+            top: 50%;
+            margin-top: -6px;
+        }
+
+        #textBubble.right::after {
+            left: -6px;
+            top: 50%;
+            margin-top: -6px;
+        }
+
+        #doneButton {
+            display: inline-block;
+            margin-top: 8px;
+            padding: 6px 12px;
+            background: rgba(0, 120, 212, 0.1);
+            border: 1px solid rgba(0, 120, 212, 0.3);
+            border-radius: 6px;
+            color: inherit;
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        #doneButton:hover {
+            background: rgba(0, 120, 212, 0.2);
+            border-color: rgba(0, 120, 212, 0.5);
+        }
+
+        #customCursorImg {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div id="ghostCursor" class="hidden">
+        <svg id="cursorSvg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="28" height="28">
+            <path d="M4.037 4.688a.495.495 0 0 1 .651-.651l16 6.5a.5.5 0 0 1-.063.947l-6.124 1.58a2 2 0 0 0-1.438 1.435l-1.579 6.126a.5.5 0 0 1-.947.063z" fill="#1c1c1e" stroke="#ffffff" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.2"/>
+        </svg>
+        <img id="customCursorImg" alt="Custom cursor">
+    </div>
+    
+    <div id="textBubble" class="hidden above">
+        <span id="instructionText"></span>
+        <button id="doneButton">Done</button>
+    </div>
+
+    <script>
+        const ghostCursor = document.getElementById('ghostCursor');
+        const cursorSvg = document.getElementById('cursorSvg');
+        const cursorPath = document.getElementById('cursorPath');
+        const customCursorImg = document.getElementById('customCursorImg');
+        const textBubble = document.getElementById('textBubble');
+        const instructionText = document.getElementById('instructionText');
+        const doneButton = document.getElementById('doneButton');
+
+        let currentX = 0;
+        let currentY = 0;
+        let targetX = 0;
+        let targetY = 0;
+        let mouseX = 0;
+        let mouseY = 0;
+        let isGuiding = false;
+        let isIdleFollowing = false;
+        let animationFrame = null;
+
+        const settings = {
+            cursorColor: '#0078D4',
+            cursorOutlineColor: '#FFFFFF',
+            cursorOpacity: 100,
+            cursorSize: 'medium',
+            bubbleBg: '#FFFFFF',
+            bubbleTextColor: '#000000',
+            customImage: null
+        };
+
+        const sizeMap = {
+            small: 20,
+            medium: 28,
+            large: 40
+        };
+
+        function applySettings(newSettings) {
+            Object.assign(settings, newSettings);
+            
+            const size = sizeMap[settings.cursorSize] || 32;
+            ghostCursor.style.width = size + 'px';
+            ghostCursor.style.height = size + 'px';
+            
+            ghostCursor.style.opacity = settings.cursorOpacity / 100;
+            
+            if (settings.customImage) {
+                customCursorImg.src = settings.customImage;
+                customCursorImg.style.display = 'block';
+                cursorSvg.style.display = 'none';
+            } else {
+                customCursorImg.style.display = 'none';
+                cursorSvg.style.display = 'block';
+                cursorPath.setAttribute('fill', settings.cursorColor);
+                cursorPath.setAttribute('stroke', settings.cursorOutlineColor);
+            }
+
+            textBubble.style.background = settings.bubbleBg;
+            textBubble.style.color = settings.bubbleTextColor;
+        }
+
+        function animate() {
+            const dx = targetX - currentX;
+            const dy = targetY - currentY;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+            
+            if (distance > 1) {
+                // Faster easing for more responsive following
+                const easing = 0.35;
+                currentX += dx * easing;
+                currentY += dy * easing;
+            } else {
+                currentX = targetX;
+                currentY = targetY;
+            }
+
+            // Offset cursor so pointer tip aligns with actual position
+            ghostCursor.style.left = (currentX - 4) + 'px';
+            ghostCursor.style.top = (currentY - 4) + 'px';
+
+            updateBubblePosition();
+
+            if (isGuiding || isIdleFollowing) {
+                animationFrame = requestAnimationFrame(animate);
+            }
+        }
+
+        function updateBubblePosition() {
+            const cursorRect = ghostCursor.getBoundingClientRect();
+            const bubbleRect = textBubble.getBoundingClientRect();
+            const viewportWidth = window.innerWidth;
+            const viewportHeight = window.innerHeight;
+            const padding = 10;
+
+            let bubbleX = cursorRect.right + 15;
+            let bubbleY = cursorRect.top;
+            let position = 'left';
+
+            if (bubbleX + bubbleRect.width > viewportWidth - padding) {
+                bubbleX = cursorRect.left - bubbleRect.width - 15;
+                position = 'right';
+            }
+
+            if (bubbleX < padding) {
+                bubbleX = padding;
+            }
+
+            if (bubbleY + bubbleRect.height > viewportHeight - padding) {
+                bubbleY = viewportHeight - bubbleRect.height - padding;
+            }
+            
+            if (bubbleY < padding) {
+                bubbleY = padding;
+            }
+
+            textBubble.style.left = bubbleX + 'px';
+            textBubble.style.top = bubbleY + 'px';
+            
+            textBubble.classList.remove('above', 'below', 'left', 'right');
+            textBubble.classList.add(position);
+        }
+
+        function moveTo(x, y, show = true) {
+            targetX = x;
+            targetY = y;
+            
+            if (show && ghostCursor.classList.contains('hidden')) {
+                ghostCursor.classList.remove('hidden');
+            }
+            
+            if ((isGuiding || isIdleFollowing) && !animationFrame) {
+                animate();
+            }
+        }
+
+        function showText(text, showDoneButton = true) {
+            instructionText.textContent = text;
+            doneButton.style.display = showDoneButton ? 'inline-block' : 'none';
+            textBubble.classList.remove('hidden');
+            updateBubblePosition();
+        }
+
+        function hideText() {
+            textBubble.classList.add('hidden');
+        }
+
+        function setGuiding(guiding) {
+            isGuiding = guiding;
+            
+            if (guiding) {
+                // Guiding mode - show text bubble, move to AI-directed position
+                stopIdleFollowing();
+                textBubble.classList.remove('hidden');
+                if (!animationFrame) {
+                    animate();
+                }
+            } else {
+                // Idle mode - follow user's mouse
+                startIdleFollowing();
+            }
+        }
+
+        function startIdleFollowing() {
+            isIdleFollowing = true;
+            ghostCursor.classList.remove('hidden');
+            textBubble.classList.add('hidden');
+            
+            // Immediately get current mouse position
+            targetX = mouseX;
+            targetY = mouseY;
+            currentX = targetX;
+            currentY = targetY;
+            
+            // Remove any existing listener to avoid duplicates
+            document.removeEventListener('mousemove', onMouseMove);
+            document.addEventListener('mousemove', onMouseMove);
+            
+            // Cancel existing animation and start fresh
+            if (animationFrame) {
+                cancelAnimationFrame(animationFrame);
+                animationFrame = null;
+            }
+            animate();
+        }
+
+        function stopIdleFollowing() {
+            isIdleFollowing = false;
+            document.removeEventListener('mousemove', onMouseMove);
+            
+            if (!isGuiding) {
+                ghostCursor.classList.add('hidden');
+                textBubble.classList.add('hidden');
+            }
+        }
+
+        function onMouseMove(e) {
+            mouseX = e.clientX;
+            mouseY = e.clientY;
+            if (isIdleFollowing && !isGuiding) {
+                targetX = e.clientX;
+                targetY = e.clientY;
+            }
+        }
+
+        function onMouseMoveFromIPC(data) {
+            mouseX = data.x;
+            mouseY = data.y;
+            if (isIdleFollowing && !isGuiding) {
+                targetX = data.x;
+                targetY = data.y;
+            }
+        }
+
+        doneButton.addEventListener('click', () => {
+            window.ghostCursorAPI.sendStepComplete();
+        });
+
+        if (window.ghostCursorAPI) {
+            window.ghostCursorAPI.onMove((data) => {
+                moveTo(data.x, data.y);
+            });
+
+            window.ghostCursorAPI.onUpdateText((data) => {
+                showText(data.text, data.target !== null);
+            });
+
+            window.ghostCursorAPI.onSetGuiding((data) => {
+                setGuiding(data.guiding);
+            });
+
+            window.ghostCursorAPI.onInitSettings && window.ghostCursorAPI.onInitSettings((data) => {
+                applySettings(data);
+            });
+
+            window.ghostCursorAPI.onStartIdle(() => {
+                // Start idle following when cursor is shown
+                startIdleFollowing();
+            });
+
+            window.ghostCursorAPI.onMouseMove((data) => {
+                onMouseMoveFromIPC(data);
+            });
+        }
+
+        if (window.ghostCursorAPI && window.ghostCursorAPI.requestInitSettings) {
+            window.ghostCursorAPI.requestInitSettings();
+        }
+
+        window.addEventListener('resize', () => {
+            if (isGuiding) {
+                updateBubblePosition();
+            }
+        });
+    </script>
+</body>
+</html>

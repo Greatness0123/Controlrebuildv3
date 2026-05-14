@@ -1226,6 +1226,59 @@ if (this.appSettings.workflowTriggersEnabled !== false && task.text && !task.ski
             return this.backendManager.stopTask();
         });
 
+        ipcMain.on('ghost-cursor:step-completed', () => {
+            console.log('[Main] Ghost cursor step completed');
+            if (this.backendManager.clickBackend) {
+                this.backendManager.clickBackend.completeCurrentStep();
+            }
+        });
+
+        ipcMain.handle('show-ghost-cursor', () => {
+            if (this.windowManager) {
+                this.windowManager.showGhostCursor();
+            }
+            return { success: true };
+        });
+
+        ipcMain.handle('hide-ghost-cursor', () => {
+            if (this.windowManager) {
+                this.windowManager.hideGhostCursor();
+            }
+            return { success: true };
+        });
+
+        ipcMain.handle('update-ghost-cursor', (event, data) => {
+            if (this.windowManager) {
+                if (data.x !== undefined && data.y !== undefined) {
+                    this.windowManager.moveGhostCursor(data.x, data.y);
+                }
+                if (data.text !== undefined) {
+                    this.windowManager.updateGhostCursorText(data.text);
+                }
+                if (data.guiding !== undefined) {
+                    this.windowManager.setGhostCursorGuiding(data.guiding);
+                }
+            }
+            return { success: true };
+        });
+
+        ipcMain.handle('init-ghost-cursor-settings', () => {
+            if (this.windowManager && this.windowManager.ghostCursorWindow) {
+                const settings = this.appSettings;
+                this.windowManager.ghostCursorWindow.webContents.send('ghost-cursor:init-settings', {
+                    cursorColor: settings.ghostCursorColor || '#0078D4',
+                    cursorOutlineColor: settings.ghostCursorOutlineColor || '#FFFFFF',
+                    cursorOpacity: settings.ghostCursorOpacity || 100,
+                    cursorSize: settings.ghostCursorSize || 'medium',
+                    bubbleBg: settings.ghostCursorBubbleBg || '#FFFFFF',
+                    bubbleTextColor: settings.ghostCursorBubbleTextColor || '#000000',
+                    customImage: settings.ghostCursorCustomImage || null,
+                    enabled: settings.ghostCursorEnabled !== false
+                });
+            }
+            return { success: true };
+        });
+
         ipcMain.handle('confirm-action', (event, confirmed) => {
             console.log('[Main] Action confirmation received:', confirmed);
             if (this.backendManager.actBackend) {

@@ -57,5 +57,13 @@ contextBridge.exposeInMainWorld('chatAPI', {
 
     showWindow: (windowType) => ipcRenderer.invoke('show-window', windowType),
 
+    showGhostCursor: () => ipcRenderer.invoke('show-ghost-cursor'),
+    hideGhostCursor: () => ipcRenderer.invoke('hide-ghost-cursor'),
+    updateGhostCursor: (data) => ipcRenderer.invoke('update-ghost-cursor', data),
+
+    onClickStepStart: (callback) => ipcRenderer.on('click-step-start', callback),
+    onClickStepComplete: (callback) => ipcRenderer.on('click-step-complete', callback),
+    onClickTaskComplete: (callback) => ipcRenderer.on('click-task-complete', callback),
+
     removeAllListeners: (channel) => ipcRenderer.removeAllListeners(channel),
 });
