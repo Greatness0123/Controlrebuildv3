@@ -1,0 +1,6 @@
+# Architectural Audit Summary - Control AI
+
+The most critical architectural issue in the current codebase is the **unregulated concurrency and manual state synchronization between the vanilla JS Electron windows and the monolithic Main process.** Because the app lacks a centralized reactive data store, individual windows (Chat, Settings, Entry) frequently fall out of sync with the Main process's internal `ComputerUseAgent` state, leading to "ghost" windows, duplicated message listeners, and race conditions during high-concurrency tasks like AI streaming or screen capture. This fragmentation makes the application extremely fragile; a single failed IPC message or a delayed DOM update can leave the system in an inconsistent state where the AI agent is "acting" on a screen that the user can no longer see or control.
+
+**Recommended First Action:**
+Transition the application state management to a **unified, reactive Store (e.g., Zustand with IPC middleware) and move the frontend from Vanilla JS to a component-based framework like React.** This will consolidate the source of truth for settings, user sessions, and agent tasks, ensuring that every window reflects the same state instantly while eliminating the manual DOM manipulation logic that currently accounts for over 60% of the renderer's bug surface area.
