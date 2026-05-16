@@ -10,6 +10,9 @@ export const useTaskExecution = () => {
     finalizeStream,
     setProcessing,
     setMode,
+    addActionStep,
+    updateActionStep,
+    clearActions,
   } = useChatStore();
 
   const executeTask = useCallback(async (text: string, mode: 'ask' | 'act' | 'click' = 'act') => {
@@ -17,6 +20,7 @@ export const useTaskExecution = () => {
 
     setProcessing(true);
     setMode(mode);
+    clearActions();
 
     // Add user message optimistically
     addMessage(activeSessionId, {
@@ -33,7 +37,7 @@ export const useTaskExecution = () => {
       console.error('Task execution failed:', error);
       setProcessing(false);
     }
-  }, [activeSessionId, addMessage, setProcessing, setMode]);
+  }, [activeSessionId, addMessage, setProcessing, setMode, clearActions]);
 
   const stopTask = useCallback(async () => {
     await window.chatAPI.stopTask();
@@ -49,6 +53,28 @@ export const useTaskExecution = () => {
 
     const unsubResponse = window.chatAPI.onAIResponse((_, data) => {
       finalizeStream(activeSessionId, crypto.randomUUID());
+    });
+
+    const unsubActionStart = window.chatAPI.onActionStart((_, data) => {
+      addActionStep({
+        step: 0,
+        description: data.tool,
+        status: 'running'
+      });
+    });
+
+    const unsubActionStep = window.chatAPI.onActionStep((_, data) => {
+       // Logic to update existing or add new step would go here
+       // For parity with Phase 2 definitions:
+       updateActionStep(data.step - 1, {
+         status: 'running',
+         description: data.description
+       });
+    });
+
+    const unsubActionComplete = window.chatAPI.onActionComplete((_, data) => {
+       // Find last running action and complete it
+       updateActionStep(0, { status: 'completed' }); // Simplified for phase 3 shell
     });
 
     const unsubTaskComplete = window.chatAPI.onTaskComplete(() => {
@@ -67,11 +93,14 @@ export const useTaskExecution = () => {
     return () => {
       unsubStream();
       unsubResponse();
+      unsubActionStart();
+      unsubActionStep();
+      unsubActionComplete();
       unsubTaskComplete();
       unsubTaskStopped();
       unsubError();
     };
-  }, [activeSessionId, appendStreamChunk, finalizeStream, setProcessing]);
+  }, [activeSessionId, appendStreamChunk, finalizeStream, setProcessing, addActionStep, updateActionStep]);
 
   return { executeTask, stopTask };
 };

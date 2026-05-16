@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { persist, devtools } from 'zustand/middleware';
 import { immer } from 'zustand/middleware/immer';
-import { Step } from '../types/chat';
+import { Step, Action } from '../types/chat';
 
 export interface Message {
   role: 'user' | 'assistant' | 'system';
@@ -23,7 +23,7 @@ interface ChatState {
   messages: Record<string, Message[]>; // Keyed by sessionId
   streamingContent: string;
   isProcessing: boolean;
-  currentActions: any[];
+  currentActions: Step[];
   mode: 'ask' | 'act' | 'click';
 }
 
@@ -38,6 +38,10 @@ interface ChatActions {
   setMode: (mode: 'ask' | 'act' | 'click') => void;
   deleteSession: (id: string) => void;
   clearMessages: (sessionId: string) => void;
+  // Action Timeline
+  addActionStep: (step: Step) => void;
+  updateActionStep: (index: number, update: Partial<Step>) => void;
+  clearActions: () => void;
 }
 
 export const useChatStore = create<ChatState & ChatActions>()(
@@ -112,6 +116,23 @@ export const useChatStore = create<ChatState & ChatActions>()(
         clearMessages: (sessionId) =>
           set((state) => {
             state.messages[sessionId] = [];
+          }),
+
+        addActionStep: (step) =>
+          set((state) => {
+            state.currentActions.push(step);
+          }),
+
+        updateActionStep: (index, update) =>
+          set((state) => {
+            if (state.currentActions[index]) {
+              Object.assign(state.currentActions[index], update);
+            }
+          }),
+
+        clearActions: () =>
+          set((state) => {
+            state.currentActions = [];
           }),
       })),
       {
