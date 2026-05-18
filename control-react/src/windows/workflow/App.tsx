@@ -6,6 +6,7 @@ import { Icon } from '../../components/shared/Icon';
 import { Button } from '../../components/shared/Button';
 import { Input } from '../../components/shared/Input';
 import { ScrollArea } from '../../components/shared/ScrollArea';
+import { Tooltip } from '../../components/shared/Tooltip';
 
 export default function WorkflowApp() {
   const { workflows, activeWorkflowId, setActiveWorkflow, addWorkflow, updateWorkflow } = useWorkflowStore();
@@ -35,6 +36,39 @@ export default function WorkflowApp() {
       updateWorkflow({ ...activeWorkflow, steps: updatedSteps });
     }
     setIsAddingStep(false);
+  };
+
+  const handleExport = async () => {
+    if (activeWorkflowId) {
+      const res = await window.workflowAPI.exportWorkflow(activeWorkflowId);
+      if (res && res.success) {
+        alert('Workflow exported successfully');
+      }
+    }
+  };
+
+  const handleRun = async () => {
+    if (activeWorkflowId) {
+      await window.workflowAPI.executeWorkflow(activeWorkflowId);
+      window.chatAPI.showWindow('chat');
+    }
+  };
+
+  const handleSave = async () => {
+    if (activeWorkflow) {
+      await window.workflowAPI.saveWorkflow(activeWorkflow);
+    }
+  };
+
+  const handleImport = async () => {
+    const res = await window.workflowAPI.importWorkflow();
+    if (res && res.success) {
+      // Stores will auto-sync via listeners in Phase 5 wiring or manual refresh
+      window.workflowAPI.getAllWorkflows().then(wfs => {
+        // useWorkflowStore.getState().setWorkflows(wfs);
+        // For now, reload session or assume main process broadcast
+      });
+    }
   };
 
   return (
@@ -88,8 +122,9 @@ export default function WorkflowApp() {
                 </AnimatePresence>
                </div>
             </Tooltip>
-            <Button variant="primary" size="sm" iconLeft="Play">Run</Button>
-            <Button variant="ghost" size="sm" iconLeft="Save">Save</Button>
+            <Button variant="primary" size="sm" iconLeft="Play" onClick={handleRun}>Run</Button>
+            <Button variant="ghost" size="sm" iconLeft="Save" onClick={handleSave}>Save</Button>
+            <Button variant="ghost" size="sm" iconLeft="Download" onClick={handleExport}>Export</Button>
           </div>
 
           <div className="flex items-center gap-1 border-l border-border-subtle pl-6">
@@ -184,9 +219,14 @@ export default function WorkflowApp() {
       <div className="w-[300px] bg-bg-surface border-l border-border-strong flex flex-col shadow-2xl relative z-40">
         <header className="h-16 px-6 border-b border-border-subtle flex items-center justify-between">
            <h4 className="text-[10px] font-black uppercase tracking-widest text-text-muted">My Workflows</h4>
-           <button onClick={handleAddWorkflow} className="p-2 rounded-lg hover:bg-white/5 text-text-muted hover:text-white transition-colors">
-             <Icon name="Plus" size="sm" />
-           </button>
+           <div className="flex items-center gap-1">
+             <button onClick={handleImport} className="p-2 rounded-lg hover:bg-white/5 text-text-muted hover:text-white transition-colors" title="Import Workflows">
+               <Icon name="Upload" size="sm" />
+             </button>
+             <button onClick={handleAddWorkflow} className="p-2 rounded-lg hover:bg-white/5 text-text-muted hover:text-white transition-colors" title="New Workflow">
+               <Icon name="Plus" size="sm" />
+             </button>
+           </div>
         </header>
         <ScrollArea className="flex-1 p-3 space-y-1">
           {workflows.map(wf => (

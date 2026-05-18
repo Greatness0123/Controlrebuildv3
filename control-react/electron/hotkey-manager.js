@@ -7,11 +7,12 @@ class HotkeyManager {
     }
 
     setupHotkeys(customHotkeys = null) {
-
-        const hotkeys = customHotkeys || {
+        this.lastHotkeys = customHotkeys || this.lastHotkeys || {
             toggleChat: 'CommandOrControl+Space',
             stopAction: 'Alt+Z'
         };
+
+        const hotkeys = this.lastHotkeys;
 
         console.log('Setting up hotkeys:', hotkeys);
 
@@ -76,6 +77,13 @@ class HotkeyManager {
         globalShortcut.unregisterAll();
         this.shortcuts.clear();
         console.log('All global hotkeys unregistered');
+    }
+
+    reRegisterAll() {
+        if (process.platform !== 'darwin') return;
+        console.log('[HotkeyManager] Re-registering all shortcuts (macOS focus recovery)');
+        this.unregisterAll();
+        this.setupHotkeys(this.lastHotkeys);
     }
 
     enable() {

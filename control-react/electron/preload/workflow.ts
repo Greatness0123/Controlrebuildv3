@@ -8,6 +8,7 @@ const workflowAPI: WorkflowAPI = {
   toggleWorkflow: (id, enabled) => ipcRenderer.invoke('toggle-workflow', id, enabled),
   executeWorkflow: (id) => ipcRenderer.invoke('execute-workflow', id),
   exportWorkflow: (id) => ipcRenderer.invoke('export-workflow', id),
+  importWorkflow: () => ipcRenderer.invoke('import-workflow'),
   pickItem: (type) => ipcRenderer.invoke('pick-item', type),
   getInstalledApps: () => ipcRenderer.invoke('get-installed-apps'),
   getCachedApps: () => ipcRenderer.invoke('get-cached-apps'),

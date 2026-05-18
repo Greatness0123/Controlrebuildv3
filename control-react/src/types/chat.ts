@@ -1,6 +1,14 @@
+export interface Attachment {
+  name: string;
+  type: string;
+  size: number;
+  data: number[];
+  thumbnail?: string;
+}
+
 export interface TaskPayload {
   text: string;
-  attachments?: string[];
+  attachments?: Attachment[];
   mode?: 'ask' | 'act' | 'click';
   skipWorkflowCheck?: boolean;
   api_key?: string;
@@ -24,6 +32,8 @@ export interface Step {
   step: number;
   description: string;
   status: 'pending' | 'running' | 'completed' | 'failed';
+  tool?: string;
+  screenshot?: string;
 }
 
 export interface LearnedBehavior {

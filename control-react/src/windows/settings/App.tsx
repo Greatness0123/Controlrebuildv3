@@ -40,6 +40,13 @@ export default function SettingsApp() {
     { id: 'openrouter', name: 'OpenRouter' },
   ];
 
+  const handleImportSkill = async () => {
+    const res = await window.chatAPI.importSkill();
+    if (res && res.success) {
+      alert(`Imported ${res.count} skills`);
+    }
+  };
+
   return (
     <div className="flex h-screen bg-bg-base text-text-primary overflow-hidden border-l border-border-strong select-none">
       {/* Sidebar Navigation */}
@@ -209,11 +216,33 @@ export default function SettingsApp() {
                 </motion.div>
               )}
 
-              {/* Other tabs follow similar pattern */}
-              <motion.div className="py-20 text-center opacity-20">
-                 <Icon name="Construction" size={48} className="mx-auto mb-4" />
-                 <p className="text-xs uppercase font-bold tracking-widest">Additional settings tabs coming soon</p>
-              </motion.div>
+              {activeTab === 'advanced' && (
+                <motion.div key="advanced" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-8">
+                  <section className="space-y-4">
+                    <h4 className="text-[11px] font-bold uppercase tracking-widest text-text-muted">Data Management</h4>
+                    <div className="grid grid-cols-2 gap-4">
+                       <div className="p-6 bg-bg-surface border border-border-subtle rounded-xl space-y-4">
+                          <div className="text-sm font-medium">Custom Skills</div>
+                          <p className="text-xs text-text-muted">Import learned behaviors from JSON or Markdown files.</p>
+                          <Button variant="ghost" size="sm" iconLeft="Download" onClick={handleImportSkill}>Import Skills</Button>
+                       </div>
+                       <div className="p-6 bg-bg-surface border border-border-subtle rounded-xl space-y-4">
+                          <div className="text-sm font-medium">Export Workspace</div>
+                          <p className="text-xs text-text-muted">Export all settings and workflows to a portable file.</p>
+                          <Button variant="ghost" size="sm" iconLeft="Upload">Export Data</Button>
+                       </div>
+                    </div>
+                  </section>
+                </motion.div>
+              )}
+
+              {/* Default empty state for other tabs */}
+              {!['general', 'models', 'security', 'advanced'].includes(activeTab) && (
+                <motion.div className="py-20 text-center opacity-20">
+                  <Icon name="Construction" size={48} className="mx-auto mb-4" />
+                  <p className="text-xs uppercase font-bold tracking-widest">Additional settings tabs coming soon</p>
+                </motion.div>
+              )}
             </AnimatePresence>
           </div>
         </ScrollArea>

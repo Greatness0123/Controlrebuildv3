@@ -1,6 +1,6 @@
 import { useEffect, useCallback } from 'react';
 import { useChatStore } from '../stores/chatStore';
-import { TaskPayload } from '../types/chat';
+import { TaskPayload, Attachment } from '../types/chat';
 
 export const useTaskExecution = () => {
   const {
@@ -15,7 +15,7 @@ export const useTaskExecution = () => {
     clearActions,
   } = useChatStore();
 
-  const executeTask = useCallback(async (text: string, mode: 'ask' | 'act' | 'click' = 'act') => {
+  const executeTask = useCallback(async (text: string, mode: 'ask' | 'act' | 'click' = 'act', attachments: Attachment[] = []) => {
     if (!activeSessionId) return;
 
     setProcessing(true);
@@ -31,7 +31,7 @@ export const useTaskExecution = () => {
     });
 
     try {
-      const payload: TaskPayload = { text, mode };
+      const payload: TaskPayload = { text, mode, attachments };
       await window.chatAPI.executeTask(payload, mode);
     } catch (error) {
       console.error('Task execution failed:', error);

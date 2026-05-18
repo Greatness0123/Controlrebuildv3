@@ -244,7 +244,12 @@ class ComputerUseAgent {
     setupEventHandlers() {
         app.whenReady().then(() => this.onAppReady());
         app.on('window-all-closed', () => this.onWindowAllClosed());
-        app.on('activate', () => this.onActivate());
+        app.on('activate', () => {
+            this.onActivate();
+            if (this.hotkeyManager) {
+                this.hotkeyManager.reRegisterAll();
+            }
+        });
         app.on('will-quit', () => this.onWillQuit());
         app.on('before-quit', () => {
             this.isQuitting = true;

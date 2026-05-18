@@ -8,6 +8,8 @@ export default function OverlayApp() {
   useOverlay();
   const { isVisible, isMinimized, actions, setVisible, setMinimized, clearActions } = useOverlayStore();
   const [glowType, setGlowType] = useState<string | null>(null);
+  const [pinRequired, setPinRequired] = useState(false);
+  const [pinValue, setPinRequiredValue] = useState('');
 
   useEffect(() => {
     if (!window.overlayAPI) return;
@@ -17,13 +19,69 @@ export default function OverlayApp() {
       setTimeout(() => setGlowType(null), 3000);
     });
 
-    return () => unsubGlow();
+    const unsubPin = window.overlayAPI.onRequestPinAndToggle(() => {
+      setPinRequired(true);
+    });
+
+    return () => {
+      unsubGlow();
+      unsubPin();
+    };
   }, []);
+
+  const handlePinSubmit = async () => {
+    const res = await window.overlayAPI.verifyPin(pinValue);
+    if (res.valid) {
+      setPinRequired(false);
+      setPinRequiredValue('');
+      await window.overlayAPI.unlockApp(pinValue);
+      window.chatAPI.toggleChat();
+    } else {
+      setPinRequiredValue('');
+    }
+  };
 
   if (!isVisible) return null;
 
   return (
     <div className="relative h-screen w-screen overflow-hidden pointer-events-none select-none">
+      {/* PIN Modal */}
+      <AnimatePresence>
+        {pinRequired && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[10005] flex items-center justify-center pointer-events-auto"
+          >
+            <div className="bg-bg-elevated border border-border-strong rounded-2xl p-8 w-80 shadow-2xl space-y-6 text-center">
+              <div className="space-y-2">
+                <h2 className="text-lg font-bold text-white">Enter PIN</h2>
+                <p className="text-xs text-text-muted">This device is protected. Enter your PIN to continue.</p>
+              </div>
+              <input
+                type="password"
+                maxLength={4}
+                autoFocus
+                value={pinValue}
+                onChange={(e) => {
+                  const val = e.target.value.replace(/\D/g, '');
+                  setPinRequiredValue(val);
+                  if (val.length === 4) {
+                    // Auto-submit logic or use button
+                  }
+                }}
+                className="w-full bg-black/40 border-none rounded-xl py-4 text-center text-2xl tracking-[1em] text-white outline-none focus:ring-2 focus:ring-purple-500/50 transition-all"
+              />
+              <div className="flex gap-3">
+                 <button onClick={() => setPinRequired(false)} className="flex-1 py-3 rounded-xl bg-white/5 text-text-secondary text-xs font-bold uppercase hover:bg-white/10 transition-colors">Cancel</button>
+                 <button onClick={handlePinSubmit} className="flex-1 py-3 rounded-xl bg-white text-black text-xs font-bold uppercase hover:bg-white/90 transition-colors">Confirm</button>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Edge Glow Effect */}
       <AnimatePresence>
         {glowType && (

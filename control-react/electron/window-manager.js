@@ -73,7 +73,7 @@ class WindowManager {
                 webSecurity: !isDev
             }
         });
-        this.mainWindow.setAlwaysOnTop(true, 'floating')
+        this.mainWindow.setAlwaysOnTop(true, 'screen-saver')
 
         this.mainWindow.setIgnoreMouseEvents(!this.isInteractive, { forward: !this.isInteractive });
 
@@ -370,7 +370,7 @@ class WindowManager {
             }
         });
 
-        this.ghostCursorWindow.setAlwaysOnTop(true, 'floating');
+        this.ghostCursorWindow.setAlwaysOnTop(true, 'screen-saver');
         this.ghostCursorWindow.setIgnoreMouseEvents(true, { forward: false });
 
         this.ghostCursorMouseTracker = null;
@@ -509,11 +509,19 @@ class WindowManager {
                 }
 
                 if (!onScreen) {
-
-                    window.setPosition(
-                        primaryDisplay.workArea.x + 100,
-                        primaryDisplay.workArea.y + 100
-                    );
+                    if (type === 'chat' || type === 'lite') {
+                        // Snap back to primary display's right edge
+                        const workArea = primaryDisplay.workArea;
+                        window.setPosition(
+                            workArea.x + workArea.width - bounds.width - 20,
+                            workArea.y + workArea.height - bounds.height - 40
+                        );
+                    } else {
+                        window.setPosition(
+                            primaryDisplay.workArea.x + 100,
+                            primaryDisplay.workArea.y + 100
+                        );
+                    }
                 }
             }
         });
