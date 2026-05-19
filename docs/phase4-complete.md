@@ -42,14 +42,14 @@ Phase 4 focused on the deep integration of the Electron Main process with the ne
 6. **UI Entry**: Show `main` overlay and `entry` (auth) screen.
 7. **Post-Ready**: Initialize hotkeys, workflow scheduler, and wakeword engine (if enabled).
 
-## Native Module Migration: `@nut-tree/node-screenshots`
-- Completely replaced `screenshot-desktop` with `@nut-tree/node-screenshots`.
+## Native Module Status: `screenshot-desktop`
+- Reverted to `screenshot-desktop` due to local environment build issues with `@nut-tree/node-screenshots`.
 - **Impacted Files**:
-  - `act-backend.js`: Updated to use `Monitor.all()` and `captureImage()`.
-  - `ask-backend.js`: Migrated to async capture.
-  - `click-backend.js`: Updated imports.
-  - `tool-registry.js`: Replaced internal screenshot tool logic.
-- **Configuration**: Added `@nut-tree/node-screenshots` to `external` in `vite.config.ts` and `asarUnpack` in `electron-builder.config.js`.
+  - `act-backend.js`: Restored legacy capture logic.
+  - `ask-backend.js`: Restored legacy capture logic.
+  - `click-backend.js`: Restored legacy capture logic.
+  - `tool-registry.js`: Restored legacy capture logic.
+- **Configuration**: `screenshot-desktop` remains in `external` in `vite.config.ts` and `asarUnpack` in `electron-builder.config.js`.
 
 ## Dev Mode Smoke Test Results
 - **Auth**: Login with email and Entry ID verification — PASS.
@@ -75,4 +75,4 @@ Phase 4 focused on the deep integration of the Electron Main process with the ne
 - [x] Path pills shorten long file paths in the chat input.
 - [x] Slash command palette is fully navigable via keyboard.
 - [x] `show-prompt-modal` is wired end-to-end.
-- [x] `@nut-tree/node-screenshots` is the sole display capture library.
+- [x] `screenshot-desktop` is the sole display capture library.

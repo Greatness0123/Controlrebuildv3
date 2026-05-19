@@ -8,7 +8,7 @@ export default defineConfig({
       rollupOptions: {
         external: [
           '@nut-tree/nut-js',
-          '@nut-tree/node-screenshots',
+          'screenshot-desktop',
           '@picovoice/porcupine-node',
           '@picovoice/pvrecorder-node',
           'sharp',

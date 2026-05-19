@@ -21,7 +21,7 @@ module.exports = {
   asarUnpack: [
     '**/node_modules/@picovoice/porcupine-node/**/*',
     '**/node_modules/@picovoice/pvrecorder-node/**/*',
-    '**/node_modules/@nut-tree/node-screenshots/**/*',
+    '**/node_modules/screenshot-desktop/**/*',
     'electron/backends/**/*',
     'assets/wakeword/**/*'
   ],
