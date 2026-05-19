@@ -4,6 +4,7 @@
   "main": "electron/main.js",
   "scripts": {
     "dev": "electron-vite dev",
+    "start": "npm run dev",
     "build": "electron-vite build",
     "preview": "electron-vite preview",
     "package": "electron-builder"

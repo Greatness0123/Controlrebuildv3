@@ -5,6 +5,9 @@ import { resolve } from 'path'
 export default defineConfig({
   main: {
     build: {
+      lib: {
+        entry: 'electron/main.js'
+      },
       rollupOptions: {
         external: [
           '@nut-tree/nut-js',
