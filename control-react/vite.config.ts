@@ -6,7 +6,7 @@ export default defineConfig({
   main: {
     build: {
       lib: {
-        entry: 'electron/main.js'
+        entry: resolve(__dirname, 'electron/main.js')
       },
       rollupOptions: {
         external: [
