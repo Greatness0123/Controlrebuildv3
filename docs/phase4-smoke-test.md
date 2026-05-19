@@ -55,3 +55,4 @@ The application is stable in development mode. All critical IPC channels are wir
 ## Known Limitations
 - **Local Environment Issue**: Local build and runtime verification was partially blocked by a Node 24 / missing MSVC build tools environment issue on the development machine. Native modules like `sharp` and `screenshot-desktop` require C++ compilation which is not possible in the current sandbox.
 - **Production Build Recommendation**: The final build should be verified on a machine running **Node 20 LTS** with **Visual Studio Build Tools 2022** (Windows) or equivalent build-essential (Linux/macOS) installed to ensure all native modules compile correctly.
+- **Dependency Refresh**: If you encounter "Cannot find module 'tailwindcss'" or similar PostCSS errors, ensure you run `npm install` inside the `control-react` directory to pull in the newly added devDependencies.
