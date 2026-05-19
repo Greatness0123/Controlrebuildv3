@@ -1,30 +1,13 @@
+import { resolve } from 'path'
 import { defineConfig, externalizeDepsPlugin } from 'electron-vite'
 import react from '@vitejs/plugin-react'
-import { resolve } from 'path'
 
 export default defineConfig({
   main: {
     plugins: [externalizeDepsPlugin()],
     build: {
       lib: {
-        entry: resolve(__dirname, 'electron/main.js'),
-        formats: ['cjs']
-      },
-      rollupOptions: {
-        external: [
-          '@nut-tree/nut-js',
-          'screenshot-desktop',
-          '@picovoice/porcupine-node',
-          '@picovoice/pvrecorder-node',
-          'sharp',
-          'vosk',
-          'edge-tts',
-          'node-global-key-listener',
-          'python-shell',
-          'jimp',
-          'imagescript',
-          'playwright'
-        ]
+        entry: resolve(__dirname, 'electron/main.js')
       }
     }
   },
@@ -32,7 +15,18 @@ export default defineConfig({
     plugins: [externalizeDepsPlugin()],
     build: {
       rollupOptions: {
-        external: ['electron']
+        input: {
+          'chat-preload': resolve(__dirname, 'electron/preload/chat.ts'),
+          'entry-preload': resolve(__dirname, 'electron/preload/entry.ts'),
+          'settings-preload': resolve(__dirname, 'electron/preload/settings.ts'),
+          'workflow-preload': resolve(__dirname, 'electron/preload/workflow.ts'),
+          'lite-preload': resolve(__dirname, 'electron/preload/lite.ts'),
+          'overlay-preload': resolve(__dirname, 'electron/preload/overlay.ts'),
+          'ghost-cursor-preload': resolve(__dirname, 'electron/preload/ghost-cursor.ts')
+        },
+        output: {
+          entryFileNames: '[name].js'
+        }
       }
     }
   },
