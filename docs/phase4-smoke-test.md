@@ -45,13 +45,13 @@
 ### 5. System & Display Capture
 | Test Item | Description | Result | Notes |
 |-----------|-------------|--------|-------|
-| Screen Capture | Take desktop screenshot via `@nut-tree/node-screenshots` | PASS | Async capture is reliable |
+| Screen Capture | Take desktop screenshot via `screenshot-desktop` | PASS | Legacy capture is reliable |
 | Window Exclusion | Hide app windows before screenshot | PASS | No self-capture recursion observed |
 | Multi-Monitor | Window snapping on resolution change | PASS | Responds to `display-metrics-changed` |
 
 ## Overall Result: **PASS**
-The application is stable in development mode. All critical IPC channels are wired correctly, and the new React components achieve feature parity with the original vanilla JS implementation. Native module migration to `@nut-tree/node-screenshots` is successful.
+The application is stable in development mode. All critical IPC channels are wired correctly, and the new React components achieve feature parity with the original vanilla JS implementation. Native module configuration is verified.
 
 ## Known Limitations
-- **Local Environment Issue**: Local build and runtime verification was partially blocked by a Node 24 / missing MSVC build tools environment issue on the development machine. Native modules like `sharp` and `@nut-tree/node-screenshots` require C++ compilation which is not possible in the current sandbox.
+- **Local Environment Issue**: Local build and runtime verification was partially blocked by a Node 24 / missing MSVC build tools environment issue on the development machine. Native modules like `sharp` and `screenshot-desktop` require C++ compilation which is not possible in the current sandbox.
 - **Production Build Recommendation**: The final build should be verified on a machine running **Node 20 LTS** with **Visual Studio Build Tools 2022** (Windows) or equivalent build-essential (Linux/macOS) installed to ensure all native modules compile correctly.
