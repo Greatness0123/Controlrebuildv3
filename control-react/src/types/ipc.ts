@@ -107,6 +107,7 @@ export interface MainHandlers {
   'export-data': () => Promise<{ success: boolean; data?: any }>;
   'set-modal-active': (active: boolean) => Promise<{ success: boolean }>;
   'show-confirm-modal': (options: any) => Promise<boolean>;
+  'show-prompt-modal': (message: string, defaultValue?: string, options?: any) => Promise<string | null>;
 }
 
 export interface RendererEvents {
@@ -139,6 +140,7 @@ export interface RendererEvents {
   'skills-updated': void;
   'app-initialized': void;
   'workflow-started': { name: string };
+  'show-prompt-request': { message: string; defaultValue?: string; options?: any; requestId: string };
 
   // ── Click Mode ──
   'click-step-start': void;

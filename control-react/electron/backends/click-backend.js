@@ -1,5 +1,5 @@
 const { GoogleGenerativeAI } = require("@google/generative-ai");
-const screenshot = require("screenshot-desktop");
+const { Monitor } = require("@nut-tree/node-screenshots");
 const { screen } = require("electron");
 const fs = require("fs");
 const path = require("path");
@@ -112,6 +112,18 @@ class ClickBackend {
     this.currentStepIndex = 0;
     this.isWaitingForStepCompletion = false;
     console.log('[ClickBackend] Task stopped');
+  }
+
+  async takeScreenshot() {
+    try {
+      const monitors = Monitor.all();
+      const monitor = monitors.find(m => m.isPrimary) || monitors[0];
+      const image = await monitor.captureImage();
+      return await image.toPng();
+    } catch (err) {
+      console.error("[ClickBackend] Screenshot failed:", err);
+      return null;
+    }
   }
 
   async executeTask(taskText, onResponse, onError, onEvent) {

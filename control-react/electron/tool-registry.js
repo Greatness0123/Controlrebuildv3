@@ -23,15 +23,16 @@ class ToolRegistry {
                 additionalProperties: false
             },
             execute: async () => {
-                const screenshot = require('screenshot-desktop');
-                const displays = await screenshot.listDisplays();
-                const primary = displays.find(d => d.id !== -1) || displays[0];
-                const imgBuffer = await screenshot({ format: 'png', screen: primary.id });
+                const { Monitor } = require('@nut-tree/node-screenshots');
+                const monitors = Monitor.all();
+                const monitor = monitors.find(m => m.isPrimary) || monitors[0];
+                const image = await monitor.captureImage();
+                const imgBuffer = await image.toPng();
                 return {
                     success: true,
                     screenshot: imgBuffer.toString('base64'),
                     format: 'base64',
-                    resolution: `${primary.width}x${primary.height}`
+                    resolution: `${image.width}x${image.height}`
                 };
             }
         };

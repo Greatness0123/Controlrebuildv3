@@ -20,6 +20,8 @@ import { ScrollArea } from '../../components/shared/ScrollArea';
 import { CodeBlock } from '../../components/shared/CodeBlock';
 import { Spinner } from '../../components/shared/Spinner';
 import { SlashCommandPopup } from './components/SlashCommandPopup';
+import { PathPill } from './components/PathPill';
+import { PromptModal } from '../../components/shared/PromptModal';
 
 const STATIC_SLASH_COMMANDS = [
   { command: '/importskill', description: 'Import a new learned behavior' },
@@ -48,6 +50,7 @@ export default function ChatApp() {
   const { toggleWakeword, isWakewordEnabled } = useVoice();
   const [inputValue, setInputValue] = useState('');
   const [baseText, setBaseText] = useState('');
+  const [pathMap, setPathMap] = useState<Record<string, string>>({});
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [learnedBehaviors, setLearnedBehaviors] = useState<any[]>([]);
 
@@ -65,6 +68,13 @@ export default function ChatApp() {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [showSlashCommands, setShowSlashCommands] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(0);
+
+  const [promptConfig, setPromptConfig] = useState<{
+    isOpen: boolean;
+    message: string;
+    defaultValue: string;
+    requestId: string;
+  } | null>(null);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -100,6 +110,19 @@ export default function ChatApp() {
     window.chatAPI.readBehaviors().then(res => {
       setLearnedBehaviors(res.behaviors || []);
     });
+
+    const unsubPrompt = window.chatAPI.onShowPromptRequest?.((event: any, data: any) => {
+      setPromptConfig({
+        isOpen: true,
+        message: data.message,
+        defaultValue: data.defaultValue || '',
+        requestId: data.requestId
+      });
+    });
+
+    return () => {
+      if (unsubPrompt) unsubPrompt();
+    };
   }, []);
 
   const filteredCommands = [
@@ -117,7 +140,7 @@ export default function ChatApp() {
     const input = document.createElement('input');
     input.type = 'file';
     input.onchange = async (e: any) => {
-      const file = e.target.files[0];
+      const file = (e.target as HTMLInputElement).files?.[0];
       if (file) {
         const buffer = await file.arrayBuffer();
         const data = Array.from(new Uint8Array(buffer));
@@ -136,8 +159,17 @@ export default function ChatApp() {
     input.click();
   };
 
+  const resolvePaths = (text: string) => {
+    let resolved = text;
+    Object.entries(pathMap).forEach(([placeholder, actualPath]) => {
+      resolved = resolved.replace(new RegExp(`"${placeholder}"`, 'g'), `"${actualPath}"`);
+    });
+    return resolved;
+  };
+
   const handleSend = () => {
-    if ((!inputValue.trim() && attachments.length === 0) || isProcessing) return;
+    const resolvedInput = resolvePaths(inputValue);
+    if ((!resolvedInput.trim() && attachments.length === 0) || isProcessing) return;
 
     if (inputValue.startsWith('/')) {
         const fullCmds = [
@@ -147,14 +179,15 @@ export default function ChatApp() {
         const cmd = fullCmds.find(s => s.command === inputValue.trim().split(' ')[0]);
         if (cmd) {
             if (cmd.command === '/clear') {
-              // Handle clear
+                // Implement clear logic
             } else if (cmd.command === '/reset') {
-              // Handle reset
+                // Implement reset logic
             } else if ((cmd as any).behavior) {
                 const behavior = (cmd as any).behavior;
                 executeTask(`Execute skill "${behavior.name}": ${behavior.pattern}`, mode, attachments);
             }
             setInputValue('');
+            setBaseText('');
             setShowSlashCommands(false);
             return;
         }
@@ -170,9 +203,33 @@ export default function ChatApp() {
       addSession(newSession);
     }
 
-    executeTask(inputValue, mode, attachments);
+    executeTask(resolvedInput, mode, attachments);
     setInputValue('');
+    setPathMap({});
     setAttachments([]);
+  };
+
+  const renderInputWithPills = () => {
+    const tokens: (string | React.ReactNode)[] = [];
+    const regex = /"(__path\d+__|[^"\n]*[\\/][^"\n]*)"/g;
+    let lastIndex = 0;
+    let match;
+
+    while ((match = regex.exec(inputValue)) !== null) {
+      if (match.index > lastIndex) {
+        tokens.push(inputValue.substring(lastIndex, match.index));
+      }
+      const pathValue = match[1];
+      const actualPath = pathMap[pathValue] || pathValue;
+      tokens.push(<PathPill key={match.index} path={actualPath} />);
+      lastIndex = regex.lastIndex;
+    }
+
+    if (lastIndex < inputValue.length) {
+      tokens.push(inputValue.substring(lastIndex));
+    }
+
+    return tokens;
   };
 
   return (
@@ -181,6 +238,21 @@ export default function ChatApp() {
       onDragOver={handleDragOver}
       onDrop={handleDrop}
     >
+      {promptConfig && (
+        <PromptModal
+          isOpen={promptConfig.isOpen}
+          message={promptConfig.message}
+          defaultValue={promptConfig.defaultValue}
+          onClose={() => {
+            window.chatAPI.submitPromptResponse(promptConfig.requestId, null);
+            setPromptConfig(null);
+          }}
+          onSubmit={(value) => {
+            window.chatAPI.submitPromptResponse(promptConfig.requestId, value);
+            setPromptConfig(null);
+          }}
+        />
+      )}
       <header className="flex items-center justify-between px-4 h-14 bg-bg-elevated border-b border-border-subtle shrink-0 select-none" style={{ WebkitAppRegion: 'drag' } as any}>
         <div className="flex items-center gap-1" style={{ WebkitAppRegion: 'no-drag' } as any}>
           <Tooltip content="History">
@@ -327,23 +399,64 @@ export default function ChatApp() {
           </div>
         )}
 
-        <div className="flex items-end gap-2 p-2 bg-bg-surface border border-border-default focus-within:border-border-strong rounded-2xl transition-colors">
-          <button onClick={handleFileAttach} className="p-2 rounded-lg hover:bg-white/5 text-text-muted hover:text-white transition-colors">
+        <div className="flex items-end gap-2 p-2 bg-bg-surface border border-border-default focus-within:border-border-strong rounded-2xl transition-colors relative">
+          <button onClick={handleFileAttach} className="p-2 rounded-lg hover:bg-white/5 text-text-muted hover:text-white transition-colors z-20">
             <Icon name="Paperclip" size="md" />
           </button>
-          <textarea
-            ref={inputRef}
-            rows={1}
-            value={inputValue}
-            onChange={(e) => {
-                setInputValue(e.target.value);
-                setBaseText(e.target.value);
-                setShowSlashCommands(e.target.value === '/');
-            }}
-            onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && (e.preventDefault(), handleSend())}
-            placeholder={mode === 'ask' ? "Ask anything..." : "Describe a task..."}
-            className="flex-1 bg-transparent border-none outline-none resize-none py-2 text-sm max-h-40"
-          />
+          <div className="flex-1 relative min-h-[40px]">
+            <div
+              className="absolute inset-0 py-2 text-sm pointer-events-none whitespace-pre-wrap break-words z-10"
+              style={{ paddingLeft: '0px', lineHeight: '1.25rem' }}
+            >
+              {renderInputWithPills()}
+            </div>
+            <textarea
+              ref={inputRef}
+              rows={1}
+              value={inputValue}
+              onChange={(e) => {
+                  setInputValue(e.target.value);
+                  setBaseText(e.target.value);
+                  setShowSlashCommands(e.target.value === '/');
+              }}
+              onKeyDown={(e) => {
+                if (showSlashCommands) {
+                  if (e.key === 'ArrowDown') {
+                    e.preventDefault();
+                    setSelectedIndex(prev => (prev + 1) % filteredCommands.length);
+                    return;
+                  }
+                  if (e.key === 'ArrowUp') {
+                    e.preventDefault();
+                    setSelectedIndex(prev => (prev - 1 + filteredCommands.length) % filteredCommands.length);
+                    return;
+                  }
+                  if (e.key === 'Enter' || e.key === 'Tab') {
+                    e.preventDefault();
+                    const cmd = filteredCommands[selectedIndex];
+                    if (cmd) {
+                      setInputValue(cmd.command + ' ');
+                      setBaseText(cmd.command + ' ');
+                      setShowSlashCommands(false);
+                    }
+                    return;
+                  }
+                  if (e.key === 'Escape') {
+                    setShowSlashCommands(false);
+                    return;
+                  }
+                }
+
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault();
+                  handleSend();
+                }
+              }}
+              placeholder={mode === 'ask' ? "Ask anything..." : "Describe a task..."}
+              className="w-full bg-transparent border-none outline-none resize-none py-2 text-sm max-h-40 relative z-20 text-transparent caret-white"
+              style={{ lineHeight: '1.25rem' }}
+            />
+          </div>
           <button
             onClick={isRecording ? stopRecording : startRecording}
             className={`p-2 rounded-lg transition-colors ${isRecording ? 'text-color-error' : 'text-text-muted hover:text-white'}`}
