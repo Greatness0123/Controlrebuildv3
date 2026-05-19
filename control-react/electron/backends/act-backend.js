@@ -1,5 +1,5 @@
 const { GoogleGenerativeAI } = require("@google/generative-ai");
-const screenshot = require("screenshot-desktop");
+const { Monitor } = require("@nut-tree/node-screenshots");
 const { mouse, keyboard, Button, Point, Key, straightTo } = require("@computer-use/nut-js");
 const { screen } = require("electron");
 const { exec } = require("child_process");
@@ -594,11 +594,13 @@ Respond ONLY with JSON: {"correct": true/false, "what_element": "...", "suggesti
 
       let imgBuffer;
       try {
-        const displays = await screenshot.listDisplays();
-        const primary = displays.find(d => d.id === 0) || displays[0];
-        imgBuffer = await screenshot({ format: "png", screen: primary.id });
+        const monitors = Monitor.all();
+        const monitor = monitors.find(m => m.isPrimary) || monitors[0];
+        const image = await monitor.captureImage();
+        imgBuffer = await image.toPng();
       } catch (e) {
-        imgBuffer = await screenshot({ format: "png" });
+        console.error('[ACT JS] @nut-tree/node-screenshots failed:', e.message);
+        throw e;
       }
 
       // Restore hidden windows after screenshot

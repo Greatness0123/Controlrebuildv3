@@ -1,5 +1,5 @@
 const { GoogleGenerativeAI } = require("@google/generative-ai");
-const screenshot = require("screenshot-desktop");
+const { Monitor } = require("@nut-tree/node-screenshots");
 const { exec } = require("child_process");
 const fs = require("fs");
 const path = require("path");
@@ -83,11 +83,13 @@ this.conversationHistory = [];
     try {
       let imgBuffer;
       try {
-        const displays = await screenshot.listDisplays();
-        const primary = displays.find(d => d.id === 0) || displays[0];
-        imgBuffer = await screenshot({ format: "png", screen: primary.id });
+        const monitors = Monitor.all();
+        const monitor = monitors.find(m => m.isPrimary) || monitors[0];
+        const image = await monitor.captureImage();
+        imgBuffer = await image.toPng();
       } catch (e) {
-        imgBuffer = await screenshot({ format: "png" });
+        console.error('[ASK JS] @nut-tree/node-screenshots failed:', e.message);
+        return null;
       }
       return imgBuffer;
     } catch (err) {

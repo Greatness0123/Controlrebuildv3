@@ -1557,8 +1557,21 @@ if (this.appSettings.workflowTriggersEnabled !== false && task.text && !task.ski
         });
 
         ipcMain.handle('show-prompt-modal', async (event, message, defaultValue, options) => {
+            console.log('[Main] show-prompt-modal called');
+            const requestId = Math.random().toString(36).substring(7);
+            const chatWin = this.windowManager.getWindow('chat');
 
-            console.warn('[Main] show-prompt-modal not fully implemented, returning default');
+            if (chatWin && !chatWin.isDestroyed()) {
+                chatWin.webContents.send('show-prompt-request', { message, defaultValue, options, requestId });
+
+                return new Promise((resolve) => {
+                    ipcMain.once(`prompt-response:${requestId}`, (event, value) => {
+                        resolve(value);
+                    });
+                });
+            }
+
+            console.warn('[Main] Chat window not available for prompt, returning default');
             return defaultValue;
         });
 

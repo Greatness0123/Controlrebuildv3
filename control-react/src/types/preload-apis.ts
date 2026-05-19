@@ -34,6 +34,7 @@ export interface ChatAPI {
   executeTool: MainHandlers['execute-tool'];
   validateToolParams: MainHandlers['validate-tool-params'];
   getUserInfo: MainHandlers['get-user-info'];
+  showPromptModal: MainHandlers['show-prompt-modal'];
 
   // Events
   onAIResponse: (cb: (event: any, data: RendererEvents['ai-response']) => void) => () => void;
@@ -59,6 +60,8 @@ export interface ChatAPI {
   onSkillsUpdated: (cb: (event: any, data: void) => void) => () => void;
   onAppInitialized: (cb: (event: any, data: void) => void) => () => void;
   onWorkflowStarted: (cb: (event: any, data: RendererEvents['workflow-started']) => void) => () => void;
+  onShowPromptRequest: (cb: (event: any, data: RendererEvents['show-prompt-request']) => void) => () => void;
+  submitPromptResponse: (requestId: string, value: string | null) => void;
   onClickStepStart: (cb: (event: any, data: void) => void) => () => void;
   onClickStepComplete: (cb: (event: any, data: void) => void) => () => void;
   onClickTaskComplete: (cb: (event: any, data: void) => void) => () => void;

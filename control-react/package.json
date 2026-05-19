@@ -11,6 +11,7 @@
   "dependencies": {
     "@computer-use/nut-js": "^4.2.0",
     "@google/generative-ai": "^0.24.1",
+    "@nut-tree/node-screenshots": "^1.0.0",
     "@picovoice/porcupine-node": "^4.0.1",
     "@picovoice/pvrecorder-node": "^1.2.8",
     "@supabase/supabase-js": "^2.49.1",
@@ -24,7 +25,6 @@
     "playwright": "^1.58.2",
     "python-shell": "^5.0.0",
     "say": "^0.16.0",
-    "screenshot-desktop": "^1.15.3",
     "sharp": "^0.34.5",
     "uuid": "^11.0.0",
     "ws": "^8.20.0",
@@ -50,5 +50,8 @@
     "electron": "^28.0.0",
     "electron-vite": "^2.1.0",
     "electron-builder": "^24.0.0"
+  },
+  "engines": {
+    "node": ">=20.0.0 <21.0.0"
   }
 }

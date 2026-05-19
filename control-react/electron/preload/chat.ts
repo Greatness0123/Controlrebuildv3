@@ -34,6 +34,7 @@ const chatAPI: ChatAPI = {
   executeTool: (toolName, params) => ipcRenderer.invoke('execute-tool', toolName, params),
   validateToolParams: (toolName, params) => ipcRenderer.invoke('validate-tool-params', toolName, params),
   getUserInfo: () => ipcRenderer.invoke('get-user-info'),
+  showPromptModal: (message, defaultValue, options) => ipcRenderer.invoke('show-prompt-modal', message, defaultValue, options),
 
   onAIResponse: (cb) => {
     const handler = (event: any, data: any) => cb(event, data);
@@ -150,6 +151,12 @@ const chatAPI: ChatAPI = {
     ipcRenderer.on('workflow-started', handler);
     return () => ipcRenderer.removeListener('workflow-started', handler);
   },
+  onShowPromptRequest: (cb) => {
+    const handler = (event: any, data: any) => cb(event, data);
+    ipcRenderer.on('show-prompt-request', handler);
+    return () => ipcRenderer.removeListener('show-prompt-request', handler);
+  },
+  submitPromptResponse: (requestId, value) => ipcRenderer.send(`prompt-response:${requestId}`, value),
   onClickStepStart: (cb) => {
     const handler = (event: any) => cb(event);
     ipcRenderer.on('click-step-start', handler);
