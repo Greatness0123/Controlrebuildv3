@@ -23,7 +23,6 @@ class WindowManager {
     }
 
     async initializeWindows() {
-
         console.log('[WindowManager] Initializing core windows...');
         await this.createMainWindow();
         await this.createEntryWindow();
@@ -37,7 +36,6 @@ class WindowManager {
         const visible = global.appSettings?.windowVisibility !== false;
         try {
             window.setContentProtection(!visible);
-
             window.setVisibleOnAllWorkspaces(visible, { visibleOnFullScreen: true });
         } catch (e) {
             console.warn('[WindowManager] Could not apply setVisibleOnAllWorkspaces:', e.message);
@@ -74,16 +72,16 @@ class WindowManager {
             }
         });
         this.mainWindow.setAlwaysOnTop(true, 'screen-saver')
-
         this.mainWindow.setIgnoreMouseEvents(!this.isInteractive, { forward: !this.isInteractive });
 
-        if (isDev && process.env.ELECTRON_RENDERER_URL) { this.mainWindow.loadURL(process.env.ELECTRON_RENDERER_URL + '/overlay/index.html'); } else { await this.mainWindow.loadFile(
-            path.join(__dirname, '../renderer/main-overlay.html')
-        );
+        if (isDev && process.env.ELECTRON_RENDERER_URL) { 
+            this.mainWindow.loadURL(process.env.ELECTRON_RENDERER_URL + '/overlay/index.html'); 
+        } else { 
+            await this.mainWindow.loadFile(path.join(__dirname, '../renderer/main-overlay.html'));
+        }
 
         this.windows.set('main', this.mainWindow);
         this.applyCurrentVisibility(this.mainWindow);
-
     }
 
     async createChatWindow() {
@@ -124,9 +122,11 @@ class WindowManager {
         chatWindow.setAlwaysOnTop(true, 'screen-saver')
 
         try {
-            if (isDev && process.env.ELECTRON_RENDERER_URL) { chatWindow.loadURL(process.env.ELECTRON_RENDERER_URL + '/chat/index.html'); } else { await chatWindow.loadFile(
-                path.join(__dirname, '../renderer/chat-window.html')
-            );
+            if (isDev && process.env.ELECTRON_RENDERER_URL) { 
+                chatWindow.loadURL(process.env.ELECTRON_RENDERER_URL + '/chat/index.html'); 
+            } else { 
+                await chatWindow.loadFile(path.join(__dirname, '../renderer/chat-window.html'));
+            }
             console.log('[WindowManager] Chat window loaded successfully');
         } catch (err) {
             console.error('[WindowManager] Failed to load chat window:', err);
@@ -135,7 +135,6 @@ class WindowManager {
 
         this.windows.set('chat', chatWindow);
         this.applyCurrentVisibility(chatWindow);
-
         this.setupDraggableWindow(chatWindow);
 
         chatWindow.webContents.on('render-process-gone', (event, details) => {
@@ -182,9 +181,11 @@ class WindowManager {
         });
         settingsWindow.setAlwaysOnTop(true, 'screen-saver')
         try {
-            if (isDev && process.env.ELECTRON_RENDERER_URL) { settingsWindow.loadURL(process.env.ELECTRON_RENDERER_URL + '/settings/index.html'); } else { await settingsWindow.loadFile(
-                path.join(__dirname, '../renderer/settings-modal.html')
-            );
+            if (isDev && process.env.ELECTRON_RENDERER_URL) { 
+                settingsWindow.loadURL(process.env.ELECTRON_RENDERER_URL + '/settings/index.html'); 
+            } else { 
+                await settingsWindow.loadFile(path.join(__dirname, '../renderer/settings-modal.html'));
+            }
             console.log('[WindowManager] Settings window loaded successfully');
         } catch (err) {
             console.error('[WindowManager] Failed to load settings window:', err);
@@ -193,19 +194,16 @@ class WindowManager {
 
         this.windows.set('settings', settingsWindow);
         this.applyCurrentVisibility(settingsWindow);
-
         this.setupDraggableWindow(settingsWindow);
 
         settingsWindow.on('blur', () => {
             setTimeout(() => {
                 try {
                     if (!settingsWindow.isDestroyed() && !settingsWindow.isFocused()) {
-
                         if (settingsWindow.isModalActive) {
                             console.log('[WindowManager] Settings window blurred but modal is active, not hiding');
                             return;
                         }
-
                         const focusedWindow = BrowserWindow.getFocusedWindow();
                         const isOtherManagedWindowFocused = Array.from(this.windows.values()).some(w => w === focusedWindow);
 
@@ -250,9 +248,11 @@ class WindowManager {
         workflowWindow.setAlwaysOnTop(true, 'screen-saver')
 
         try {
-            if (isDev && process.env.ELECTRON_RENDERER_URL) { workflowWindow.loadURL(process.env.ELECTRON_RENDERER_URL + '/workflow/index.html'); } else { await workflowWindow.loadFile(
-                path.join(__dirname, '../renderer/workflow-window.html')
-            );
+            if (isDev && process.env.ELECTRON_RENDERER_URL) { 
+                workflowWindow.loadURL(process.env.ELECTRON_RENDERER_URL + '/workflow/index.html'); 
+            } else { 
+                await workflowWindow.loadFile(path.join(__dirname, '../renderer/workflow-window.html'));
+            }
             console.log('[WindowManager] Workflow window loaded successfully');
         } catch (err) {
             console.error('[WindowManager] Failed to load workflow window:', err);
@@ -286,7 +286,11 @@ class WindowManager {
             }
         });
         liteWindow.setAlwaysOnTop(true, 'screen-saver');
-        if (isDev && process.env.ELECTRON_RENDERER_URL) { liteWindow.loadURL(process.env.ELECTRON_RENDERER_URL + '/lite/index.html'); } else { await liteWindow.loadFile(path.join(__dirname, '../renderer/lite-window.html')) };
+        if (isDev && process.env.ELECTRON_RENDERER_URL) { 
+            liteWindow.loadURL(process.env.ELECTRON_RENDERER_URL + '/lite/index.html'); 
+        } else { 
+            await liteWindow.loadFile(path.join(__dirname, '../renderer/lite-window.html'));
+        }
         this.windows.set('lite', liteWindow);
         this.applyCurrentVisibility(liteWindow);
         this.setupDraggableWindow(liteWindow);
@@ -323,9 +327,11 @@ class WindowManager {
         });
 
         try {
-            if (isDev && process.env.ELECTRON_RENDERER_URL) { entryWindow.loadURL(process.env.ELECTRON_RENDERER_URL + '/entry/index.html'); } else { await entryWindow.loadFile(
-                path.join(__dirname, '../renderer/entry-window.html')
-            );
+            if (isDev && process.env.ELECTRON_RENDERER_URL) { 
+                entryWindow.loadURL(process.env.ELECTRON_RENDERER_URL + '/entry/index.html'); 
+            } else { 
+                await entryWindow.loadFile(path.join(__dirname, '../renderer/entry-window.html'));
+            }
             console.log('[WindowManager] Entry window loaded successfully');
         } catch (err) {
             console.error('[WindowManager] Failed to load entry window:', err);
@@ -334,7 +340,6 @@ class WindowManager {
 
         this.windows.set('entry', entryWindow);
         this.applyCurrentVisibility(entryWindow);
-
         this.setupDraggableWindow(entryWindow);
     }
 
@@ -377,9 +382,11 @@ class WindowManager {
         this.isGhostCursorActive = false;
 
         try {
-            if (isDev && process.env.ELECTRON_RENDERER_URL) { this.ghostCursorWindow.loadURL(process.env.ELECTRON_RENDERER_URL + '/ghost-cursor/index.html'); } else { await this.ghostCursorWindow.loadFile(
-                path.join(__dirname, '../renderer/ghost-cursor-overlay.html')
-            );
+            if (isDev && process.env.ELECTRON_RENDERER_URL) { 
+                this.ghostCursorWindow.loadURL(process.env.ELECTRON_RENDERER_URL + '/ghost-cursor/index.html'); 
+            } else { 
+                await this.ghostCursorWindow.loadFile(path.join(__dirname, '../renderer/ghost-cursor-overlay.html'));
+            }
             console.log('[WindowManager] Ghost cursor window loaded successfully');
         } catch (err) {
             console.error('[WindowManager] Failed to load ghost cursor window:', err);
@@ -412,7 +419,7 @@ class WindowManager {
 
     initGhostCursorSettings() {
         if (this.ghostCursorWindow && !this.ghostCursorWindow.isDestroyed()) {
-            const settings = this.appSettings;
+            const settings = this.appSettings || {};
             this.ghostCursorWindow.webContents.send('ghost-cursor:init-settings', {
                 cursorColor: settings.ghostCursorColor || '#0078D4',
                 cursorOutlineColor: settings.ghostCursorOutlineColor || '#FFFFFF',
@@ -477,11 +484,10 @@ class WindowManager {
     }
 
     setupDraggableWindow(window) {
-
+        // Implementation for dragging windows if required
     }
 
     setupWindowManagement() {
-
         screen.on('display-metrics-changed', () => {
             this.ensureWindowsOnScreen();
         });
@@ -510,7 +516,6 @@ class WindowManager {
 
                 if (!onScreen) {
                     if (type === 'chat' || type === 'lite') {
-                        // Snap back to primary display's right edge
                         const workArea = primaryDisplay.workArea;
                         window.setPosition(
                             workArea.x + workArea.width - bounds.width - 20,
@@ -575,9 +580,7 @@ class WindowManager {
             }
 
             this.setInteractive(false);
-
             this.showFloatingButtonIfEnabled();
-
             browserWindow.hide();
             console.log(`[WindowManager] hideWindow: Hiding ${windowType}. Current state: chatVisible=${this.chatVisible}`);
             return true;
@@ -598,7 +601,7 @@ class WindowManager {
             return { visible: false };
         } else {
             console.log(`[WindowManager] toggleChat: Showing ${target}`);
-            this.hideWindow(other); // Ensure other layout is hidden
+            this.hideWindow(other);
             await this.showWindow(target);
             return { visible: true };
         }
@@ -641,7 +644,6 @@ class WindowManager {
             const enabled = global.appSettings?.floatingButtonVisible !== false;
             console.log(`[WindowManager] showFloatingButtonIfEnabled - floatingButtonVisible=${enabled}`);
             if (enabled) {
-
                 mainWindow.webContents.send('show-floating-button');
             } else {
                 console.log('[WindowManager] Skipping showFloatingButtonIfEnabled: floating button disabled in settings');
@@ -654,9 +656,7 @@ class WindowManager {
         this.isInteractive = interactive;
         const mainWindow = this.windows.get('main');
         if (mainWindow && !mainWindow.isDestroyed()) {
-
             mainWindow.setIgnoreMouseEvents(!interactive, { forward: !interactive });
-
             mainWindow.webContents.send('interaction-mode-changed', { interactive });
         }
     }
