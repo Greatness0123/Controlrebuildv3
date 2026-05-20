@@ -1,5 +1,5 @@
 import React from 'react';
-import { Tooltip } from '../../components/shared/Tooltip';
+import { Tooltip } from '../../../components/shared/Tooltip';
 
 interface PathPillProps {
   path: string;

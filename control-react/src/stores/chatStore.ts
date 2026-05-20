@@ -108,7 +108,7 @@ export const useChatStore = create<ChatState & ChatActions>()(
 
         deleteSession: (id) =>
           set((state) => {
-            state.sessions = state.sessions.filter((s) => s.id !== id);
+            state.sessions = state.sessions.filter((s: any) => s.id !== id);
             delete state.messages[id];
             if (state.activeSessionId === id) state.activeSessionId = null;
           }),

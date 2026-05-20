@@ -107,7 +107,7 @@ export default function ChatApp() {
   };
 
   useEffect(() => {
-    window.chatAPI.readBehaviors().then(res => {
+    window.chatAPI.readBehaviors().then((res: any) => {
       setLearnedBehaviors(res.behaviors || []);
     });
 
@@ -296,7 +296,7 @@ export default function ChatApp() {
       </header>
 
       <ScrollArea className="flex-1 p-4 space-y-6" ref={scrollRef}>
-        {activeMessages.map((msg) => (
+        {activeMessages.map((msg: Message) => (
           <div key={msg.id} className={`flex flex-col ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
             <div className={`max-w-[90%] ${msg.role === 'user' ? 'bg-bg-elevated p-4 rounded-2xl rounded-tr-none border border-border-subtle' : ''}`}>
               <ReactMarkdown

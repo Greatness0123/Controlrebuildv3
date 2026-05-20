@@ -53,7 +53,7 @@ export const PromptModal: React.FC<PromptModalProps> = ({
           className="w-full"
         />
         <div className="flex justify-end gap-2 pt-2">
-          <Button variant="secondary" onClick={onClose}>
+          <Button variant="ghost" onClick={onClose}>
             Cancel
           </Button>
           <Button variant="primary" onClick={handleSubmit}>

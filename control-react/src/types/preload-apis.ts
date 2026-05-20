@@ -1,4 +1,4 @@
-import { MainHandlers, RendererEvents } from '../src/types/ipc';
+import { MainHandlers, RendererEvents } from './ipc';
 
 export interface ChatAPI {
   // Handlers
@@ -24,7 +24,7 @@ export interface ChatAPI {
   showGhostCursor: MainHandlers['show-ghost-cursor'];
   hideGhostCursor: MainHandlers['hide-ghost-cursor'];
   updateGhostCursor: MainHandlers['update-ghost-cursor'];
-  newConversation: MainHandlers['new-conversation'];
+  newConversation: () => Promise<void>;
   browserNavigate: MainHandlers['browser-navigate'];
   browserExecuteJs: MainHandlers['browser-execute-js'];
   browserGetStatus: MainHandlers['browser-get-status'];
@@ -35,6 +35,7 @@ export interface ChatAPI {
   validateToolParams: MainHandlers['validate-tool-params'];
   getUserInfo: MainHandlers['get-user-info'];
   showPromptModal: MainHandlers['show-prompt-modal'];
+  toggleChat: () => Promise<void>;
 
   // Events
   onAIResponse: (cb: (event: any, data: RendererEvents['ai-response']) => void) => () => void;
@@ -127,6 +128,9 @@ export interface OverlayAPI {
   setOverlayHover: (isHover: boolean) => void;
   setOverlayFocus: () => void;
   dragWindow: (delta: { deltaX: number; deltaY: number }) => void;
+  verifyPin: (pin: string) => Promise<{ valid: boolean }>;
+  unlockApp: (pin: string) => Promise<{ success: boolean }>;
+  onShowPromptRequest: (cb: (event: any, data: any) => void) => () => void;
 }
 
 export interface GhostCursorAPI {
@@ -155,6 +159,7 @@ export interface WorkflowAPI {
   toggleWorkflow: MainHandlers['toggle-workflow'];
   executeWorkflow: MainHandlers['execute-workflow'];
   exportWorkflow: MainHandlers['export-workflow'];
+  importWorkflow: () => Promise<{ success: boolean; count: number }>;
   pickItem: MainHandlers['pick-item'];
   getInstalledApps: MainHandlers['get-installed-apps'];
   getCachedApps: MainHandlers['get-cached-apps'];
