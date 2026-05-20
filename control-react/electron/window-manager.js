@@ -69,7 +69,7 @@ class WindowManager {
                 nodeIntegration: false,
                 contextIsolation: true,
                 enableRemoteModule: false,
-                preload: path.join(__dirname, '../preload/main-preload.js'),
+                preload: path.join(__dirname, '../preload/overlay-preload.js'),
                 webSecurity: !isDev
             }
         });
@@ -77,7 +77,7 @@ class WindowManager {
 
         this.mainWindow.setIgnoreMouseEvents(!this.isInteractive, { forward: !this.isInteractive });
 
-        await this.mainWindow.loadFile(
+        if (isDev && process.env.ELECTRON_RENDERER_URL) { this.mainWindow.loadURL(process.env.ELECTRON_RENDERER_URL + '/overlay/index.html'); } else { await this.mainWindow.loadFile(
             path.join(__dirname, '../renderer/main-overlay.html')
         );
 
@@ -124,7 +124,7 @@ class WindowManager {
         chatWindow.setAlwaysOnTop(true, 'screen-saver')
 
         try {
-            await chatWindow.loadFile(
+            if (isDev && process.env.ELECTRON_RENDERER_URL) { chatWindow.loadURL(process.env.ELECTRON_RENDERER_URL + '/chat/index.html'); } else { await chatWindow.loadFile(
                 path.join(__dirname, '../renderer/chat-window.html')
             );
             console.log('[WindowManager] Chat window loaded successfully');
@@ -182,7 +182,7 @@ class WindowManager {
         });
         settingsWindow.setAlwaysOnTop(true, 'screen-saver')
         try {
-            await settingsWindow.loadFile(
+            if (isDev && process.env.ELECTRON_RENDERER_URL) { settingsWindow.loadURL(process.env.ELECTRON_RENDERER_URL + '/settings/index.html'); } else { await settingsWindow.loadFile(
                 path.join(__dirname, '../renderer/settings-modal.html')
             );
             console.log('[WindowManager] Settings window loaded successfully');
@@ -250,7 +250,7 @@ class WindowManager {
         workflowWindow.setAlwaysOnTop(true, 'screen-saver')
 
         try {
-            await workflowWindow.loadFile(
+            if (isDev && process.env.ELECTRON_RENDERER_URL) { workflowWindow.loadURL(process.env.ELECTRON_RENDERER_URL + '/workflow/index.html'); } else { await workflowWindow.loadFile(
                 path.join(__dirname, '../renderer/workflow-window.html')
             );
             console.log('[WindowManager] Workflow window loaded successfully');
@@ -286,7 +286,7 @@ class WindowManager {
             }
         });
         liteWindow.setAlwaysOnTop(true, 'screen-saver');
-        await liteWindow.loadFile(path.join(__dirname, '../renderer/lite-window.html'));
+        if (isDev && process.env.ELECTRON_RENDERER_URL) { liteWindow.loadURL(process.env.ELECTRON_RENDERER_URL + '/lite/index.html'); } else { await liteWindow.loadFile(path.join(__dirname, '../renderer/lite-window.html')) };
         this.windows.set('lite', liteWindow);
         this.applyCurrentVisibility(liteWindow);
         this.setupDraggableWindow(liteWindow);
@@ -323,7 +323,7 @@ class WindowManager {
         });
 
         try {
-            await entryWindow.loadFile(
+            if (isDev && process.env.ELECTRON_RENDERER_URL) { entryWindow.loadURL(process.env.ELECTRON_RENDERER_URL + '/entry/index.html'); } else { await entryWindow.loadFile(
                 path.join(__dirname, '../renderer/entry-window.html')
             );
             console.log('[WindowManager] Entry window loaded successfully');
@@ -377,7 +377,7 @@ class WindowManager {
         this.isGhostCursorActive = false;
 
         try {
-            await this.ghostCursorWindow.loadFile(
+            if (isDev && process.env.ELECTRON_RENDERER_URL) { this.ghostCursorWindow.loadURL(process.env.ELECTRON_RENDERER_URL + '/ghost-cursor/index.html'); } else { await this.ghostCursorWindow.loadFile(
                 path.join(__dirname, '../renderer/ghost-cursor-overlay.html')
             );
             console.log('[WindowManager] Ghost cursor window loaded successfully');

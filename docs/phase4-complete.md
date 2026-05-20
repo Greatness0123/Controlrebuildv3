@@ -49,7 +49,7 @@ Phase 4 focused on the deep integration of the Electron Main process with the ne
   - `ask-backend.js`: Restored legacy capture logic.
   - `click-backend.js`: Restored legacy capture logic.
   - `tool-registry.js`: Restored legacy capture logic.
-- **Configuration**: `screenshot-desktop` remains in `external` in `vite.config.ts` and `asarUnpack` in `electron-builder.config.js`.
+- **Configuration**: `screenshot-desktop` remains in `external` in `electron.vite.config.ts` and `asarUnpack` in `electron-builder.config.js`.
 
 ## Dev Mode Smoke Test Results
 - **Auth**: Login with email and Entry ID verification — PASS.

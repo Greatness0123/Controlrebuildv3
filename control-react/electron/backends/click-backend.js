@@ -116,18 +116,16 @@ class ClickBackend {
 
   async takeScreenshot() {
     try {
-      let imgBuffer;
-      try {
-        const displays = await screenshot.listDisplays();
-        const primary = displays.find(d => d.id === 0) || displays[0];
-        imgBuffer = await screenshot({ format: "png", screen: primary.id });
-      } catch (e) {
-        imgBuffer = await screenshot({ format: "png" });
-      }
-      return imgBuffer;
+      const displays = await screenshot.listDisplays();
+      const primary = displays.find(d => d.id === 0) || displays[0];
+      return await screenshot({ format: "png", screen: primary.id });
     } catch (err) {
       console.error("[ClickBackend] Screenshot failed:", err);
-      return null;
+      try {
+        return await screenshot({ format: "png" });
+      } catch (e2) {
+        return null;
+      }
     }
   }
 
