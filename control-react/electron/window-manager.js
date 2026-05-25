@@ -82,6 +82,10 @@ class WindowManager {
 
         this.windows.set('main', this.mainWindow);
         this.applyCurrentVisibility(this.mainWindow);
+
+        this.mainWindow.webContents.on('console-message', (event, level, message, line, sourceId) => {
+            console.log(`[Overlay Renderer ${level}] ${message} (${sourceId}:${line})`);
+        });
     }
 
     async createChatWindow() {
