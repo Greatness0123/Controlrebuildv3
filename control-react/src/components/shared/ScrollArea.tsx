@@ -11,10 +11,17 @@ interface ScrollAreaProps {
   className?: string;
 }
 
-export const ScrollArea: React.FC<ScrollAreaProps> = ({ children, className }) => {
-  return (
-    <div className={cn("overflow-y-auto overflow-x-hidden custom-scrollbar", className)}>
-      {children}
-    </div>
-  );
-};
+export const ScrollArea = React.forwardRef<HTMLDivElement, ScrollAreaProps>(
+  ({ children, className }, ref) => {
+    return (
+      <div
+        ref={ref}
+        className={cn("overflow-y-auto overflow-x-hidden custom-scrollbar", className)}
+      >
+        {children}
+      </div>
+    );
+  }
+);
+
+ScrollArea.displayName = 'ScrollArea';

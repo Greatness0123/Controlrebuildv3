@@ -2,7 +2,7 @@ import { contextBridge, ipcRenderer } from 'electron';
 import { LiteAPI } from '../../src/types/preload-apis';
 
 const liteAPI: LiteAPI = {
-  executeTask: (task, mode) => ipcRenderer.invoke('execute-task', task, mode),
+  executeTask: (task: any, mode: any) => ipcRenderer.invoke('execute-task', task, mode),
   stopTask: () => ipcRenderer.invoke('stop-task'),
   onAIResponse: (cb) => {
     const handler = (event: any, data: any) => cb(event, data);

@@ -31,7 +31,7 @@ export default function OverlayApp() {
 
   const handlePinSubmit = async () => {
     const res = await window.overlayAPI.verifyPin(pinValue);
-    if (res.valid) {
+    if (res && res.valid) {
       setPinRequired(false);
       setPinRequiredValue('');
       await window.overlayAPI.unlockApp(pinValue);

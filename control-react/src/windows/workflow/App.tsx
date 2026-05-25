@@ -6,7 +6,7 @@ import { Icon } from '../../components/shared/Icon';
 import { Button } from '../../components/shared/Button';
 import { Input } from '../../components/shared/Input';
 import { ScrollArea } from '../../components/shared/ScrollArea';
-import { Tooltip } from '../../components/shared/Tooltip';
+import { Tooltip as SharedTooltip } from '../../components/shared/Tooltip';
 
 export default function WorkflowApp() {
   const { workflows, activeWorkflowId, setActiveWorkflow, addWorkflow, updateWorkflow } = useWorkflowStore();
@@ -64,7 +64,7 @@ export default function WorkflowApp() {
     const res = await window.workflowAPI.importWorkflow();
     if (res && res.success) {
       // Stores will auto-sync via listeners in Phase 5 wiring or manual refresh
-      window.workflowAPI.getAllWorkflows().then(wfs => {
+      window.workflowAPI.getAllWorkflows().then((wfs: any) => {
         // useWorkflowStore.getState().setWorkflows(wfs);
         // For now, reload session or assume main process broadcast
       });
@@ -90,7 +90,7 @@ export default function WorkflowApp() {
           </div>
 
           <div className="flex items-center gap-2">
-            <Tooltip content="Add Step">
+            <SharedTooltip content="Add Step">
                <div className="relative">
                 <Button
                   variant="ghost"
@@ -121,7 +121,7 @@ export default function WorkflowApp() {
                   )}
                 </AnimatePresence>
                </div>
-            </Tooltip>
+            </SharedTooltip>
             <Button variant="primary" size="sm" iconLeft="Play" onClick={handleRun}>Run</Button>
             <Button variant="ghost" size="sm" iconLeft="Save" onClick={handleSave}>Save</Button>
             <Button variant="ghost" size="sm" iconLeft="Download" onClick={handleExport}>Export</Button>

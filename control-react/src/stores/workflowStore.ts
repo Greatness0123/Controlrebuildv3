@@ -38,13 +38,13 @@ export const useWorkflowStore = create<WorkflowState & WorkflowActions>()(
 
         updateWorkflow: (workflow) =>
           set((state) => {
-            const index = state.workflows.findIndex((w) => w.id === workflow.id);
+            const index = state.workflows.findIndex((w: any) => w.id === workflow.id);
             if (index !== -1) state.workflows[index] = workflow;
           }),
 
         deleteWorkflow: (id) =>
           set((state) => {
-            state.workflows = state.workflows.filter((w) => w.id !== id);
+            state.workflows = state.workflows.filter((w: any) => w.id !== id);
           }),
 
         setActiveWorkflow: (id) =>

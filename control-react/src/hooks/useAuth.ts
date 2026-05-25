@@ -3,7 +3,7 @@ import { useAuthStore } from '../stores/authStore';
 import { LoginPayload } from '../types/auth';
 
 export const useAuth = () => {
-  const { setUser, setLoading, logout: localLogout } = useAuthStore();
+  const { user, isAuthenticated, setUser, setLoading, logout: localLogout } = useAuthStore();
 
   const checkAuth = useCallback(async () => {
     setLoading(true);
@@ -21,7 +21,7 @@ export const useAuth = () => {
   const login = useCallback(async (payload: LoginPayload) => {
     setLoading(true);
     try {
-      const result = await window.entryAPI.loginWithEmail(payload.email, payload.password);
+      const result = await window.entryAPI.loginWithEmail(payload);
       if (result.success && result.user) {
         setUser(result.user);
       }
@@ -55,5 +55,5 @@ export const useAuth = () => {
     };
   }, [setUser, checkAuth]);
 
-  return { login, logout, checkAuth };
+  return { login, logout, checkAuth, user, isAuthenticated };
 };

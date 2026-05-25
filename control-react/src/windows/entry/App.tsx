@@ -259,7 +259,7 @@ export default function EntryApp() {
                    <div className="w-12 h-12 bg-bg-elevated rounded-full flex items-center justify-center mx-auto">
                      <Icon name="Globe" size="lg" />
                    </div>
-                   <Button variant="primary" className="w-full" onClick={() => window.chatAPI.openWebsite()}>
+                   <Button variant="primary" className="w-full" onClick={() => window.settingsAPI.openWebsite()}>
                      Open Dashboard
                    </Button>
                 </div>

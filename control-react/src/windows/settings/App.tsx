@@ -17,7 +17,7 @@ export default function SettingsApp() {
   const [appVersion, setAppVersion] = useState('1.0.0');
 
   useEffect(() => {
-    window.settingsAPI.getAppVersion().then(v => setAppVersion(v.version));
+    window.settingsAPI.getAppVersion().then((v: any) => setAppVersion(v.version));
   }, []);
 
   const tabs = [
