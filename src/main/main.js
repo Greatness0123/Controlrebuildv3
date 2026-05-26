@@ -16,14 +16,15 @@ try {
 
 const dotenv = require('dotenv');
 
+const isPackaged = app.isPackaged;
 const possibleEnvPaths = [
-    path.join(__dirname, '../../.env'), // Development
+    isPackaged ? path.join(process.resourcesPath, '.env') : path.join(__dirname, '../../.env'), // Development
 ];
 
 function loadExtendedEnv() {
     try {
         const extendedPaths = [
-            path.join(path.dirname(app.getPath('exe')), '.env'), 
+            path.join(path.dirname(app.getPath('exe')), '.env'),
             path.join(app.getPath('userData'), '.env')
         ];
         for (const envPath of extendedPaths) {
@@ -244,7 +245,12 @@ class ComputerUseAgent {
     setupEventHandlers() {
         app.whenReady().then(() => this.onAppReady());
         app.on('window-all-closed', () => this.onWindowAllClosed());
-        app.on('activate', () => this.onActivate());
+        app.on('activate', () => {
+            this.onActivate();
+            if (this.hotkeyManager) {
+                this.hotkeyManager.reRegisterAll();
+            }
+        });
         app.on('will-quit', () => this.onWillQuit());
         app.on('before-quit', () => {
             this.isQuitting = true;
@@ -259,7 +265,7 @@ class ComputerUseAgent {
 
     async handleSuccessfulAuth(userData) {
         console.log('[Main] Handling successful authentication for:', userData.id);
-        
+
         this.isAuthenticated = true;
         this.currentUser = userData;
 
@@ -292,7 +298,7 @@ async init() {
 
             // First fetch keys and wait for model settings to be loaded
             await dbService.fetchAndCacheKeys().catch(e => console.warn('[Main] Key fetch error:', e.message));
-            
+
             // Load AI model settings from Supabase cache after keys are fetched
             const modelSettings = dbService.getModelSettings();
             if (modelSettings) {
@@ -306,7 +312,7 @@ async init() {
                     universalModel: modelSettings.universalModel
                 });
             }
-            
+
             // Now start backends AFTER settings are loaded
             const backendStartPromise = this.backendManager.startBackend();
             const voskStartPromise = this.voskServerManager.start();
@@ -1172,12 +1178,12 @@ if (this.appSettings.workflowTriggersEnabled !== false && task.text && !task.ski
             }
 
             let apiKey = this.appSettings.geminiApiKey; // Priority 1: User's manually entered key
-            
+
             if (!apiKey) {
 
                 apiKey = await dbService.getGeminiKey(currentUser.plan);
             }
-            
+
             if (!apiKey) {
 
                 const cachedKeys = dbService.getKeys();
@@ -1552,8 +1558,21 @@ if (this.appSettings.workflowTriggersEnabled !== false && task.text && !task.ski
         });
 
         ipcMain.handle('show-prompt-modal', async (event, message, defaultValue, options) => {
+            console.log('[Main] show-prompt-modal called');
+            const requestId = Math.random().toString(36).substring(7);
+            const chatWin = this.windowManager.getWindow('chat');
 
-            console.warn('[Main] show-prompt-modal not fully implemented, returning default');
+            if (chatWin && !chatWin.isDestroyed()) {
+                chatWin.webContents.send('show-prompt-request', { message, defaultValue, options, requestId });
+
+                return new Promise((resolve) => {
+                    ipcMain.once(`prompt-response:${requestId}`, (event, value) => {
+                        resolve(value);
+                    });
+                });
+            }
+
+            console.warn('[Main] Chat window not available for prompt, returning default');
             return defaultValue;
         });
 
@@ -1651,7 +1670,7 @@ settings.edgeGlowEnabled = this.appSettings.edgeGlowEnabled !== false;
         const cachedKeys = dbService.getKeys();
         settings.geminiApiKey = this.appSettings.geminiApiKey || (cachedKeys ? cachedKeys.gemini : '');
         settings.geminiModel = this.appSettings.geminiModel || (cachedKeys ? cachedKeys.gemini_model : (process.env.GEMINI_MODEL || "gemini-2.5-flash"));
-        
+
         return settings;
     }
 
@@ -1971,17 +1990,17 @@ taskDescription += `${index + 1}. ${detail}\n`;
         this.hotkeyManager.unregisterAll();
         if (this.backendManager) this.backendManager.stopBackend();
         if (this.voskServerManager) this.voskServerManager.stop();
-        
+
         // Clean up RemoteDesktopManager to prevent zombie processes
         if (this.remoteDesktopManager) {
             this.remoteDesktopManager.cleanup();
         }
-        
+
         // Clean up Electron Browser Manager
         if (electronBrowserManager && typeof electronBrowserManager.close === 'function') {
             electronBrowserManager.close();
         }
-        
+
 this.windowManager.closeAllWindows();
     }
 
@@ -1989,14 +2008,14 @@ this.windowManager.closeAllWindows();
         const { exec } = require('child_process');
         const { promisify } = require('util');
         const execAsync = promisify(exec);
-        
+
         const startMenuPaths = [
             path.join(os.homedir(), 'AppData', 'Roaming', 'Microsoft', 'Windows', 'Start Menu', 'Programs'),
             'C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs'
         ];
-        
+
         const apps = [];
-        
+
         const scanDir = (dir) => {
             if (!require('fs').existsSync(dir)) return;
             try {
@@ -2012,17 +2031,17 @@ this.windowManager.closeAllWindows();
                 }
             } catch (e) {}
         };
-        
+
         for (const p of startMenuPaths) scanDir(p);
-        
+
         const appList = apps.map(a => a.name);
         const appWithPaths = apps.map(a => {
             return `${a.name}|=>|${a.shortcut}`;
         });
-        
+
         global.cachedApplications = appList.sort();
         global.cachedApplicationsWithPaths = appWithPaths.sort();
-        
+
         console.log(`[Main] Cached ${global.cachedApplications.length} applications`);
     }
 
@@ -2032,8 +2051,14 @@ this.windowManager.closeAllWindows();
 
     setupTray() {
         try {
+            const isDev = !app.isPackaged;
+            let iconPath;
 
-            const iconPath = path.join(__dirname, '../../assets/icons/icon-removebg-preview.png');
+            if (isDev) {
+                iconPath = path.join(__dirname, '../../assets/icons/icon-removebg-preview.png');
+            } else {
+                iconPath = path.join(process.resourcesPath, 'assets', 'icons', 'icon-removebg-preview.png');
+            }
 
             this.tray = new Tray(iconPath);
             this.tray.setToolTip('Control - AI Assistant');

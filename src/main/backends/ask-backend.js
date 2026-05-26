@@ -25,26 +25,26 @@ this.conversationHistory = [];
     const schemas = toolExecutor.getAllSchemas();
     let description = '\n\nAVAILABLE TOOLS:\n';
     description += '================\n\n';
-    
+
     for (const [name, tool] of Object.entries(schemas)) {
       description += `${tool.name}:\n`;
       description += `  Description: ${tool.description}\n`;
-      
+
       if (tool.parameters && tool.parameters.properties) {
         description += '  Parameters:\n';
         for (const [paramName, paramSchema] of Object.entries(tool.parameters.properties)) {
           const required = tool.parameters.required?.includes(paramName) ? ' (required)' : '';
           const enumStr = paramSchema.enum ? ` [${paramSchema.enum.join(', ')}]` : '';
           const defaultStr = paramSchema.default !== undefined ? ` (default: ${paramSchema.default})` : '';
-          const rangeStr = (paramSchema.minimum !== undefined || paramSchema.maximum !== undefined) 
-            ? ` [${paramSchema.minimum || 0}-${paramSchema.maximum || 'unlimited'}]` 
+          const rangeStr = (paramSchema.minimum !== undefined || paramSchema.maximum !== undefined)
+            ? ` [${paramSchema.minimum || 0}-${paramSchema.maximum || 'unlimited'}]`
             : '';
           description += `    - ${paramName}${required}${enumStr}: ${paramSchema.description || paramSchema.type}${defaultStr}${rangeStr}\n`;
         }
       }
       description += '\n';
     }
-    
+
     return description;
   }
 

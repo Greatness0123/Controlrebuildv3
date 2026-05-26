@@ -100,26 +100,26 @@ this.conversationHistory = [];
     const schemas = toolExecutor.getAllSchemas();
     let description = '\n\nAVAILABLE TOOLS:\n';
     description += '================\n\n';
-    
+
     for (const [name, tool] of Object.entries(schemas)) {
       description += `${tool.name}:\n`;
       description += `  Description: ${tool.description}\n`;
-      
+
       if (tool.parameters && tool.parameters.properties) {
         description += '  Parameters:\n';
         for (const [paramName, paramSchema] of Object.entries(tool.parameters.properties)) {
           const required = tool.parameters.required?.includes(paramName) ? ' (required)' : '';
           const enumStr = paramSchema.enum ? ` [${paramSchema.enum.join(', ')}]` : '';
           const defaultStr = paramSchema.default !== undefined ? ` (default: ${paramSchema.default})` : '';
-          const rangeStr = (paramSchema.minimum !== undefined || paramSchema.maximum !== undefined) 
-            ? ` [${paramSchema.minimum || 0}-${paramSchema.maximum || 'unlimited'}]` 
+          const rangeStr = (paramSchema.minimum !== undefined || paramSchema.maximum !== undefined)
+            ? ` [${paramSchema.minimum || 0}-${paramSchema.maximum || 'unlimited'}]`
             : '';
           description += `    - ${paramName}${required}${enumStr}: ${paramSchema.description || paramSchema.type}${defaultStr}${rangeStr}\n`;
         }
       }
       description += '\n';
     }
-    
+
     return description;
   }
 
@@ -183,23 +183,23 @@ this.conversationHistory = [];
 
   isOnTrack() {
     if (this.stepHistory.length < 3) return true;
-    
+
     const recent = this.stepHistory.slice(-4);
     const now = Date.now();
-    
+
     let repeatCount = 0;
     let lastSameAction = null;
-    
+
     for (let i = recent.length - 1; i >= 0; i--) {
       const h = recent[i];
       const timeDiff = now - h.time;
-      
+
       // Allow repeats if > 5 seconds apart (probably intentional)
       if (timeDiff > 5000) {
         lastSameAction = null;
         continue;
       }
-      
+
       // Same action within 5 seconds = potential loop
       if (h.action === lastSameAction) {
         repeatCount++;
@@ -219,7 +219,7 @@ this.conversationHistory = [];
     // Actions that are OK to repeat (legitimate use cases)
     const repeatableOnce = ['refresh', 'clear', 'reset', 'back'];
     const actionLower = action.toLowerCase();
-    
+
     // If contains refresh/clear/reset/back, allow max 2
     for (const ok of repeatableOnce) {
       if (actionLower.includes(ok)) {
@@ -240,22 +240,22 @@ this.conversationHistory = [];
   async verifyCoordinates(inputX, inputY, attempts = 3) {
     const results = [];
     const tolerance = 15;
-    
+
     for (let i = 0; i < attempts; i++) {
       const shot = await this.takeScreenshot();
       if (!shot) {
         results.push({ attempt: i + 1, error: 'Screenshot failed' });
         continue;
       }
-      
+
       const img = await sharp(shot.buffer).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
       const imgW = img.info.width;
       const imgH = img.info.height;
-      
+
       const searchRadius = 25;
       const checkX = Math.min(Math.max(Math.round(inputX * imgW / this.screenSize.width), searchRadius), imgW - searchRadius - 1);
       const checkY = Math.min(Math.max(Math.round(inputY * imgH / this.screenSize.height), searchRadius), imgH - searchRadius - 1);
-      
+
       const pixelColors = [];
       const imgData = await sharp(shot.buffer).raw().ensureAlpha().toBuffer();
       for (let dy = -searchRadius; dy <= searchRadius; dy += 5) {
@@ -266,12 +266,12 @@ this.conversationHistory = [];
           } catch (e) {}
         }
       }
-      
+
       if (pixelColors.length > 0) {
         const avgR = Math.round(pixelColors.reduce((s, c) => s + c.r, 0) / pixelColors.length);
         const avgG = Math.round(pixelColors.reduce((s, c) => s + c.g, 0) / pixelColors.length);
         const avgB = Math.round(pixelColors.reduce((s, c) => s + c.b, 0) / pixelColors.length);
-        
+
         results.push({
           attempt: i + 1,
           inputX: inputX,
@@ -284,14 +284,14 @@ this.conversationHistory = [];
       } else {
         results.push({ attempt: i + 1, error: 'No pixels sampled' });
       }
-      
+
       if (i < attempts - 1) {
         await new Promise(r => setTimeout(r, 150));
       }
     }
-    
+
     const validResults = results.filter(r => r.matched && !r.error);
-    
+
     if (validResults.length < 2) {
       return {
         verified: false,
@@ -303,37 +303,37 @@ this.conversationHistory = [];
         attempts: attempts
       };
     }
-    
+
     const colorArrays = validResults.map(r => r.avgColor);
     const avgR = colorArrays.reduce((s, c) => s + c.r, 0) / colorArrays.length;
     const avgG = colorArrays.reduce((s, c) => s + c.g, 0) / colorArrays.length;
     const avgB = colorArrays.reduce((s, c) => s + c.b, 0) / colorArrays.length;
-    
+
     const colorVariance = colorArrays.reduce((s, c) => {
       const dr = c.r - avgR;
       const dg = c.g - avgG;
       const db = c.b - avgB;
       return s + Math.sqrt(dr * dr + dg * dg + db * db);
     }, 0) / colorArrays.length;
-    
+
     const converged = colorVariance < tolerance;
-    
+
     const xCoords = validResults.map(r => r.checkX);
     const yCoords = validResults.map(r => r.checkY);
     const meanX = xCoords.reduce((a, b) => a + b, 0) / xCoords.length;
     const meanY = yCoords.reduce((a, b) => a + b, 0) / yCoords.length;
-    
+
     const xDev = Math.sqrt(xCoords.reduce((s, x) => s + Math.pow(x - meanX, 2), 0) / xCoords.length);
     const yDev = Math.sqrt(yCoords.reduce((s, y) => s + Math.pow(y - meanY, 2), 0) / yCoords.length);
-    
+
     const positionConverged = xDev < 5 && yDev < 5;
-    
+
     const finalX = Math.round(meanX * this.screenSize.width / imgW);
     const finalY = Math.round(meanY * this.screenSize.height / imgH);
-    
+
     let confidence = 'low';
     let message = '';
-    
+
     if (converged && positionConverged) {
       confidence = 'high';
       message = 'Coordinates verified - color and position converged';
@@ -343,7 +343,7 @@ this.conversationHistory = [];
     } else {
       message = 'Coordinates verification inconsistent - using average';
     }
-    
+
     return {
       verified: converged || colorVariance < tolerance * 2,
       finalX: finalX,
@@ -362,14 +362,14 @@ this.conversationHistory = [];
   async verifyCoordinatesViaAI(pixelX, pixelY, label = 'target') {
     const shot = await this.takeScreenshot();
     if (!shot) return { verified: false, error: 'Screenshot failed' };
-    
+
     const shotData = fs.readFileSync(shot.filepath).toString('base64');
-    
-    const prompt = `verify click location. Target: (${pixelX}, ${pixelY}) for "${label}". 
+
+    const prompt = `verify click location. Target: (${pixelX}, ${pixelY}) for "${label}".
 Is there a clickable element (button, link, icon, input field) at/near this pixel location?
 Look for visual indicators of interactiveness (hover effects, borders, icon shapes, text fields).
 Respond ONLY with JSON: {"verified": true/false, "reason": "...", "element_type": "button|input|link|icon|none"}`;
-    
+
     try {
       const result = await this.model.generateContent([
         { inlineData: { mimeType: 'image/png', data: shotData } },
@@ -389,16 +389,16 @@ Respond ONLY with JSON: {"verified": true/false, "reason": "...", "element_type"
   async aiVerifyClick(pixelX, pixelY, label = 'target') {
     const shot = await this.takeScreenshot();
     if (!shot) return { verified: false, message: 'Screenshot failed' };
-    
+
     const shotData = fs.readFileSync(shot.filepath).toString('base64');
-    
+
     const prompt = `VERIFICATION: Check if click location is correct.
 Target coordinates: (${pixelX}, ${pixelY}) for element "${label}"
 Look at the screenshot and answer: Is there a clickable element at these coordinates?
 Look for: buttons, links, icons, input fields, menu items, checkboxes.
 If wrong location, note what IS at that location.
 Respond ONLY with JSON: {"correct": true/false, "what_element": "...", "suggestion": "..."}`;
-    
+
     try {
       const content = [
         { inlineData: { mimeType: 'image/png', data: shotData } },
@@ -420,24 +420,24 @@ Respond ONLY with JSON: {"correct": true/false, "what_element": "...", "suggesti
     if (!box2d || !Array.isArray(box2d) || box2d.length !== 4) {
       return { valid: false, error: 'Invalid box2d format' };
     }
-    
+
     let [a, b, c, d] = box2d;
     const isGEMINIFormat = (a >= 0 && a <= 1000 && c >= 0 && c <= 1000);
-    
+
     let xmin, ymin, xmax, ymax;
     if (isGEMINIFormat || this.currentProvider === 'gemini') {
       [ymin, xmin, ymax, xmax] = box2d;
     } else {
       [xmin, ymin, xmax, ymax] = box2d;
     }
-    
+
     if (xmin < 0 || ymin < 0 || xmax > 1000 || ymax > 1000 || xmax <= xmin || ymax <= ymin) {
       return { valid: false, error: 'Invalid coordinate values', box: box2d, parsed: { xmin, ymin, xmax, ymax } };
     }
-    
+
     const centerX = Math.round((xmin + (xmax - xmin) / 2) * this.screenSize.width / 1000) + this.screenSize.x;
     const centerY = Math.round((ymin + (ymax - ymin) / 2) * this.screenSize.height / 1000) + this.screenSize.y;
-    
+
     return {
       valid: true,
       original: box2d,
@@ -454,12 +454,12 @@ Respond ONLY with JSON: {"correct": true/false, "what_element": "...", "suggesti
 
   async checkLibraryInstalled(library, packageManager) {
     try {
-      const checkCmd = packageManager === 'pip' 
+      const checkCmd = packageManager === 'pip'
         ? `pip show ${library} 2>/dev/null | head -1`
         : packageManager === 'npm'
         ? `npm list ${library} --depth=0 2>/dev/null`
         : `which ${library}`;
-      
+
       const output = await new Promise(resolve => {
         exec(checkCmd, (err, stdout) => {
           resolve(stdout || '');
@@ -479,7 +479,7 @@ Respond ONLY with JSON: {"correct": true/false, "what_element": "...", "suggesti
         : packageManager === 'npm'
         ? `npm install --no-save ${library}`
         : `pip install ${library}`;
-      
+
       const output = await new Promise((resolve, reject) => {
         exec(installCmd, { timeout: 60000 }, (err, stdout, stderr) => {
           if (err) {
@@ -489,7 +489,7 @@ Respond ONLY with JSON: {"correct": true/false, "what_element": "...", "suggesti
           }
         });
       });
-      
+
       const installTime = Date.now() - startTime;
       console.log(`[ACT JS] Installed ${library} in ${installTime}ms`);
       return { success: true, message: `Installed ${library} in ${installTime}ms`, installTime };
@@ -503,18 +503,18 @@ Respond ONLY with JSON: {"correct": true/false, "what_element": "...", "suggesti
     const timestamp = Date.now();
     const ext = language === 'python' ? 'py' : 'js';
     const tempFile = path.join(tempDir, `act_script_${timestamp}.${ext}`);
-    
+
     let fullScript = script;
     if (language === 'python' && args.length > 0) {
       fullScript = script.replace(/sys\.argv\s*=\s*\[[^\]]*\]/, `sys.argv = ${JSON.stringify(['script', ...args])}`);
     }
-    
+
     fs.writeFileSync(tempFile, fullScript);
-    
+
     const runCmd = language === 'python'
       ? `python "${tempFile}"`
       : `node "${tempFile}"`;
-    
+
     try {
       const output = await new Promise((resolve, reject) => {
         exec(runCmd, { timeout: 60000 }, (err, stdout, stderr) => {
@@ -544,10 +544,10 @@ Respond ONLY with JSON: {"correct": true/false, "what_element": "...", "suggesti
     this.currentModelName = finalModelName;
     this.currentSystemPrompt = targetSystemPrompt;
     const genAI = new GoogleGenerativeAI(key);
-    
+
     const toolDescription = this.getToolDescription();
     const enhancedSystemPrompt = targetSystemPrompt + toolDescription;
-    
+
     const modelOptions = {
       model: finalModelName,
       systemInstruction: enhancedSystemPrompt,
@@ -685,11 +685,11 @@ case "click":
           let targetX, targetY;
           let coordSource = 'direct';
           let coordConfidence = 'low';
-          
+
           if (params.box2d && Array.isArray(params.box2d) && params.box2d.length === 4) {
             let xmin, ymin, xmax, ymax;
             const box = params.box2d;
-            
+
             // AI provides coordinates - could be 0-1000 normalized OR screenshot pixels
             // Detect which format by checking magnitude
             if (this.currentProvider === 'gemini') {
@@ -697,11 +697,11 @@ case "click":
             } else {
               [xmin, ymin, xmax, ymax] = box;
             }
-            
+
             // Check if already in pixel coordinates (imageSize range) or normalized (0-1000)
             const maxCoord = Math.max(xmin, xmax, ymin, ymax);
             let centerNormX, centerNormY;
-            
+
             if (maxCoord > 1000) {
               // Already in screenshot pixels - use directly
               centerNormX = xmin;
@@ -712,7 +712,7 @@ case "click":
               centerNormX = (xmin + xmax) / 2;
               centerNormY = (ymin + ymax) / 2;
             }
-            
+
             // CONVERT: normalized (0-1000) -> screenshot pixels using imageSize
             // If AI gave pixels, skip this
             let clickX, clickY;
@@ -725,7 +725,7 @@ case "click":
               clickX = Math.round(centerNormX * scaleX);
               clickY = Math.round(centerNormY * scaleY);
             }
-            
+
             // Then SCALE to native screen coordinates for the click
             if (this.imageSize.width !== this.screenSize.width || this.imageSize.height !== this.screenSize.height) {
               const nativeScaleX = this.screenSize.width / this.imageSize.width;
@@ -733,17 +733,17 @@ case "click":
               clickX = Math.round(clickX * nativeScaleX);
               clickY = Math.round(clickY * nativeScaleY);
             }
-            
+
             // Add monitor offset
             targetX = clickX + this.screenSize.x;
             targetY = clickY + this.screenSize.y;
-            
+
             console.log(`[ACT JS] Coords: box=[${box}] centerNorm=(${centerNormX},${centerNormY}) imgScale=${(this.imageSize.width/1000)}x${(this.imageSize.height/1000)} imgPx=(${clickX},${clickY}) final=(${targetX},${targetY})`);
           } else if (params.x !== undefined && params.y !== undefined) {
             // Direct coordinates - could be 0-1000 or pixels
             const isPixelFormat = params.x > 1000 || params.y > 1000;
             let clickX, clickY;
-            
+
             if (isPixelFormat) {
               clickX = params.x;
               clickY = params.y;
@@ -754,26 +754,26 @@ case "click":
               clickX = Math.round(params.x * scaleX);
               clickY = Math.round(params.y * scaleY);
             }
-            
+
             // Scale to native if needed
             if (this.imageSize.width !== this.screenSize.width || this.imageSize.height !== this.screenSize.height) {
               clickX = Math.round(clickX * (this.screenSize.width / this.imageSize.width));
               clickY = Math.round(clickY * (this.screenSize.height / this.imageSize.height));
             }
-            
+
             targetX = clickX + this.screenSize.x;
             targetY = clickY + this.screenSize.y;
             console.log(`[ACT JS] DEBUG coords: params.xy=(${params.x},${params.y}) format=${isPixelFormat?'PIXEL':'NORM'} final=(${targetX},${targetY})`);
           }
-          
+
           if (targetX !== undefined && targetY !== undefined) {
             console.log(`[ACT JS] Action: ${actionType}, Target: (${targetX}, ${targetY}) [${params.label || 'unlabeled'}]`);
-            
+
             if (params.confidence < 95 && this.model && !params.skip_ai_verify) {
               for (let attempt = 0; attempt < 3; attempt++) {
                 const preCheck = await this.aiVerifyClick(targetX, targetY, params.label || 'target');
                 console.log(`[ACT JS] AI verify attempt ${attempt + 1}: correct=${preCheck.correct}`);
-                
+
                 if (preCheck.correct === true || attempt >= 2) {
                   if (preCheck.correct === false) {
                     console.log(`[ACT JS] AI says wrong but max retries, proceeding anyway`);
@@ -781,8 +781,8 @@ case "click":
                   result.ai_precheck = preCheck;
                   break;
                 }
-                
-                if (preCheck.suggestion && (preCheck.suggestion.includes('left') || preCheck.suggestion.includes('right') || 
+
+                if (preCheck.suggestion && (preCheck.suggestion.includes('left') || preCheck.suggestion.includes('right') ||
                     preCheck.suggestion.includes('above') || preCheck.suggestion.includes('below') ||
                     preCheck.suggestion.includes('move') || preCheck.suggestion.includes('shift'))) {
                   let newX = targetX, newY = targetY;
@@ -799,17 +799,17 @@ case "click":
                 }
               }
             }
-            
+
             await mouse.setPosition(new Point(targetX, targetY));
             if (actionType === "click") await mouse.leftClick();
             if (actionType === "right_click") await mouse.rightClick();
             if (actionType === "double_click") await mouse.doubleClick(Button.LEFT);
-            
+
             result.success = true;
             result.message = `${actionType} at (${targetX}, ${targetY}) [${params.label || 'unlabeled'}] confidence ${params.confidence}%`;
           }
           break;
-        
+
         case "verify_coordinates":
           if ((params.box2d && Array.isArray(params.box2d) && params.box2d.length === 4) || (params.x !== undefined && params.y !== undefined)) {
             let checkX, checkY;
@@ -826,7 +826,7 @@ case "click":
               checkX = Math.round((params.x / 1000) * this.screenSize.width) + this.screenSize.x;
               checkY = Math.round((params.y / 1000) * this.screenSize.height) + this.screenSize.y;
             }
-            
+
             const verified = await this.aiVerifyClick(checkX, checkY, params.label || 'target');
             result.success = true;
             result.message = verified.message || (verified.correct ? "Coordinates verified by AI" : "AI suggests coordinates may be incorrect");
@@ -841,17 +841,17 @@ case "click":
 case "type":
           if (params.text) {
             let typeTargetX, typeTargetY, coordSource = 'direct';
-            
+
             if (params.box2d && Array.isArray(params.box2d) && params.box2d.length === 4) {
               let xmin, ymin, xmax, ymax;
               const box = params.box2d;
-              
+
               if (this.currentProvider === 'gemini') {
                 [ymin, xmin, ymax, xmax] = box;
               } else {
                 [xmin, ymin, xmax, ymax] = box;
               }
-              
+
               const centerNormX = xmin + (xmax - xmin) / 2;
               const centerNormY = ymin + (ymax - ymin) / 2;
 
@@ -1033,7 +1033,7 @@ case "type":
             } catch (e) {}
           };
           for (const p of startMenuPaths) scanDir(p);
-          const filteredApps = params.filter 
+          const filteredApps = params.filter
             ? apps.filter(a => a.toLowerCase().includes(params.filter.toLowerCase()))
             : apps;
           result.success = true;
@@ -1106,7 +1106,7 @@ case "type":
               const path = require('path');
               const os = require('os');
               const tmpDir = os.tmpdir();
-              
+
               // Check if AE is running first
               let isRunning = false;
               try {
@@ -1115,17 +1115,17 @@ case "type":
               } catch (err) {
                 isRunning = false;
               }
-              
+
               if (!isRunning) {
                 result.success = false;
                 result.message = "Adobe After Effects is not running. Please open AE first.";
                 break;
               }
-              
+
               // Don't wrap if already has try-catch or is wrapped in IIFE
               let scriptToRun = params.script;
               const hasErrorHandling = params.script.includes('try {') || params.script.includes('catch(') || params.script.includes('function()') || params.script.trim().startsWith('(function');
-              
+
               if (!hasErrorHandling) {
                 scriptToRun = `
 try {
@@ -1138,12 +1138,12 @@ ${params.script}
 }
 `;
               }
-              
+
               const jsxFile = path.join(tmpDir, `ae_extendscript_${Date.now()}.jsx`);
-              
+
               // Write JSX script to temp file (UTF-8 No BOM)
               fs.writeFileSync(jsxFile, scriptToRun, 'utf8');
-              
+
               // Find After Effects path
               const aePaths = [
                 'C:\\Program Files\\Adobe\\Adobe After Effects 2024\\Support Files\\AfterFX.exe',
@@ -1157,14 +1157,14 @@ ${params.script}
                   break;
                 }
               }
-              
+
               if (!aePath) {
                 fs.unlinkSync(jsxFile);
                 result.success = false;
                 result.message = "Adobe After Effects not found. Install AE or provide path.";
                 break;
               }
-              
+
               // Run via AE CLI -r flag using PowerShell Start-Process (Node exec fails with AE)
               const psCmd = `powershell -Command "Start-Process -FilePath '${aePath}' -ArgumentList '-r','${jsxFile}' -Wait -NoNewWindow"`;
               console.log(`[ACT JS] Running ExtendScript on AE via PowerShell`);
@@ -1211,19 +1211,19 @@ ${params.script}
           const mode = params.mode || 'check';
           const fs2 = require('fs');
           const pathModule = require('path');
-          
+
           // Try JS version first, fallback to Python
           let scriptPath = pathModule.join(__dirname, '..', '..', 'scripts', 'enable_scripting.js');
           if (!fs2.existsSync(scriptPath)) {
             scriptPath = pathModule.join(__dirname, '..', '..', 'scripts', 'enable_scripting.py');
           }
-          
+
           if (!fs2.existsSync(scriptPath)) {
             result.success = false;
             result.message = "enable_scripting script not found";
             break;
           }
-          
+
           let args = [];
           if (mode === 'status') {
             args = ['--status'];
@@ -1234,12 +1234,12 @@ ${params.script}
           } else {
             args = ['--app', appName];
           }
-          
+
           const isJs = scriptPath.endsWith('.js');
-          const cmd = isJs 
+          const cmd = isJs
             ? `node "${scriptPath}" ${args.join(' ')}`
             : `python "${scriptPath}" ${args.join(' ')}`;
-          
+
           await new Promise((resolve) => {
             execCmd(cmd, { windowsHide: true, timeout: 60000 }, (err, stdout, stderr) => {
               result.success = !err;
@@ -1316,7 +1316,7 @@ ${params.script}
           const searchResults = await searchManager.search(packageQuery);
           if (searchResults && searchResults.length > 0) {
             result.success = true;
-            result.message = `Research for ${params.name}:\n\n` + 
+            result.message = `Research for ${params.name}:\n\n` +
               searchResults.slice(0, 3).map((r, i) => `${i + 1}. ${r.title}\n${r.link}\n${r.snippet}\n`).join('\n');
           } else {
             result.success = true;
@@ -1745,21 +1745,21 @@ case "browser_get_element":
 
   async verifyAction(action, executionResult, existingShot = null) {
     const verificationInfo = action.verification || {};
-    
+
     // For terminal commands - verify by exit code only
     if (action.action === 'terminal' || action.action === 'run_script') {
       const exitCode = executionResult.code;
       // If code is undefined (didn't run), check success flag
       // If code is 0, success. If code > 0, failure
       const success = executionResult.success && (exitCode === undefined || exitCode === 0);
-      return { 
-        verified: success, 
-        message: success 
-          ? `Terminal command executed successfully (exit code: ${exitCode || 0})` 
-          : `Terminal failed with exit code: ${exitCode || 'unknown'}` 
+      return {
+        verified: success,
+        message: success
+          ? `Terminal command executed successfully (exit code: ${exitCode || 0})`
+          : `Terminal failed with exit code: ${exitCode || 'unknown'}`
       };
     }
-    
+
     // Wait for app to respond
     if (!verificationInfo.verification_method || verificationInfo.verification_method === "visual") {
       await new Promise(r => setTimeout(r, 500));
@@ -2149,16 +2149,16 @@ try {
 
     const requestLower = userRequest.toLowerCase();
     let steps = [];
-    
+
     if (requestLower.includes('open') && requestLower.includes(' ')) {
       const appMatch = userRequest.match(/open\s+(\w+)/i);
       if (appMatch) steps.push(`Open ${appMatch[1]}`);
     }
-    
+
     steps.push('Analyze what is needed');
     steps.push('Execute actions to complete the request');
     steps.push('Verify completion');
-    
+
     this.setTaskPlan(steps, { originalRequest: userRequest });
 
     try {
@@ -2197,7 +2197,7 @@ OS: ${process.platform}, Native Screen: ${this.actualScreen.width}x${this.actual
 ${(global.cachedApplicationsWithPaths || []).slice(0, 80).join('\n')}
 
 === CRITICAL APP LAUNCHING RULES ===
-- NEVER use "start <appname>" - it opens wrong app or command prompt  
+- NEVER use "start <appname>" - it opens wrong app or command prompt
 - When need to open app from list, use the shortcut path above with: explorer "<shortcut_path>"
 - Or just click on the actual Start Menu item in the screenshot
 
@@ -2303,7 +2303,7 @@ Analyze screen and provide IMMEDIATE ACTIONS. Respond with JSON.`;
 } else if (effectiveProvider === 'gemini') {
           let geminiRetry = 0;
           const maxRetries = 2;
-          
+
           while (geminiRetry <= maxRetries) {
             try {
               const result = await this.model.generateContentStream(content);
@@ -2320,7 +2320,7 @@ Analyze screen and provide IMMEDIATE ACTIONS. Respond with JSON.`;
             } catch (streamErr) {
               geminiRetry++;
               console.error(`[ACT JS] Stream error (attempt ${geminiRetry}):`, streamErr.message);
-              
+
               if (geminiRetry > maxRetries || !streamErr.message.includes('500')) {
                 if (fullText) {
                   console.log('[ACT JS] Using partial response after retries');
@@ -2328,7 +2328,7 @@ Analyze screen and provide IMMEDIATE ACTIONS. Respond with JSON.`;
                 }
                 throw new Error(`AI stream failed after ${maxRetries} retries: ${streamErr.message}`);
               }
-              
+
               await new Promise(r => setTimeout(r, 1000 * geminiRetry));
             }
           }
@@ -2368,7 +2368,7 @@ Analyze screen and provide IMMEDIATE ACTIONS. Respond with JSON.`;
           console.error('[ACT JS] JSON parse error:', jsonErr.message, 'Attempting recovery...');
           console.log('[ACT JS] Raw fullText:', fullText);
           parseFailed = true;
-          
+
           try {
             const jsonStart = fullText.indexOf('{');
             const jsonEnd = fullText.lastIndexOf('}');
@@ -2385,7 +2385,7 @@ Analyze screen and provide IMMEDIATE ACTIONS. Respond with JSON.`;
             console.error('[ACT JS] JSON recovery failed:', fixErr.message);
           }
         }
-        
+
         if (parseFailed) {
           const cleanMarkdown = fullText.replace(/\{[\s\S]*\}/, "").trim();
           if (cleanMarkdown && cleanMarkdown.length > 10) {
@@ -2420,7 +2420,7 @@ Analyze screen and provide IMMEDIATE ACTIONS. Respond with JSON.`;
         if (!Array.isArray(actions)) {
           actions = actions ? Object.values(actions).filter(a => a && a.action) : [];
         }
-        
+
         if (!actions || actions.length === 0) {
           // No valid actions - send after_message if exists, otherwise ask AI to retry
           const finalMessage = plan.after_message || "No actions provided. Please try again with valid actions.";
@@ -2465,31 +2465,31 @@ Analyze screen and provide IMMEDIATE ACTIONS. Respond with JSON.`;
 
           onEvent("action_start", { description: action.description });
           const execResult = await this.executeAction(action, onEvent);
-          
+
           if (!this.isOnTrack()) {
             onEvent("ai_response", { text: "Detected repeated actions. Stopping task to prevent infinite loop.", is_action: false });
             this.stopRequested = true;
             break;
           }
-          
+
           const confidence = action.parameters?.confidence;
           const skipVerif = action.parameters?.skip_ai_verify || action.parameters?.skip_verify;
           const isRoutine = ['click', 'type', 'scroll', 'mouse_move'].includes(action.action.toLowerCase());
           const isTerminal = ['terminal', 'run_script'].includes(action.action.toLowerCase());
           const isHighConf = confidence !== undefined && confidence >= 95;
-          
+
           let verification;
           // For terminal commands - verify by exit code, not AI assessment
           if (isTerminal && execResult.success) {
             verification = { verified: true, message: `Terminal command executed successfully (code: ${execResult.code || 0})` };
-          } 
+          }
           // For high confidence - verify locally, assume success unless obvious failure
           else if (skipVerif || (isRoutine && isHighConf)) {
             verification = { verified: execResult.success, message: `Verified locally (confidence: ${confidence}%)` };
           } else {
             verification = await this.verifyAction(action, execResult);
           }
-          
+
           lastResultContext = `Action: ${action.action}, Success: ${verification.verified}, Notes: ${verification.message}`;
           onEvent("action_complete", {
             description: action.description,
@@ -2499,16 +2499,16 @@ Analyze screen and provide IMMEDIATE ACTIONS. Respond with JSON.`;
             code: execResult.code,
             language: execResult.language
           });
-          
+
           // Only retry if there's a REAL failure, not just "verification unclear"
           const realFailure = !verification.verified || !execResult.success;
           // Don't retry terminal commands that succeeded, or high-confidence clicks
           const shouldRetry = realFailure && !(isTerminal && execResult.success) && !isHighConf;
-          
+
           if (shouldRetry) {
             this.actionRetryCount++;
             console.log(`[ACT JS] Action failed, retry count: ${this.actionRetryCount}/${this.maxActionRetries}`);
-            
+
             if (this.actionRetryCount >= this.maxActionRetries) {
               onEvent("ai_response", { text: `Action failed after ${this.maxActionRetries} attempts: ${verification.message}. Moving to next step.`, is_action: false });
               this.actionRetryCount = 0;
@@ -2518,7 +2518,7 @@ Analyze screen and provide IMMEDIATE ACTIONS. Respond with JSON.`;
             }
             continue;
           }
-          
+
           this.actionRetryCount = 0;
           this.advanceStep(action.action, execResult);
         }

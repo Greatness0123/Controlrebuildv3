@@ -23,7 +23,6 @@ class WindowManager {
     }
 
     async initializeWindows() {
-
         console.log('[WindowManager] Initializing core windows...');
         await this.createMainWindow();
         await this.createEntryWindow();
@@ -37,7 +36,6 @@ class WindowManager {
         const visible = global.appSettings?.windowVisibility !== false;
         try {
             window.setContentProtection(!visible);
-
             window.setVisibleOnAllWorkspaces(visible, { visibleOnFullScreen: true });
         } catch (e) {
             console.warn('[WindowManager] Could not apply setVisibleOnAllWorkspaces:', e.message);
@@ -69,26 +67,37 @@ class WindowManager {
                 nodeIntegration: false,
                 contextIsolation: true,
                 enableRemoteModule: false,
-                preload: path.join(__dirname, '../preload/main-preload.js'),
-                webSecurity: !isDev
+                preload: path.join(__dirname, '../preload/overlay-preload.js'),
+                webSecurity: true
             }
         });
-        this.mainWindow.setAlwaysOnTop(true, 'floating')
-
+        this.mainWindow.setAlwaysOnTop(true, 'screen-saver')
         this.mainWindow.setIgnoreMouseEvents(!this.isInteractive, { forward: !this.isInteractive });
 
-        await this.mainWindow.loadFile(
-            path.join(__dirname, '../renderer/main-overlay.html')
-        );
+        if (isDev && process.env.ELECTRON_RENDERER_URL) {
+            this.mainWindow.loadURL(process.env.ELECTRON_RENDERER_URL + '/overlay/index.html');
+        } else {
+            await this.mainWindow.loadFile(path.join(__dirname, '../renderer/overlay/index.html'));
+        }
 
         this.windows.set('main', this.mainWindow);
         this.applyCurrentVisibility(this.mainWindow);
 
+        this.mainWindow.webContents.on('console-message', (event, level, message, line, sourceId) => {
+            console.log(`[Overlay Renderer ${level}] ${message} (${sourceId}:${line})`);
+        });
     }
 
     async createChatWindow() {
         console.log('[WindowManager] Creating chat window...');
-        const iconPath = path.join(__dirname, '../../assets/icons/icon.ico');
+        const { app } = require('electron');
+        const isDev = !app.isPackaged;
+        let iconPath;
+        if (isDev) {
+            iconPath = path.join(__dirname, '../../assets/icons/icon.ico');
+        } else {
+            iconPath = path.join(process.resourcesPath, 'assets', 'icons', 'icon.ico');
+        }
         const chatWindow = new BrowserWindow({
             width: 360,
             height: 480,
@@ -117,16 +126,18 @@ class WindowManager {
                 contextIsolation: true,
                 enableRemoteModule: false,
                 preload: path.join(__dirname, '../preload/chat-preload.js'),
-                webSecurity: !isDev
+                webSecurity: true
             }
         });
 
         chatWindow.setAlwaysOnTop(true, 'screen-saver')
 
         try {
-            await chatWindow.loadFile(
-                path.join(__dirname, '../renderer/chat-window.html')
-            );
+            if (isDev && process.env.ELECTRON_RENDERER_URL) {
+                chatWindow.loadURL(process.env.ELECTRON_RENDERER_URL + '/chat/index.html');
+            } else {
+                await chatWindow.loadFile(path.join(__dirname, '../renderer/chat/index.html'));
+            }
             console.log('[WindowManager] Chat window loaded successfully');
         } catch (err) {
             console.error('[WindowManager] Failed to load chat window:', err);
@@ -135,7 +146,6 @@ class WindowManager {
 
         this.windows.set('chat', chatWindow);
         this.applyCurrentVisibility(chatWindow);
-
         this.setupDraggableWindow(chatWindow);
 
         chatWindow.webContents.on('render-process-gone', (event, details) => {
@@ -177,14 +187,16 @@ class WindowManager {
                 contextIsolation: true,
                 enableRemoteModule: false,
                 preload: path.join(__dirname, '../preload/settings-preload.js'),
-                webSecurity: !isDev
+                webSecurity: true
             }
         });
         settingsWindow.setAlwaysOnTop(true, 'screen-saver')
         try {
-            await settingsWindow.loadFile(
-                path.join(__dirname, '../renderer/settings-modal.html')
-            );
+            if (isDev && process.env.ELECTRON_RENDERER_URL) {
+                settingsWindow.loadURL(process.env.ELECTRON_RENDERER_URL + '/settings/index.html');
+            } else {
+                await settingsWindow.loadFile(path.join(__dirname, '../renderer/settings/index.html'));
+            }
             console.log('[WindowManager] Settings window loaded successfully');
         } catch (err) {
             console.error('[WindowManager] Failed to load settings window:', err);
@@ -193,19 +205,20 @@ class WindowManager {
 
         this.windows.set('settings', settingsWindow);
         this.applyCurrentVisibility(settingsWindow);
-
         this.setupDraggableWindow(settingsWindow);
+
+        settingsWindow.webContents.on('console-message', (event, level, message, line, sourceId) => {
+            console.log(`[Settings Renderer ${level}] ${message} (${sourceId}:${line})`);
+        });
 
         settingsWindow.on('blur', () => {
             setTimeout(() => {
                 try {
                     if (!settingsWindow.isDestroyed() && !settingsWindow.isFocused()) {
-
                         if (settingsWindow.isModalActive) {
                             console.log('[WindowManager] Settings window blurred but modal is active, not hiding');
                             return;
                         }
-
                         const focusedWindow = BrowserWindow.getFocusedWindow();
                         const isOtherManagedWindowFocused = Array.from(this.windows.values()).some(w => w === focusedWindow);
 
@@ -243,16 +256,18 @@ class WindowManager {
                 contextIsolation: true,
                 enableRemoteModule: false,
                 preload: path.join(__dirname, '../preload/workflow-preload.js'),
-                webSecurity: !isDev
+                webSecurity: true
             }
         });
 
         workflowWindow.setAlwaysOnTop(true, 'screen-saver')
 
         try {
-            await workflowWindow.loadFile(
-                path.join(__dirname, '../renderer/workflow-window.html')
-            );
+            if (isDev && process.env.ELECTRON_RENDERER_URL) {
+                workflowWindow.loadURL(process.env.ELECTRON_RENDERER_URL + '/workflow/index.html');
+            } else {
+                await workflowWindow.loadFile(path.join(__dirname, '../renderer/workflow/index.html'));
+            }
             console.log('[WindowManager] Workflow window loaded successfully');
         } catch (err) {
             console.error('[WindowManager] Failed to load workflow window:', err);
@@ -262,6 +277,10 @@ class WindowManager {
         this.windows.set('workflow', workflowWindow);
         this.applyCurrentVisibility(workflowWindow);
         this.setupDraggableWindow(workflowWindow);
+
+        workflowWindow.webContents.on('console-message', (event, level, message, line, sourceId) => {
+            console.log(`[Workflow Renderer ${level}] ${message} (${sourceId}:${line})`);
+        });
     }
 
     async createLiteWindow() {
@@ -282,14 +301,22 @@ class WindowManager {
                 nodeIntegration: false,
                 contextIsolation: true,
                 preload: path.join(__dirname, '../preload/lite-preload.js'),
-                webSecurity: !isDev
+                webSecurity: true
             }
         });
         liteWindow.setAlwaysOnTop(true, 'screen-saver');
-        await liteWindow.loadFile(path.join(__dirname, '../renderer/lite-window.html'));
+        if (isDev && process.env.ELECTRON_RENDERER_URL) {
+            liteWindow.loadURL(process.env.ELECTRON_RENDERER_URL + '/lite/index.html');
+        } else {
+            await liteWindow.loadFile(path.join(__dirname, '../renderer/lite/index.html'));
+        }
         this.windows.set('lite', liteWindow);
         this.applyCurrentVisibility(liteWindow);
         this.setupDraggableWindow(liteWindow);
+
+        liteWindow.webContents.on('console-message', (event, level, message, line, sourceId) => {
+            console.log(`[Lite Renderer ${level}] ${message} (${sourceId}:${line})`);
+        });
     }
 
     async createEntryWindow() {
@@ -318,14 +345,16 @@ class WindowManager {
                 contextIsolation: true,
                 enableRemoteModule: false,
                 preload: path.join(__dirname, '../preload/entry-preload.js'),
-                webSecurity: !isDev
+                webSecurity: true
             }
         });
 
         try {
-            await entryWindow.loadFile(
-                path.join(__dirname, '../renderer/entry-window.html')
-            );
+            if (isDev && process.env.ELECTRON_RENDERER_URL) {
+                entryWindow.loadURL(process.env.ELECTRON_RENDERER_URL + '/entry/index.html');
+            } else {
+                await entryWindow.loadFile(path.join(__dirname, '../renderer/entry/index.html'));
+            }
             console.log('[WindowManager] Entry window loaded successfully');
         } catch (err) {
             console.error('[WindowManager] Failed to load entry window:', err);
@@ -334,8 +363,11 @@ class WindowManager {
 
         this.windows.set('entry', entryWindow);
         this.applyCurrentVisibility(entryWindow);
-
         this.setupDraggableWindow(entryWindow);
+
+        entryWindow.webContents.on('console-message', (event, level, message, line, sourceId) => {
+            console.log(`[Entry Renderer ${level}] ${message} (${sourceId}:${line})`);
+        });
     }
 
     async createGhostCursorWindow() {
@@ -366,20 +398,22 @@ class WindowManager {
                 contextIsolation: true,
                 enableRemoteModule: false,
                 preload: path.join(__dirname, '../preload/ghost-cursor-preload.js'),
-                webSecurity: !isDev
+                webSecurity: true
             }
         });
 
-        this.ghostCursorWindow.setAlwaysOnTop(true, 'floating');
+        this.ghostCursorWindow.setAlwaysOnTop(true, 'screen-saver');
         this.ghostCursorWindow.setIgnoreMouseEvents(true, { forward: false });
 
         this.ghostCursorMouseTracker = null;
         this.isGhostCursorActive = false;
 
         try {
-            await this.ghostCursorWindow.loadFile(
-                path.join(__dirname, '../renderer/ghost-cursor-overlay.html')
-            );
+            if (isDev && process.env.ELECTRON_RENDERER_URL) {
+                this.ghostCursorWindow.loadURL(process.env.ELECTRON_RENDERER_URL + '/ghost-cursor/index.html');
+            } else {
+                await this.ghostCursorWindow.loadFile(path.join(__dirname, '../renderer/ghost-cursor/index.html'));
+            }
             console.log('[WindowManager] Ghost cursor window loaded successfully');
         } catch (err) {
             console.error('[WindowManager] Failed to load ghost cursor window:', err);
@@ -387,7 +421,11 @@ class WindowManager {
         }
 
         this.windows.set('ghostCursor', this.ghostCursorWindow);
-        
+
+        this.ghostCursorWindow.webContents.on('console-message', (event, level, message, line, sourceId) => {
+            console.log(`[GhostCursor Renderer ${level}] ${message} (${sourceId}:${line})`);
+        });
+
         if (process.platform === 'win32') {
             try {
                 this.ghostCursorWindow.setContentProtection(true);
@@ -395,7 +433,7 @@ class WindowManager {
                 console.warn('[WindowManager] Could not set content protection:', e.message);
             }
         }
-        
+
         return this.ghostCursorWindow;
     }
 
@@ -412,7 +450,7 @@ class WindowManager {
 
     initGhostCursorSettings() {
         if (this.ghostCursorWindow && !this.ghostCursorWindow.isDestroyed()) {
-            const settings = this.appSettings;
+            const settings = this.appSettings || {};
             this.ghostCursorWindow.webContents.send('ghost-cursor:init-settings', {
                 cursorColor: settings.ghostCursorColor || '#0078D4',
                 cursorOutlineColor: settings.ghostCursorOutlineColor || '#FFFFFF',
@@ -477,11 +515,10 @@ class WindowManager {
     }
 
     setupDraggableWindow(window) {
-
+        // Implementation for dragging windows if required
     }
 
     setupWindowManagement() {
-
         screen.on('display-metrics-changed', () => {
             this.ensureWindowsOnScreen();
         });
@@ -509,11 +546,18 @@ class WindowManager {
                 }
 
                 if (!onScreen) {
-
-                    window.setPosition(
-                        primaryDisplay.workArea.x + 100,
-                        primaryDisplay.workArea.y + 100
-                    );
+                    if (type === 'chat' || type === 'lite') {
+                        const workArea = primaryDisplay.workArea;
+                        window.setPosition(
+                            workArea.x + workArea.width - bounds.width - 20,
+                            workArea.y + workArea.height - bounds.height - 40
+                        );
+                    } else {
+                        window.setPosition(
+                            primaryDisplay.workArea.x + 100,
+                            primaryDisplay.workArea.y + 100
+                        );
+                    }
                 }
             }
         });
@@ -567,9 +611,7 @@ class WindowManager {
             }
 
             this.setInteractive(false);
-
             this.showFloatingButtonIfEnabled();
-
             browserWindow.hide();
             console.log(`[WindowManager] hideWindow: Hiding ${windowType}. Current state: chatVisible=${this.chatVisible}`);
             return true;
@@ -590,7 +632,7 @@ class WindowManager {
             return { visible: false };
         } else {
             console.log(`[WindowManager] toggleChat: Showing ${target}`);
-            this.hideWindow(other); // Ensure other layout is hidden
+            this.hideWindow(other);
             await this.showWindow(target);
             return { visible: true };
         }
@@ -633,7 +675,6 @@ class WindowManager {
             const enabled = global.appSettings?.floatingButtonVisible !== false;
             console.log(`[WindowManager] showFloatingButtonIfEnabled - floatingButtonVisible=${enabled}`);
             if (enabled) {
-
                 mainWindow.webContents.send('show-floating-button');
             } else {
                 console.log('[WindowManager] Skipping showFloatingButtonIfEnabled: floating button disabled in settings');
@@ -646,9 +687,7 @@ class WindowManager {
         this.isInteractive = interactive;
         const mainWindow = this.windows.get('main');
         if (mainWindow && !mainWindow.isDestroyed()) {
-
             mainWindow.setIgnoreMouseEvents(!interactive, { forward: !interactive });
-
             mainWindow.webContents.send('interaction-mode-changed', { interactive });
         }
     }

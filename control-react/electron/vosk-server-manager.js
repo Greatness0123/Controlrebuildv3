@@ -31,6 +31,7 @@ class VoskServerManager {
         const searchDirs = [];
         if (isPackaged) {
             searchDirs.push(process.resourcesPath);
+            searchDirs.push(path.join(process.resourcesPath, "assets"));
             searchDirs.push(path.join(process.resourcesPath, "app.asar.unpacked"));
         } else {
             searchDirs.push(path.join(__dirname, "../../"));

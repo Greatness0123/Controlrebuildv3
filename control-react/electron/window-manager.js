@@ -90,7 +90,14 @@ class WindowManager {
 
     async createChatWindow() {
         console.log('[WindowManager] Creating chat window...');
-        const iconPath = path.join(__dirname, '../../assets/icons/icon.ico');
+        const { app } = require('electron');
+        const isDev = !app.isPackaged;
+        let iconPath;
+        if (isDev) {
+            iconPath = path.join(__dirname, '../../assets/icons/icon.ico');
+        } else {
+            iconPath = path.join(process.resourcesPath, 'assets', 'icons', 'icon.ico');
+        }
         const chatWindow = new BrowserWindow({
             width: 360,
             height: 480,
