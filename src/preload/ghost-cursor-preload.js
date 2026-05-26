@@ -15,6 +15,7 @@ contextBridge.exposeInMainWorld('ghostCursorAPI', {
     },
     onInitSettings: (callback) => {
         ipcRenderer.on('ghost-cursor:init-settings', (event, data) => callback(data));
+        ipcRenderer.on('ghost-cursor-settings-updated', (event, data) => callback(data));
     },
     onStartIdle: (callback) => {
         ipcRenderer.on('ghost-cursor:start-idle', (event, data) => callback(data));
