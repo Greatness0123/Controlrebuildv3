@@ -416,6 +416,9 @@ class WindowManager {
                 await this.ghostCursorWindow.loadFile(path.join(__dirname, '../renderer/ghost-cursor-overlay.html'));
             }
             console.log('[WindowManager] Ghost cursor window loaded successfully');
+
+            // Apply persisted settings after load
+            this.initGhostCursorSettings();
         } catch (err) {
             console.error('[WindowManager] Failed to load ghost cursor window:', err);
             throw err;
@@ -451,11 +454,15 @@ class WindowManager {
 
     initGhostCursorSettings() {
         if (this.ghostCursorWindow && !this.ghostCursorWindow.isDestroyed()) {
-            const settings = this.appSettings || {};
+            const settings = global.appSettings || this.appSettings || {};
+            console.log('[WindowManager] Initializing ghost cursor settings:', {
+                enabled: settings.ghostCursorEnabled,
+                color: settings.ghostCursorColor
+            });
             this.ghostCursorWindow.webContents.send('ghost-cursor:init-settings', {
                 cursorColor: settings.ghostCursorColor || '#0078D4',
                 cursorOutlineColor: settings.ghostCursorOutlineColor || '#FFFFFF',
-                cursorOpacity: settings.ghostCursorOpacity || 100,
+                cursorOpacity: settings.ghostCursorOpacity ?? 100,
                 cursorSize: settings.ghostCursorSize || 'medium',
                 bubbleBg: settings.ghostCursorBubbleBg || '#FFFFFF',
                 bubbleTextColor: settings.ghostCursorBubbleTextColor || '#000000',
@@ -583,13 +590,13 @@ class WindowManager {
         if (browserWindow && !browserWindow.isDestroyed()) {
             if (windowType === 'chat' || windowType === 'lite') {
                 this.chatVisible = true;
-                console.log(`[WindowManager] showWindow(${windowType}): hiding floating button if enabled`);
-                this.hideFloatingButtonIfEnabled();
+                console.log(`[WindowManager] showWindow(${windowType}): hiding floating button`);
+                this.hideFloatingButton();
             }
-            if (windowType === 'settings') {
+            if (windowType === 'settings' || windowType === 'workflow') {
                 this.setInteractive(false);
-                console.log('[WindowManager] showWindow(settings): hiding floating button if enabled');
-                this.hideFloatingButtonIfEnabled();
+                console.log(`[WindowManager] showWindow(${windowType}): hiding floating button`);
+                this.hideFloatingButton();
             }
 
             console.log(`[WindowManager] showWindow: Showing and focusing ${windowType}. Current state: chatVisible=${this.chatVisible}`);
@@ -607,12 +614,14 @@ class WindowManager {
         if (browserWindow && !browserWindow.isDestroyed()) {
             if (!browserWindow.isVisible()) return true;
 
-            if (windowType === 'chat' || windowType === 'lite') {
-                this.chatVisible = false;
+            if (windowType === 'chat' || windowType === 'lite' || windowType === 'settings' || windowType === 'workflow') {
+                if (windowType === 'chat' || windowType === 'lite') {
+                    this.chatVisible = false;
+                }
+                this.showFloatingButton();
             }
 
             this.setInteractive(false);
-            this.showFloatingButtonIfEnabled();
             browserWindow.hide();
             console.log(`[WindowManager] hideWindow: Hiding ${windowType}. Current state: chatVisible=${this.chatVisible}`);
             return true;
@@ -673,25 +682,6 @@ class WindowManager {
         }
     }
 
-    hideFloatingButtonIfEnabled() {
-        const mainWindow = this.windows.get('main');
-        if (mainWindow && !mainWindow.isDestroyed()) {
-            mainWindow.webContents.send('hide-floating-button-if-enabled');
-        }
-    }
-
-    showFloatingButtonIfEnabled() {
-        const mainWindow = this.windows.get('main');
-        if (mainWindow && !mainWindow.isDestroyed()) {
-            const enabled = global.appSettings?.floatingButtonVisible !== false;
-            console.log(`[WindowManager] showFloatingButtonIfEnabled - floatingButtonVisible=${enabled}`);
-            if (enabled) {
-                mainWindow.webContents.send('show-floating-button');
-            } else {
-                console.log('[WindowManager] Skipping showFloatingButtonIfEnabled: floating button disabled in settings');
-            }
-        }
-    }
 
     setInteractive(interactive) {
         if (this.isInteractive === interactive) return;

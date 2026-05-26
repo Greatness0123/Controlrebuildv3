@@ -11,7 +11,7 @@ const supabaseService = require("../supabase-service");
 
 const SYSTEM_PROMPT = `You are a Click Mode assistant. Your role is to guide users through tasks step-by-step by providing clear, atomic instructions.
 
-CRITICAL: You must respond with ONLY valid JSON in the following schema. No additional text, no markdown, no explanations.
+CRITICAL: Respond with ONLY valid JSON. No explanations, no markdown, no reasoning text. Just the raw JSON object.
 
 OUTPUT SCHEMA:
 {
@@ -46,6 +46,7 @@ IMPORTANT: Always respond with valid JSON only. No markdown code blocks, no expl
 const GENERAL_SYSTEM_PROMPT = `You are a Click Mode assistant that guides users through tasks step-by-step.
 
 When asked to help with a task, break it down into clear, atomic steps and respond with ONLY JSON in this schema:
+Respond with ONLY valid JSON. No explanations, no markdown, no reasoning text. Just the raw JSON object.
 {
   "steps": [
     {"step": 1, "instruction": "...", "target": "CSS selector or null"},
@@ -90,6 +91,7 @@ class ClickBackend {
         generationConfig: {
           temperature: 0.7,
           maxOutputTokens: 4096,
+          responseMimeType: "application/json"
         }
       });
       console.log('[ClickBackend] Gemini API initialized with model:', model);
@@ -215,20 +217,9 @@ class ClickBackend {
 
   parseStepsResponse(responseText) {
     try {
-      let jsonStr = responseText.trim();
-
-      if (jsonStr.startsWith('```json')) {
-        jsonStr = jsonStr.slice(7);
-      } else if (jsonStr.startsWith('```')) {
-        jsonStr = jsonStr.slice(3);
-      }
-
-      if (jsonStr.endsWith('```')) {
-        jsonStr = jsonStr.slice(0, -3);
-      }
-
-      jsonStr = jsonStr.trim();
-
+      const match = responseText.match(/{[\s\S]*}/);
+      if (!match) throw new Error('No JSON found in response');
+      const jsonStr = match[0];
       const parsed = JSON.parse(jsonStr);
 
       if (parsed.steps && Array.isArray(parsed.steps)) {
