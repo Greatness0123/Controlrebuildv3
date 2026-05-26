@@ -97,6 +97,7 @@ class ComputerUseAgent {
         this.remoteDesktopManager = new RemoteDesktopManager(this.windowManager, this.settingsManager);
 
         this.appSettings = this.settingsManager.getSettings();
+        this.lastToggleTime = 0; // Debounce tracker
 
         if (this.appSettings.autoSendAfterWakeWord === undefined) {
             this.appSettings.autoSendAfterWakeWord = false;
@@ -179,6 +180,13 @@ class ComputerUseAgent {
                         }
                         break;
                     case 'toggle-chat':
+                        const now = Date.now();
+                        if (now - this.lastToggleTime < 300) {
+                            console.log('[Main] Ignoring rapid toggle-chat hotkey (debounced)');
+                            return;
+                        }
+                        this.lastToggleTime = now;
+
                         console.log('[Main] Toggle chat event received');
 
                         this.windowManager.hideWindow('settings');
@@ -494,6 +502,13 @@ this.startWorkflowScheduler();
         });
 
         ipcMain.handle('toggle-chat', async () => {
+            const now = Date.now();
+            if (now - this.lastToggleTime < 300) {
+                console.log('[Main] Ignoring rapid toggle-chat IPC call (debounced)');
+                return { success: false, debounced: true };
+            }
+            this.lastToggleTime = now;
+
             console.log('[Main] toggle-chat handler called');
 
             if (this.securityManager && this.securityManager.isEnabled() && !this.isAuthenticated) {

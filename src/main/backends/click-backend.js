@@ -129,7 +129,7 @@ class ClickBackend {
     }
   }
 
-  async executeTask(taskText, onResponse, onError, onEvent) {
+  async executeTask(taskText, onResponse, onError, onEvent, apiKey, settings = {}) {
     this.stopRequested = false;
     this.currentTask = taskText;
     this.currentSteps = [];
@@ -138,6 +138,13 @@ class ClickBackend {
     this.isWaitingForStepCompletion = false;
 
     try {
+      const cachedKeys = supabaseService.getKeys();
+      const modelSettings = supabaseService.getModelSettings();
+      const defaultGeminiModel = modelSettings?.selectedModel || modelSettings?.gemini_model || cachedKeys?.gemini_model || "gemini-2.0-flash";
+      const geminiModel = settings.selectedModel || defaultGeminiModel;
+
+      this.setupGeminiAPI(apiKey, geminiModel);
+
       if (!this.model) {
         throw new Error('ClickBackend: Model not initialized');
       }

@@ -279,10 +279,7 @@ this.currentTask = task.text;
             if (mode === 'click' && backend.executeTask) {
                 // Get API key from task
                 const clickApiKey = task.api_key || task.apiKey;
-                if (clickApiKey && !backend.model) {
-                    backend.setupGeminiAPI(clickApiKey, 'gemini-2.5-flash');
-                }
-                await backend.executeTask(task.text, onResponse, onError, onEvent);
+                await backend.executeTask(task.text, onResponse, onError, onEvent, clickApiKey, settings);
                 this.currentTask = null;
                 return { success: true, task };
             }
