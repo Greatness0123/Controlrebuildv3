@@ -76,9 +76,9 @@ class WindowManager {
         this.mainWindow.setIgnoreMouseEvents(!this.isInteractive, { forward: !this.isInteractive });
 
         if (isDev && process.env.ELECTRON_RENDERER_URL) {
-            this.mainWindow.loadURL(process.env.ELECTRON_RENDERER_URL + '/overlay/index.html');
+            this.mainWindow.loadURL(process.env.ELECTRON_RENDERER_URL + '/main-overlay.html');
         } else {
-            await this.mainWindow.loadFile(path.join(__dirname, '../renderer/overlay/index.html'));
+            await this.mainWindow.loadFile(path.join(__dirname, '../renderer/main-overlay.html'));
         }
 
         this.windows.set('main', this.mainWindow);
@@ -135,9 +135,9 @@ class WindowManager {
 
         try {
             if (isDev && process.env.ELECTRON_RENDERER_URL) {
-                chatWindow.loadURL(process.env.ELECTRON_RENDERER_URL + '/chat/index.html');
+                chatWindow.loadURL(process.env.ELECTRON_RENDERER_URL + '/chat-window.html');
             } else {
-                await chatWindow.loadFile(path.join(__dirname, '../renderer/chat/index.html'));
+                await chatWindow.loadFile(path.join(__dirname, '../renderer/chat-window.html'));
             }
             console.log('[WindowManager] Chat window loaded successfully');
         } catch (err) {
@@ -194,9 +194,9 @@ class WindowManager {
         settingsWindow.setAlwaysOnTop(true, 'screen-saver')
         try {
             if (isDev && process.env.ELECTRON_RENDERER_URL) {
-                settingsWindow.loadURL(process.env.ELECTRON_RENDERER_URL + '/settings/index.html');
+                settingsWindow.loadURL(process.env.ELECTRON_RENDERER_URL + '/settings-modal.html');
             } else {
-                await settingsWindow.loadFile(path.join(__dirname, '../renderer/settings/index.html'));
+                await settingsWindow.loadFile(path.join(__dirname, '../renderer/settings-modal.html'));
             }
             console.log('[WindowManager] Settings window loaded successfully');
         } catch (err) {
@@ -265,9 +265,9 @@ class WindowManager {
 
         try {
             if (isDev && process.env.ELECTRON_RENDERER_URL) {
-                workflowWindow.loadURL(process.env.ELECTRON_RENDERER_URL + '/workflow/index.html');
+                workflowWindow.loadURL(process.env.ELECTRON_RENDERER_URL + '/workflow-window.html');
             } else {
-                await workflowWindow.loadFile(path.join(__dirname, '../renderer/workflow/index.html'));
+                await workflowWindow.loadFile(path.join(__dirname, '../renderer/workflow-window.html'));
             }
             console.log('[WindowManager] Workflow window loaded successfully');
         } catch (err) {
@@ -307,9 +307,9 @@ class WindowManager {
         });
         liteWindow.setAlwaysOnTop(true, 'screen-saver');
         if (isDev && process.env.ELECTRON_RENDERER_URL) {
-            liteWindow.loadURL(process.env.ELECTRON_RENDERER_URL + '/lite/index.html');
+            liteWindow.loadURL(process.env.ELECTRON_RENDERER_URL + '/lite-window.html');
         } else {
-            await liteWindow.loadFile(path.join(__dirname, '../renderer/lite/index.html'));
+            await liteWindow.loadFile(path.join(__dirname, '../renderer/lite-window.html'));
         }
         this.windows.set('lite', liteWindow);
         this.applyCurrentVisibility(liteWindow);
@@ -352,9 +352,9 @@ class WindowManager {
 
         try {
             if (isDev && process.env.ELECTRON_RENDERER_URL) {
-                entryWindow.loadURL(process.env.ELECTRON_RENDERER_URL + '/entry/index.html');
+                entryWindow.loadURL(process.env.ELECTRON_RENDERER_URL + '/entry-window.html');
             } else {
-                await entryWindow.loadFile(path.join(__dirname, '../renderer/entry/index.html'));
+                await entryWindow.loadFile(path.join(__dirname, '../renderer/entry-window.html'));
             }
             console.log('[WindowManager] Entry window loaded successfully');
         } catch (err) {
@@ -411,9 +411,9 @@ class WindowManager {
 
         try {
             if (isDev && process.env.ELECTRON_RENDERER_URL) {
-                this.ghostCursorWindow.loadURL(process.env.ELECTRON_RENDERER_URL + '/ghost-cursor/index.html');
+                this.ghostCursorWindow.loadURL(process.env.ELECTRON_RENDERER_URL + '/ghost-cursor-overlay.html');
             } else {
-                await this.ghostCursorWindow.loadFile(path.join(__dirname, '../renderer/ghost-cursor/index.html'));
+                await this.ghostCursorWindow.loadFile(path.join(__dirname, '../renderer/ghost-cursor-overlay.html'));
             }
             console.log('[WindowManager] Ghost cursor window loaded successfully');
         } catch (err) {

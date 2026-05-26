@@ -223,7 +223,7 @@ class EntryWindow {
 
     formatUserId(input) {
 
-        const value = input.value.replace(/[^0-9]/g, '');
+        const value = input.value.replace(/[^0-9A-Z]/gi, '');
         input.value = value;
     }
 

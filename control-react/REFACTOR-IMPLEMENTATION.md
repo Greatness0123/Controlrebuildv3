@@ -44,3 +44,8 @@ This document summarizes the complete 5-phase refactor of Control AI from a vani
 - [x] No modifications to `src/main/` logic.
 - [x] All 7 windows functional and integrated.
 - [x] Modern, type-safe development environment.
+
+
+
+
+the overlay should be transparent, the action feed should only show up when tasks are being performed, the other windows are not opened whenever their buttons are clicked
