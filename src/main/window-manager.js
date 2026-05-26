@@ -8,6 +8,7 @@ class WindowManager {
     constructor() {
         this.windows = new Map();
         this.creatingWindows = new Set();
+        this.isTogglingChat = false;
         this.mainWindow = null;
         this.chatVisible = false;
         this.isInteractive = false; // overlay click-through by default; enable on hover when needed
@@ -620,21 +621,31 @@ class WindowManager {
     }
 
     async toggleChat() {
-        const layout = global.appSettings?.layout || 'classic';
-        const target = layout === 'lite' ? 'lite' : 'chat';
-        const other = layout === 'lite' ? 'chat' : 'lite';
+        if (this.isTogglingChat) {
+            console.log('[WindowManager] toggleChat: Already toggling, ignoring request');
+            return { visible: this.chatVisible, busy: true };
+        }
+        this.isTogglingChat = true;
 
-        console.log(`[WindowManager] toggleChat: layout=${layout}, target=${target}, current chatVisible=${this.chatVisible}`);
+        try {
+            const layout = global.appSettings?.layout || 'classic';
+            const target = layout === 'lite' ? 'lite' : 'chat';
+            const other = layout === 'lite' ? 'chat' : 'lite';
 
-        if (this.chatVisible) {
-            console.log(`[WindowManager] toggleChat: Hiding ${target}`);
-            this.hideWindow(target);
-            return { visible: false };
-        } else {
-            console.log(`[WindowManager] toggleChat: Showing ${target}`);
-            this.hideWindow(other);
-            await this.showWindow(target);
-            return { visible: true };
+            console.log(`[WindowManager] toggleChat: layout=${layout}, target=${target}, current chatVisible=${this.chatVisible}`);
+
+            if (this.chatVisible) {
+                console.log(`[WindowManager] toggleChat: Hiding ${target}`);
+                this.hideWindow(target);
+                return { visible: false };
+            } else {
+                console.log(`[WindowManager] toggleChat: Showing ${target}`);
+                this.hideWindow(other);
+                await this.showWindow(target);
+                return { visible: true };
+            }
+        } finally {
+            this.isTogglingChat = false;
         }
     }
 

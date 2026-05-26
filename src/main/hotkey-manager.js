@@ -45,11 +45,17 @@ class HotkeyManager {
         }
 
         try {
+            // Guard: Unregister before re-registering to avoid duplicates
+            if (globalShortcut.isRegistered(accelerator)) {
+                console.log(`Accelerator ${accelerator} already registered, unregistering before re-bind.`);
+                globalShortcut.unregister(accelerator);
+            }
+
             const success = globalShortcut.register(accelerator, handler);
 
             if (success) {
                 this.shortcuts.set(id, { accelerator, handler });
-                console.log(`Registered hotkey: ${accelerator} for ${id}`);
+                console.log(`Registered hotkey: ${accelerator} for ${id}. Total shortcuts: ${this.shortcuts.size}`);
             } else {
                 console.error(`Failed to register hotkey: ${accelerator} for ${id}`);
             }
@@ -106,6 +112,15 @@ class HotkeyManager {
 
     isShortcutRegistered(accelerator) {
         return globalShortcut.isRegistered(accelerator);
+    }
+
+    reRegisterAll() {
+        console.log('Re-registering all hotkeys...');
+        const currentShortcuts = new Map(this.shortcuts);
+        this.unregisterAll();
+        for (const [id, info] of currentShortcuts) {
+            this.registerShortcut(info.accelerator, id, info.handler);
+        }
     }
 }
 
