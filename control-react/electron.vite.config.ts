@@ -23,6 +23,8 @@ export default defineConfig({
           'http',
           'https',
           'url',
+          'net',
+          'dns',
           'sharp',
           'vosk',
           'edge-tts',
@@ -35,6 +37,7 @@ export default defineConfig({
           '@picovoice/pvrecorder-node',
           '@computer-use/nut-js',
           '@supabase/supabase-js',
+          '@google/generative-ai',
           'ws',
           'uuid'
         ],
@@ -58,7 +61,11 @@ export default defineConfig({
             'storage-manager': resolve(__dirname, 'electron/storage-manager.js'),
             'device-manager': resolve(__dirname, 'electron/device-manager.js'),
             'prompt-manager': resolve(__dirname, 'electron/prompt-manager.js'),
-            'search-manager': resolve(__dirname, 'electron/search-manager.js')
+            'search-manager': resolve(__dirname, 'electron/search-manager.js'),
+            'backends/act-backend': resolve(__dirname, 'electron/backends/act-backend.js'),
+            'backends/ask-backend': resolve(__dirname, 'electron/backends/ask-backend.js'),
+            'backends/click-backend': resolve(__dirname, 'electron/backends/click-backend.js'),
+            'backends/wakeword-helper': resolve(__dirname, 'electron/backends/wakeword-helper.js')
         },
         output: {
             entryFileNames: '[name].js'

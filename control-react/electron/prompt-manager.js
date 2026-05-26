@@ -3,7 +3,15 @@ const path = require('path');
 
 class PromptManager {
     constructor() {
-        this.promptsDir = path.join(__dirname, 'prompts');
+        const { app } = require('electron');
+        const isDev = !app.isPackaged;
+
+        if (isDev) {
+            this.promptsDir = path.join(__dirname, 'prompts');
+        } else {
+            this.promptsDir = path.join(process.resourcesPath, 'assets', 'prompts');
+        }
+
         this.prompts = {};
     }
 

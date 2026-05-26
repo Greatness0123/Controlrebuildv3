@@ -99,8 +99,8 @@ class ClickBackend {
   }
 
   async getSystemPrompt() {
-    const basePrompt = this.taskContext?.workflowName 
-      ? GENERAL_SYSTEM_PROMPT 
+    const basePrompt = this.taskContext?.workflowName
+      ? GENERAL_SYSTEM_PROMPT
       : SYSTEM_PROMPT;
     return basePrompt;
   }
@@ -112,6 +112,21 @@ class ClickBackend {
     this.currentStepIndex = 0;
     this.isWaitingForStepCompletion = false;
     console.log('[ClickBackend] Task stopped');
+  }
+
+  async takeScreenshot() {
+    try {
+      const displays = await screenshot.listDisplays();
+      const primary = displays.find(d => d.id === 0) || displays[0];
+      return await screenshot({ format: "png", screen: primary.id });
+    } catch (err) {
+      console.error("[ClickBackend] Screenshot failed:", err);
+      try {
+        return await screenshot({ format: "png" });
+      } catch (e2) {
+        return null;
+      }
+    }
   }
 
   async executeTask(taskText, onResponse, onError, onEvent) {
@@ -128,7 +143,7 @@ class ClickBackend {
       }
 
       const systemPrompt = await this.getSystemPrompt();
-      
+
       this.conversationHistory.push({
         role: 'user',
         parts: [{ text: `Task: ${taskText}\n\nProvide step-by-step guidance for this task. Respond with only valid JSON.` }]
@@ -148,21 +163,21 @@ class ClickBackend {
       }
 
       let parsedSteps = this.parseStepsResponse(responseText);
-      
+
       if (!parsedSteps || parsedSteps.length === 0) {
         throw new Error('Failed to parse steps from AI response');
       }
 
       this.currentSteps = parsedSteps;
-      
+
       onEvent('task_start', { totalSteps: parsedSteps.length, task: taskText });
-      
+
       for (let i = 0; i < parsedSteps.length; i++) {
         if (this.stopRequested) break;
-        
+
         this.currentStepIndex = i;
         const step = parsedSteps[i];
-        
+
         onEvent('step_start', {
           step: step.step,
           instruction: step.instruction,
@@ -171,7 +186,7 @@ class ClickBackend {
         });
 
         this.isWaitingForStepCompletion = true;
-        
+
         while (this.isWaitingForStepCompletion && !this.stopRequested) {
           await new Promise(resolve => setTimeout(resolve, 500));
         }
@@ -194,29 +209,29 @@ class ClickBackend {
   parseStepsResponse(responseText) {
     try {
       let jsonStr = responseText.trim();
-      
+
       if (jsonStr.startsWith('```json')) {
         jsonStr = jsonStr.slice(7);
       } else if (jsonStr.startsWith('```')) {
         jsonStr = jsonStr.slice(3);
       }
-      
+
       if (jsonStr.endsWith('```')) {
         jsonStr = jsonStr.slice(0, -3);
       }
 
       jsonStr = jsonStr.trim();
-      
+
       const parsed = JSON.parse(jsonStr);
-      
+
       if (parsed.steps && Array.isArray(parsed.steps)) {
         return parsed.steps;
       }
-      
+
       if (Array.isArray(parsed)) {
         return parsed;
       }
-      
+
       return null;
     } catch (err) {
       console.error('[ClickBackend] Failed to parse steps:', err);

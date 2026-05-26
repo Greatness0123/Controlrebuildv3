@@ -154,19 +154,19 @@ async startBackend() {
             this.logToFile('Starting JS Act and Ask Backends...');
 
             this.isReady = false;
-            
+
             // Get model settings from Supabase cache
             const supabaseService = require('./supabase-service');
             const modelSettings = supabaseService.getModelSettings();
             const cachedKeys = supabaseService.getKeys();
-            
+
             const defaultModel = modelSettings?.selectedModel || 'gemini-2.5-flash';
             const apiKey = cachedKeys?.gemini || process.env.GEMINI_API_KEY;
-            
+
 this.actBackend = new ActBackend();
             this.askBackend = new AskBackend();
             this.clickBackend = new ClickBackend();
-            
+
             // Initialize with correct model at startup
             this.actBackend.setupGeminiAPI(apiKey, defaultModel);
             this.askBackend.setupGeminiAPI(apiKey, defaultModel);
@@ -270,7 +270,7 @@ this.currentTask = task.text;
                 workflowName: task.workflowName || null,
                 workflowId: task.workflowId || null
             };
-            
+
             if (task.taskPlan && backend.setTaskPlan) {
                 backend.setTaskPlan(task.taskPlan, { workflowName: task.workflowName });
             }

@@ -16,8 +16,9 @@ try {
 
 const dotenv = require('dotenv');
 
+const isPackaged = app.isPackaged;
 const possibleEnvPaths = [
-    path.join(__dirname, '../../.env'), // Development
+    isPackaged ? path.join(process.resourcesPath, '.env') : path.join(__dirname, '../../.env'), // Development
 ];
 
 function loadExtendedEnv() {
@@ -2050,8 +2051,14 @@ this.windowManager.closeAllWindows();
 
     setupTray() {
         try {
+            const isDev = !app.isPackaged;
+            let iconPath;
 
-            const iconPath = path.join(__dirname, '../../assets/icons/icon-removebg-preview.png');
+            if (isDev) {
+                iconPath = path.join(__dirname, '../../assets/icons/icon-removebg-preview.png');
+            } else {
+                iconPath = path.join(process.resourcesPath, 'assets', 'icons', 'icon-removebg-preview.png');
+            }
 
             this.tray = new Tray(iconPath);
             this.tray.setToolTip('Control - AI Assistant');
