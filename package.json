@@ -129,6 +129,7 @@
   },
   "dependencies": {
     "@computer-use/nut-js": "^4.2.0",
+    "@fluentui/svg-icons": "^1.1.328",
     "@google/generative-ai": "^0.24.1",
     "@picovoice/porcupine-node": "^4.0.1",
     "@picovoice/pvrecorder-node": "^1.2.8",

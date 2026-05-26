@@ -8,7 +8,139 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono&display=swap"
         rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="assets/design-system.css">
     <style>
+        body {
+            background: var(--bg-acrylic);
+            backdrop-filter: blur(var(--blur-acrylic));
+            -webkit-backdrop-filter: blur(var(--blur-acrylic));
+            height: 100vh;
+            border-radius: var(--radius-lg);
+            border: 1px solid var(--bg-stroke);
+        }
+
+        .chat-app {
+            background: transparent !important;
+            border: none !important;
+        }
+
+        .main-chat {
+            background: transparent !important;
+        }
+
+        /* Redesign Message Bubbles */
+        .message.user .message-content {
+            background: var(--accent) !important;
+            color: white !important;
+            border-radius: var(--radius-lg) !important;
+            border-bottom-right-radius: 2px !important;
+            box-shadow: var(--shadow-2) !important;
+        }
+
+        .message.ai .text-block {
+            background: var(--bg-layer1) !important;
+            border: 1px solid var(--bg-stroke) !important;
+            border-radius: var(--radius-lg) !important;
+            box-shadow: var(--shadow-2) !important;
+            backdrop-filter: blur(10px);
+        }
+
+        /* Segmented Mode Switcher styling for existing select */
+        .mode-selector {
+            position: relative;
+            background: var(--bg-layer2);
+            padding: 2px;
+            border-radius: 20px;
+            display: flex !important;
+            align-items: center;
+        }
+
+        .mode-dropdown {
+            background: transparent !important;
+            border: none !important;
+            padding: 4px 12px !important;
+            font-weight: 600 !important;
+        }
+
+        /* New Titlebar */
+        .custom-titlebar {
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            -webkit-app-region: drag;
+            padding: 0 8px;
+            background: transparent;
+        }
+
+        .custom-titlebar .left { display: flex; align-items: center; gap: 8px; }
+        .custom-titlebar .right { display: flex; -webkit-app-region: no-drag; }
+        .title-icon { width: 16px; height: 16px; }
+        .title-text { font-size: 12px; color: var(--text-secondary); font-weight: 600; }
+
+        .title-btn-fluent {
+            width: 46px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: transparent;
+            border: none;
+            cursor: pointer;
+            color: var(--text-primary);
+        }
+        .title-btn-fluent:hover { background: var(--bg-layer1); }
+        .title-btn-fluent.close:hover { background: #e81123; color: white; }
+        .title-btn-fluent img { width: 12px; height: 12px; }
+
+        /* Floating Pill Input */
+        .input-area {
+            padding: 16px !important;
+            background: transparent !important;
+        }
+
+        .input-wrapper {
+            background: var(--bg-layer1) !important;
+            backdrop-filter: blur(20px);
+            border: 1px solid var(--bg-stroke) !important;
+            border-radius: 28px !important;
+            padding: 8px 16px !important;
+            box-shadow: var(--shadow-8) !important;
+        }
+
+        /* Animations */
+        .message {
+            animation: messageSlideUp var(--motion-normal) var(--ease-fluent) forwards;
+        }
+        @keyframes messageSlideUp {
+            from { opacity: 0; transform: translateY(8px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Typing Indicator */
+        .fluent-typing {
+            display: flex;
+            gap: 4px;
+            padding: 8px 12px;
+            background: var(--bg-layer1);
+            border-radius: var(--radius-lg);
+            width: fit-content;
+            border: 1px solid var(--bg-stroke);
+            margin: 8px 0 16px 16px;
+        }
+        .fluent-dot {
+            width: 6px; height: 6px;
+            background: var(--text-secondary);
+            border-radius: 50%;
+            animation: fluentPulse 1.5s infinite;
+        }
+        .fluent-dot:nth-child(2) { animation-delay: 0.2s; }
+        .fluent-dot:nth-child(3) { animation-delay: 0.4s; }
+        @keyframes fluentPulse {
+            0%, 100% { opacity: 0.3; transform: scale(0.8); }
+            50% { opacity: 1; transform: scale(1.2); }
+        }
+
         * {
             margin: 0;
             padding: 0;
@@ -1457,18 +1589,65 @@
 </head>
 
 <body>
+    <div class="custom-titlebar">
+        <div class="left">
+            <img src="../../assets/icons/icon-removebg-preview.png" class="title-icon">
+            <span class="title-text">Control</span>
+        </div>
+        <div class="right">
+            <button class="title-btn-fluent" onclick="window.chatAPI.minimizeChat()">
+                <img src="assets/icons/fluent/minimize.svg">
+            </button>
+            <button class="title-btn-fluent close" onclick="window.chatAPI.hideChat()">
+                <img src="assets/icons/fluent/close.svg">
+            </button>
+        </div>
+    </div>
     <div class="chat-app" id="chatApp">
         <main class="main-chat">
             <header class="chat-header">
                 <div class="header-left">
                     <button class="icon-btn" id="historyButton" title="History"><i class="fas fa-history"></i></button>
                     <button class="icon-btn" id="newChatBtn" title="New Chat"><i class="fas fa-plus"></i></button>
-                    <div class="mode-selector" style="-webkit-app-region: no-drag; margin-left: 8px;">
+                    <div class="mode-selector hidden-original" style="-webkit-app-region: no-drag; margin-left: 8px;">
                         <select id="modeSelect" class="mode-dropdown">
                             <option value="act">ACT</option>
                             <option value="ask">ASK</option>
                             <option value="click">GUIDE</option>
                         </select>
+                    </div>
+                    <!-- /* === FLUENT UI ENHANCEMENTS === */ -->
+                    <style>
+                        .fluent-mode-switcher {
+                            display: flex;
+                            background: var(--bg-layer2);
+                            padding: 3px;
+                            border-radius: 20px;
+                            gap: 2px;
+                            margin-left: 12px;
+                            -webkit-app-region: no-drag;
+                        }
+                        .mode-pill {
+                            padding: 4px 16px;
+                            border-radius: 16px;
+                            font-size: 11px;
+                            font-weight: 700;
+                            color: var(--text-secondary);
+                            cursor: pointer;
+                            transition: all var(--motion-fast);
+                            text-transform: uppercase;
+                        }
+                        .mode-pill.active {
+                            background: var(--accent);
+                            color: white;
+                            box-shadow: var(--shadow-2);
+                        }
+                        .hidden-original { display: none !important; }
+                    </style>
+                    <div class="fluent-mode-switcher">
+                        <div class="mode-pill active" id="proxy-act">Act</div>
+                        <div class="mode-pill" id="proxy-ask">Ask</div>
+                        <div class="mode-pill" id="proxy-click">Guide</div>
                     </div>
                 </div>
                 <div class="header-right" style="display: flex; gap: 4px; -webkit-app-region: no-drag;">
@@ -1480,9 +1659,14 @@
 
             <div class="messages-container" id="messagesContainer">
                 <div class="welcome-screen" id="welcomeScreen">
-                    <img src="./assets/icons/icon-removebg-preview.png" class="welcome-logo">
+                    <img src="../../assets/icons/icon-removebg-preview.png" class="welcome-logo">
                     <h1 class="welcome-title" id="welcomeGreeting">Control</h1>
                 </div>
+            </div>
+            <div id="fluentTyping" class="fluent-typing" style="display: none;">
+                <div class="fluent-dot"></div>
+                <div class="fluent-dot"></div>
+                <div class="fluent-dot"></div>
             </div>
 
             <div class="input-area">
@@ -1523,13 +1707,17 @@
                             </button>
                         </div>
                     </div>
-                    <div style="flex: 1; position: relative;">
+                    <div style="flex: 1; position: relative;" class="hidden-original">
                         <div id="inputBackdrop" class="input-backdrop"></div>
                         <textarea class="chat-input" id="chatInput" placeholder="Describe a task..." rows="1" spellcheck="false"></textarea>
                     </div>
+                    <div style="flex: 1; position: relative;" id="fluent-input-container">
+                        <textarea id="proxy-chat-input" class="chat-input" placeholder="Describe a task..." rows="1" style="color: var(--text-primary) !important; caret-color: var(--text-primary) !important;"></textarea>
+                    </div>
                     <div id="voiceIndicator" class="voice-indicator"></div>
                     <button class="icon-btn" id="voiceBtn"><i class="fas fa-microphone"></i></button>
-                    <button class="icon-btn send-btn" id="sendBtn" disabled><i class="fas fa-arrow-up"></i></button>
+                    <button class="icon-btn send-btn hidden-original" id="sendBtn" disabled><i class="fas fa-arrow-up"></i></button>
+                    <button class="icon-btn send-btn" id="proxy-send-btn" disabled><i class="fas fa-arrow-up"></i></button>
                 </div>
                 </div>
                 <div class="status-bar" id="statusBar"
@@ -1561,6 +1749,80 @@
 
     <script src="./js/lib/marked.min.js"></script>
     <script src="./chat-window.js"></script>
+    <!-- /* === FLUENT UI ENHANCEMENTS === */ -->
+    <script>
+        (function() {
+            /* === FLUENT UI ENHANCEMENTS === */
+
+            // Mode Switcher Proxy
+            const modeSelect = document.getElementById('modeSelect');
+            const proxyAct = document.getElementById('proxy-act');
+            const proxyAsk = document.getElementById('proxy-ask');
+            const proxyClick = document.getElementById('proxy-click');
+
+            const updatePills = (val) => {
+                [proxyAct, proxyAsk, proxyClick].forEach(p => p.classList.remove('active'));
+                if (val === 'act') proxyAct.classList.add('active');
+                if (val === 'ask') proxyAsk.classList.add('active');
+                if (val === 'click') proxyClick.classList.add('active');
+            };
+
+            proxyAct.onclick = () => { modeSelect.value = 'act'; modeSelect.dispatchEvent(new Event('change')); updatePills('act'); };
+            proxyAsk.onclick = () => { modeSelect.value = 'ask'; modeSelect.dispatchEvent(new Event('change')); updatePills('ask'); };
+            proxyClick.onclick = () => { modeSelect.value = 'click'; modeSelect.dispatchEvent(new Event('change')); updatePills('click'); };
+
+            // Input Sync
+            const chatInput = document.getElementById('chatInput');
+            const proxyInput = document.getElementById('proxy-chat-input');
+            const sendBtn = document.getElementById('sendBtn');
+            const proxySendBtn = document.getElementById('proxy-send-btn');
+
+            proxyInput.oninput = () => {
+                chatInput.value = proxyInput.value;
+                chatInput.dispatchEvent(new Event('input', { bubbles: true }));
+                proxySendBtn.disabled = !proxyInput.value.trim();
+            };
+
+            proxyInput.onkeydown = (e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    proxySendBtn.click();
+                }
+            };
+
+            proxySendBtn.onclick = () => {
+                sendBtn.click();
+                proxyInput.value = '';
+                proxySendBtn.disabled = true;
+            };
+
+            // Theme synchronization
+            const updateTheme = (theme) => {
+                if (theme === 'dark') document.documentElement.classList.add('dark');
+                else document.documentElement.classList.remove('dark');
+            };
+
+            if (window.chatAPI && window.chatAPI.onSettingsUpdated) {
+                window.chatAPI.onSettingsUpdated((event, settings) => {
+                    if (settings.theme) updateTheme(settings.theme);
+                });
+            }
+
+            // Typing Indicator Hook
+            const typingIndicator = document.getElementById('fluentTyping');
+            let typingTimeout;
+            if (window.chatAPI && window.chatAPI.onAIStream) {
+                window.chatAPI.onAIStream(() => {
+                    typingIndicator.style.display = 'flex';
+                    if (window.chatWindowInstance) window.chatWindowInstance.scrollToBottom();
+                    clearTimeout(typingTimeout);
+                    typingTimeout = setTimeout(() => {
+                        typingIndicator.style.display = 'none';
+                    }, 2000);
+                });
+            }
+        })();
+    </script>
 </body>
 
 </html>
