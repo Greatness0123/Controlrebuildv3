@@ -44,6 +44,8 @@ contextBridge.exposeInMainWorld('settingsAPI', {
 
     setWindowVisibility: (visible) => ipcRenderer.invoke('set-window-visibility', visible),
 
+    updateGhostCursorSettings: (settings) => ipcRenderer.send('update-ghost-cursor-settings', settings),
+
     getTTSVoices: () => ipcRenderer.invoke('tts-get-voices'),
     testVoice: (voice, rate, volume) => ipcRenderer.invoke('tts-test-voice', voice, rate, volume),
 

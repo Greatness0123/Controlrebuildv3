@@ -770,6 +770,13 @@ this.startWorkflowScheduler();
             return { success: true };
         });
 
+        ipcMain.on('update-ghost-cursor-settings', (event, settings) => {
+            const ghostWin = this.windowManager.getWindow('ghostCursor');
+            if (ghostWin && !ghostWin.isDestroyed()) {
+                ghostWin.webContents.send('ghost-cursor-settings-updated', settings);
+            }
+        });
+
         ipcMain.handle('get-app-version', () => {
             return { version: app.getVersion() };
         });

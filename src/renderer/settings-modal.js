@@ -369,36 +369,43 @@ class SettingsModal {
         document.getElementById('ghostCursorEnabled')?.addEventListener('change', (e) => {
             this.settings.ghostCursorEnabled = e.target.checked;
             this.saveSettings();
+            this.sendGhostCursorSettingsUpdate();
         });
 
         document.getElementById('ghostCursorColor')?.addEventListener('change', (e) => {
             this.settings.ghostCursorColor = e.target.value;
             this.saveSettings();
+            this.sendGhostCursorSettingsUpdate();
         });
 
         document.getElementById('ghostCursorOutlineColor')?.addEventListener('change', (e) => {
             this.settings.ghostCursorOutlineColor = e.target.value;
             this.saveSettings();
+            this.sendGhostCursorSettingsUpdate();
         });
 
         document.getElementById('ghostCursorOpacity')?.addEventListener('change', (e) => {
             this.settings.ghostCursorOpacity = parseInt(e.target.value);
             this.saveSettings();
+            this.sendGhostCursorSettingsUpdate();
         });
 
         document.getElementById('ghostCursorSize')?.addEventListener('change', (e) => {
             this.settings.ghostCursorSize = e.target.value;
             this.saveSettings();
+            this.sendGhostCursorSettingsUpdate();
         });
 
         document.getElementById('ghostCursorBubbleBg')?.addEventListener('change', (e) => {
             this.settings.ghostCursorBubbleBg = e.target.value;
             this.saveSettings();
+            this.sendGhostCursorSettingsUpdate();
         });
 
         document.getElementById('ghostCursorBubbleTextColor')?.addEventListener('change', (e) => {
             this.settings.ghostCursorBubbleTextColor = e.target.value;
             this.saveSettings();
+            this.sendGhostCursorSettingsUpdate();
         });
 
         document.getElementById('uploadCursorBtn')?.addEventListener('click', () => {
@@ -422,6 +429,7 @@ class SettingsModal {
                         previewImg.src = event.target.result;
                     }
                     this.saveSettings();
+                    this.sendGhostCursorSettingsUpdate();
                 };
                 reader.readAsDataURL(file);
             }
@@ -592,6 +600,23 @@ document.getElementById('deleteAllDataBtn')?.addEventListener('click', async () 
         if (window.settingsAPI) {
             await window.settingsAPI.saveSettings(this.settings);
             this.showToast('Settings saved successfully', 'success');
+        }
+    }
+
+    sendGhostCursorSettingsUpdate() {
+        const s = this.settings;
+        const payload = {
+            cursorColor: s.ghostCursorColor || '#0078D4',
+            cursorOutlineColor: s.ghostCursorOutlineColor || '#FFFFFF',
+            cursorOpacity: s.ghostCursorOpacity ?? 100,
+            cursorSize: s.ghostCursorSize || 'medium',
+            bubbleBg: s.ghostCursorBubbleBg || '#FFFFFF',
+            bubbleTextColor: s.ghostCursorBubbleTextColor || '#000000',
+            customImage: s.ghostCursorCustomImage || null,
+            enabled: s.ghostCursorEnabled !== false
+        };
+        if (window.settingsAPI?.updateGhostCursorSettings) {
+            window.settingsAPI.updateGhostCursorSettings(payload);
         }
     }
 
