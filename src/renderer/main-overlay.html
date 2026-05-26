@@ -5,7 +5,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Control - Main Overlay</title>
-    <link rel="stylesheet" href="assets/design-system.css">
     <style>
         * {
             margin: 0;
@@ -591,140 +590,7 @@
         <div class="streak-line streak-left"></div>
     </div>
 
-    <style>
-        /* Fluent 2 / Windows 11 Refinements for Overlay */
-
-        #floatingButton {
-            width: 40px !important;
-            height: 40px !important;
-            background: var(--bg-layer1) !important;
-            backdrop-filter: blur(20px) !important;
-            -webkit-backdrop-filter: blur(20px) !important;
-            border: 1px solid var(--bg-stroke) !important;
-            box-shadow: var(--shadow-8) !important;
-            transition: all var(--motion-normal) var(--ease-fluent) !important;
-        }
-
-        #floatingButton:hover {
-            transform: scale(1.05) !important;
-            border-radius: var(--radius-md) !important;
-            box-shadow: var(--shadow-16) !important;
-        }
-
-        #floatingButton .logo {
-            width: 24px !important;
-            height: 24px !important;
-        }
-
-        /* Tooltip for floating button */
-        #floatingButton::after {
-            content: 'Open Control';
-            position: absolute;
-            right: 50px;
-            background: var(--bg-layer1);
-            backdrop-filter: blur(10px);
-            border: 1px solid var(--bg-stroke);
-            padding: 4px 8px;
-            border-radius: var(--radius-sm);
-            font-size: 11px;
-            color: var(--text-primary);
-            opacity: 0;
-            pointer-events: none;
-            transition: opacity var(--motion-fast);
-            white-space: nowrap;
-        }
-
-        #floatingButton:hover::after {
-            opacity: 1;
-        }
-
-        /* PIN Modal Redesign */
-        #overlayPinModal .pin-content {
-            background: var(--bg-layer1) !important;
-            backdrop-filter: blur(40px) saturate(1.5) !important;
-            -webkit-backdrop-filter: blur(40px) saturate(1.5) !important;
-            border: 1px solid var(--bg-stroke) !important;
-            border-radius: var(--radius-xl) !important;
-            box-shadow: var(--shadow-16) !important;
-            color: var(--text-primary) !important;
-            padding: 32px !important;
-            width: 320px !important;
-        }
-
-        #overlayPinModal .pin-title {
-            font-family: var(--font-system);
-            font-size: 20px;
-            font-weight: 600;
-        }
-
-        #overlayPinModal .pin-description {
-            color: var(--text-secondary);
-        }
-
-        #overlayPinModal .pin-input {
-            background: var(--bg-layer2) !important;
-            border: 1px solid var(--bg-stroke) !important;
-            border-radius: var(--radius-md) !important;
-            color: var(--text-primary) !important;
-            font-family: var(--font-system);
-            margin-bottom: 20px !important;
-        }
-
-        #overlayPinModal .pin-input:focus {
-            border-color: var(--accent) !important;
-            outline: none;
-        }
-
-        #overlayPinModal .button-primary {
-            background: var(--accent) !important;
-            border-radius: var(--radius-md) !important;
-            font-weight: 600;
-            transition: background var(--motion-fast);
-        }
-
-        #overlayPinModal .button-primary:hover {
-            background: var(--accent-light) !important;
-        }
-
-        #overlayPinModal .button-secondary {
-            background: var(--bg-layer2) !important;
-            color: var(--text-primary) !important;
-            border-radius: var(--radius-md) !important;
-            transition: background var(--motion-fast);
-        }
-
-        #overlayPinModal .button-secondary:hover {
-            background: var(--bg-stroke) !important;
-        }
-
-        /* Action Status Pill Refinement */
-        #actionStatusPill {
-            background: var(--bg-layer1) !important;
-            backdrop-filter: blur(20px) saturate(1.5) !important;
-            -webkit-backdrop-filter: blur(20px) saturate(1.5) !important;
-            border: 1px solid var(--bg-stroke) !important;
-            border-radius: var(--radius-lg) !important;
-            box-shadow: var(--shadow-8) !important;
-            color: var(--text-primary) !important;
-            font-family: var(--font-system) !important;
-            padding: 10px 20px !important;
-        }
-
-        #actionStatusPill .spinner {
-            border-top-color: var(--accent) !important;
-        }
-
-        #actionStatusPill .status-icon.success svg {
-            color: #107c10 !important;
-        }
-
-        #actionStatusPill .status-icon.error svg {
-            color: #e81123 !important;
-        }
-    </style>
-
     <script>
-        /* === FLUENT UI ENHANCEMENTS === */
         // MainOverlay class
         class MainOverlay {
             constructor() {
@@ -760,6 +626,7 @@
                 try {
                     if (window.settingsAPI && window.settingsAPI.getSettings) {
                         const settings = await window.settingsAPI.getSettings();
+                        console.log('[MainOverlay] Loading floating button visibility. Settings:', settings.floatingButtonVisible);
                         this.floatingButtonEnabled = settings.floatingButtonVisible !== false;
                         if (settings.chatVisible !== undefined) {
                             this.chatVisible = settings.chatVisible;
@@ -805,6 +672,7 @@
                 try {
                     if (window.electronAPI && window.electronAPI.isAppLocked) {
                         const isLocked = await window.electronAPI.isAppLocked();
+                        console.log('[MainOverlay] App is locked:', isLocked);
                         if (isLocked) {
                             setTimeout(() => this.showPinModal(), 500);
                         }
@@ -858,10 +726,12 @@
             setupIPCListeners() {
                 if (window.electronAPI) {
                     window.electronAPI.onShowFloatingButton(async () => {
+                        console.log('[Overlay] onShowFloatingButton received');
                         this.chatVisible = false;
                         this.updateFloatingButtonState();
                     });
                     window.electronAPI.onHideFloatingButton(() => {
+                        console.log('[Overlay] onHideFloatingButton received - hiding');
                         this.chatVisible = true;
                         this.updateFloatingButtonState();
                     });
