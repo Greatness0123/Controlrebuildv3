@@ -604,6 +604,7 @@
 
                 this.isGlowIntended = false;
                 this.chatVisible = false;
+                this.floatingButtonEnabled = true;
                 this.isDragging = false;
                 this.dragStartX = 0;
                 this.dragStartY = 0;
@@ -626,6 +627,7 @@
                     if (window.settingsAPI && window.settingsAPI.getSettings) {
                         const settings = await window.settingsAPI.getSettings();
                         console.log('[MainOverlay] Loading floating button visibility. Settings:', settings.floatingButtonVisible);
+                        this.floatingButtonEnabled = settings.floatingButtonVisible !== false;
                         if (settings.chatVisible !== undefined) {
                             this.chatVisible = settings.chatVisible;
                         }
@@ -634,11 +636,13 @@
                         }
                         this.updateFloatingButtonState();
                     } else {
-                        this.showFloatingButton();
+                        this.floatingButtonEnabled = true;
+                        this.updateFloatingButtonState();
                     }
                 } catch (error) {
                     console.error('[MainOverlay] Error loading floating button visibility:', error);
-                    this.showFloatingButton();
+                    this.floatingButtonEnabled = true;
+                    this.updateFloatingButtonState();
                 }
             }
 
@@ -650,12 +654,17 @@
                 }
             }
 
-            async updateFloatingButtonState() {
-                const enabled = await this.isFloatingButtonEnabled();
-                if (enabled && !this.chatVisible) {
-                    this.showFloatingButton();
-                } else {
+            updateFloatingButtonState() {
+                if (!this.floatingButtonEnabled) {
                     this.hideFloatingButton();
+                    return;
+                }
+                if (this.chatVisible) {
+                    this.hideFloatingButton();
+                } else {
+                    this.floatingButton.classList.remove('hidden');
+                    this.floatingButton.style.visibility = 'visible';
+                    this.floatingButton.style.pointerEvents = 'auto';
                 }
             }
 
@@ -727,14 +736,6 @@
                         this.updateFloatingButtonState();
                     });
 
-                    window.electronAPI.onShowFloatingButtonIfEnabled(async () => {
-                        this.chatVisible = false;
-                        this.updateFloatingButtonState();
-                    });
-                    window.electronAPI.onHideFloatingButtonIfEnabled(async () => {
-                        this.chatVisible = true;
-                        this.updateFloatingButtonState();
-                    });
 
                     window.electronAPI.onVisualEffect((event, data) => this.showVisualEffect(data && data.type));
 
@@ -753,10 +754,14 @@
                     });
 
                     window.electronAPI.onFloatingButtonToggle((event, visible) => {
+                        this.floatingButtonEnabled = visible;
                         this.updateFloatingButtonState();
                     });
 
                     window.electronAPI.onSettingsUpdated?.((event, settings) => {
+                        if (settings.floatingButtonVisible !== undefined) {
+                            this.floatingButtonEnabled = settings.floatingButtonVisible !== false;
+                        }
                         if (settings.chatVisible !== undefined) {
                             this.chatVisible = settings.chatVisible;
                         }
@@ -1005,8 +1010,7 @@
                 }
             }
 
-            async showFloatingButton() {
-                if (!await this.isFloatingButtonEnabled()) return;
+            showFloatingButton() {
                 this.floatingButton.classList.remove('hidden');
                 this.floatingButton.style.visibility = 'visible';
                 this.floatingButton.style.pointerEvents = 'auto';

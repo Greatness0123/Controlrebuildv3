@@ -11,8 +11,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
     onInteractionModeChanged: (callback) => ipcRenderer.on('interaction-mode-changed', callback),
     onShowFloatingButton: (callback) => ipcRenderer.on('show-floating-button', callback),
     onHideFloatingButton: (callback) => ipcRenderer.on('hide-floating-button', callback),
-    onShowFloatingButtonIfEnabled: (callback) => ipcRenderer.on('show-floating-button-if-enabled', callback),
-    onHideFloatingButtonIfEnabled: (callback) => ipcRenderer.on('hide-floating-button-if-enabled', callback),
     onFloatingButtonToggle: (callback) => ipcRenderer.on('floating-button-toggle', callback),
     onRequestPinAndToggle: (callback) => ipcRenderer.on('request-pin-and-toggle', callback),
 

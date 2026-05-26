@@ -376,7 +376,7 @@ Respond ONLY with JSON: {"verified": true/false, "reason": "...", "element_type"
         prompt
       ]);
       const text = (await result.response).text();
-      const jsonMatch = /\{[\s\S]*\}/.exec(text);
+      const jsonMatch = text.match(/{[\s\S]*}/);
       if (jsonMatch) {
         return JSON.parse(jsonMatch[0]);
       }
@@ -406,7 +406,7 @@ Respond ONLY with JSON: {"correct": true/false, "what_element": "...", "suggesti
       ];
       const result = await this.model.generateContent(content);
       const text = (await result.response).text();
-      const jsonMatch = /\{[\s\S]*\}/.exec(text);
+      const jsonMatch = text.match(/{[\s\S]*}/);
       if (jsonMatch) {
         return JSON.parse(jsonMatch[0]);
       }
@@ -551,7 +551,9 @@ Respond ONLY with JSON: {"correct": true/false, "what_element": "...", "suggesti
     const modelOptions = {
       model: finalModelName,
       systemInstruction: enhancedSystemPrompt,
-      generationConfig: {}
+      generationConfig: {
+        responseMimeType: "application/json"
+      }
     };
 
     if (!process.env.DISABLE_SEARCH_TOOL) {
@@ -1843,7 +1845,7 @@ Analyze the state and determine if the action was successful. Respond ONLY with 
 try {
       const result = await this.model.generateContent(content);
       const text = (await result.response).text();
-      const jsonMatch = /\{[\s\S]*\}/.exec(text);
+      const jsonMatch = text.match(/{[\s\S]*}/);
       const executionWasClean = executionResult.success === true && executionResult.error === undefined && (executionResult.code === undefined || executionResult.code === 0);
 
       if (!jsonMatch) {
@@ -2335,7 +2337,7 @@ Analyze screen and provide IMMEDIATE ACTIONS. Respond with JSON.`;
         } else {
           throw new Error(`Provider ${effectiveProvider} is not yet fully integrated in this mode. Please use LiteLLM or OpenRouter as a gateway.`);
         }
-        const jsonMatch = /\{[\s\S]*\}/.exec(fullText);
+        const jsonMatch = fullText.match(/{[\s\S]*}/);
 
         // If NO json found at all - treat as text
         if (!jsonMatch) {
