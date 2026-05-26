@@ -581,9 +581,9 @@ class WindowManager {
         }
 
         if (browserWindow && !browserWindow.isDestroyed()) {
-            if (windowType === 'chat') {
+            if (windowType === 'chat' || windowType === 'lite') {
                 this.chatVisible = true;
-                console.log('[WindowManager] showWindow(chat): hiding floating button if enabled');
+                console.log(`[WindowManager] showWindow(${windowType}): hiding floating button if enabled`);
                 this.hideFloatingButtonIfEnabled();
             }
             if (windowType === 'settings') {
@@ -607,7 +607,7 @@ class WindowManager {
         if (browserWindow && !browserWindow.isDestroyed()) {
             if (!browserWindow.isVisible()) return true;
 
-            if (windowType === 'chat') {
+            if (windowType === 'chat' || windowType === 'lite') {
                 this.chatVisible = false;
             }
 
